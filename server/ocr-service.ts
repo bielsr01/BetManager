@@ -19,22 +19,28 @@ export class OCRService {
   async processImage(imageBase64: string): Promise<OCRResult> {
     try {
       const prompt = `
-Transcreva os dados da imagem de aposta esportiva seguindo as seguintes regras e formato:
----
-**Regras:**
-1. **Formato de Saída:** A saída deve seguir a ordem e o formato abaixo, sem informações extras.
-2. **Acentos e Símbolos:** Preserve acentos, símbolos e caracteres especiais.
-3. **Separação de Times:** O que separa o Time A do Time B é um traço maior (–).
-4. **Coluna de Chance:** Copie todo o conteúdo da coluna "Chance", independentemente do tamanho do texto. INCLUA todas as palavras como "Tempo Extra" e principalmente números com sobrescrito/elevado como "1¹-²", "2¹-²" que aparecem nesta coluna.
-5. **Lucro%:** No canto superior direito, ignore o ROI e extraia apenas o valor percentual do Lucro.
-6. **Data e Hora:** Extraia EXATAMENTE a data e hora no formato \`dd/mm/aaaa HH:mm\` do canto superior direito. NÃO altere, corrija ou ajuste NENHUM dígito - copie os números EXATAMENTE como aparecem. Ignore o resto do texto na linha.
-7. **Liga e Time:** O Time A e a Liga são separados pela primeira barra (/) da linha. Tudo antes da primeira barra é o Time A, e tudo depois é a Liga.
-8. **Ignorar Informações Extras:** Não inclua informações como "Mostrar comissões", "Use sua própria taxa de câmbio", "Arredondar aposta até", etc.
-9. **Suporte Completo a Caracteres:** Preserve TODOS os acentos (á, é, í, ó, ú, ã, õ, ç, etc.), símbolos matemáticos (≥, ≤, >, <, =, ±, etc.), números em elevado (1¹, 5645³, etc.) e expressões complexas em elevado (1¹-², 2¹-², 3²⁺¹, etc.). Mantenha a formatação exata como aparece na imagem.
-10. **ATENÇÃO ESPECIAL aos Números Elevados:** Se houver expressões como "1¹-²", "2¹-²", "Tempo Extra", ou qualquer número com sobrescrito/elevado, copie EXATAMENTE como está visível. Estes caracteres são ESSENCIAIS e devem ser preservados integralmente.
-11. **Fidelidade Total aos Números:** NÃO corrija, ajuste ou "melhore" nenhum dígito. Se vir "15", escreva "15". Se vir "18", escreva "18". Copie todos os números LITERALMENTE como estão na imagem.
-12. **Fidelidade aos Dados:** Extraia EXATAMENTE os dados que aparecem na imagem enviada. Não use dados de outras apostas ou exemplos. Seja 100% fiel ao conteúdo visual presente.
----
+Analise esta imagem de comparação de apostas esportivas (surebet) e extraia os dados seguindo rigorosamente as regras abaixo:
+
+**REGRAS CRÍTICAS:**
+1. **DATA ATUAL:** Identifique a data atual REAL da imagem. Ela deve estar próxima de 2025 ou mais recente. Se vir uma data antiga como 2023, procure mais cuidadosamente por uma data atual na interface. A data verdadeira é a que representa QUANDO a aposta foi criada/calculada.
+2. **CASAS DE APOSTAS:** Procure pelos nomes das casas de apostas nas colunas da tabela. Exemplos: Pinnacle, Bet365, 1xBet, Betfair, MariSports, etc. NUNCA use palavras genéricas como "surebet", "Casa 1", "Casa 2". Se não conseguir identificar o nome exato, use "Casa não identificada".
+3. **ESTRUTURA DA TABELA:** A imagem mostra uma tabela com colunas como "Chance" (tipos de aposta), "Odd" (cotações), e colunas para diferentes casas de apostas.
+4. **PRECISÃO NUMÉRICA:** Copie TODOS os números exatamente como aparecem. Não arredonde, não corrija, não "melhore".
+5. **CARACTERES ESPECIAIS:** Preserve expressões como "1¹-²", "2¹-²", "Tempo Extra", etc. exatamente como estão.
+6. **TIMES E ESPORTE:** Identifique o esporte e os times que estão sendo comparados na aposta.
+7. **VALORES MONETÁRIOS:** Extraia valores de stake (valor apostado) e lucro/profit exatamente como mostrados.
+8. **PORCENTAGEM DE LUCRO:** Procure pelo valor percentual do lucro total da operação surebet.
+
+**INSTRUÇÕES ESPECÍFICAS:**
+- Examine TODA a imagem cuidadosamente antes de responder
+- Se houver múltiplas datas, use a mais recente/atual
+- Identifique as casas de apostas pelos nomes reais que aparecem nos cabeçalhos das colunas
+- Extraia dados de EXATAMENTE 2 apostas (uma para cada lado da surebet)
+- Mantenha formatação de números e símbolos especiais
+
+**ATENÇÃO ESPECIAL:**
+- Se a data parecer muito antiga (2023 ou anterior), procure novamente por uma data mais atual
+- Os nomes das casas devem ser nomes reais de empresas de apostas, não termos genéricos
 **Formato de Saída:**
 DATA: [dd/mm/aaaa HH:mm]
 ESPORTE: [Nome do Esporte]
@@ -80,8 +86,8 @@ Lucro%: [Valor Percentual do Lucro]`;
               ]
             }
           ],
-          max_tokens: 1000,
-          temperature: 0.1
+          max_tokens: 1500,
+          temperature: 0.05
         })
       });
 
@@ -153,21 +159,21 @@ Lucro%: [Valor Percentual do Lucro]`;
       // Validate and format the response
       return {
         date: formattedDate || new Date().toISOString().split('T')[0] + 'T12:00',
-        sport: sport || 'Futebol',
-        league: league || 'Liga não especificada',
-        teamA: teamA || 'Time A',
-        teamB: teamB || 'Time B',
+        sport: sport || 'Esporte não identificado',
+        league: league || 'Liga não identificada',
+        teamA: teamA || 'Time A não identificado',
+        teamB: teamB || 'Time B não identificado',
         bet1: {
-          house: bet1House || 'Casa 1',
+          house: bet1House || 'Casa não identificada',
           odd: parseFloat(bet1Odd.replace(',', '.')) || 2.0,
-          type: bet1Type || 'Aposta 1',
+          type: bet1Type || 'Tipo não identificado',
           stake: parseFloat(bet1Stake.replace(/[^\d.,]/g, '').replace(',', '.')) || 1000,
           profit: parseFloat(bet1Profit.replace(/[^\d.,]/g, '').replace(',', '.')) || 50,
         },
         bet2: {
-          house: bet2House || 'Casa 2',
+          house: bet2House || 'Casa não identificada',
           odd: parseFloat(bet2Odd.replace(',', '.')) || 2.0,
-          type: bet2Type || 'Aposta 2',
+          type: bet2Type || 'Tipo não identificado',
           stake: parseFloat(bet2Stake.replace(/[^\d.,]/g, '').replace(',', '.')) || 1000,
           profit: parseFloat(bet2Profit.replace(/[^\d.,]/g, '').replace(',', '.')) || 50,
         },
