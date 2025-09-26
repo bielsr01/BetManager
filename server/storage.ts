@@ -115,40 +115,23 @@ class DatabaseStorage implements IStorage {
     
     for (const set of sets) {
       const setBets = await db
-        .select({
-          id: bets.id,
-          surebetSetId: bets.surebetSetId,
-          bettingHouseId: bets.bettingHouseId,
-          betType: bets.betType,
-          odd: bets.odd,
-          stake: bets.stake,
-          potentialProfit: bets.potentialProfit,
-          result: bets.result,
-          actualProfit: bets.actualProfit,
-          createdAt: bets.createdAt,
-          bettingHouse: {
-            id: bettingHouses.id,
-            name: bettingHouses.name,
-            accountHolderId: bettingHouses.accountHolderId,
-            createdAt: bettingHouses.createdAt,
-            accountHolder: {
-              id: accountHolders.id,
-              name: accountHolders.name,
-              email: accountHolders.email,
-              username: accountHolders.username,
-              password: accountHolders.password,
-              createdAt: accountHolders.createdAt,
-            }
-          }
-        })
+        .select()
         .from(bets)
         .innerJoin(bettingHouses, eq(bets.bettingHouseId, bettingHouses.id))
         .innerJoin(accountHolders, eq(bettingHouses.accountHolderId, accountHolders.id))
         .where(eq(bets.surebetSetId, set.id));
+
+      const formattedBets = setBets.map(row => ({
+        ...row.bets,
+        bettingHouse: {
+          ...row.betting_houses,
+          accountHolder: row.account_holders
+        }
+      }));
       
       result.push({
         ...set,
-        bets: setBets
+        bets: formattedBets
       });
     }
     
@@ -164,40 +147,23 @@ class DatabaseStorage implements IStorage {
     if (!set) return null;
     
     const setBets = await db
-      .select({
-        id: bets.id,
-        surebetSetId: bets.surebetSetId,
-        bettingHouseId: bets.bettingHouseId,
-        betType: bets.betType,
-        odd: bets.odd,
-        stake: bets.stake,
-        potentialProfit: bets.potentialProfit,
-        result: bets.result,
-        actualProfit: bets.actualProfit,
-        createdAt: bets.createdAt,
-        bettingHouse: {
-          id: bettingHouses.id,
-          name: bettingHouses.name,
-          accountHolderId: bettingHouses.accountHolderId,
-          createdAt: bettingHouses.createdAt,
-          accountHolder: {
-            id: accountHolders.id,
-            name: accountHolders.name,
-            email: accountHolders.email,
-            username: accountHolders.username,
-            password: accountHolders.password,
-            createdAt: accountHolders.createdAt,
-          }
-        }
-      })
+      .select()
       .from(bets)
       .innerJoin(bettingHouses, eq(bets.bettingHouseId, bettingHouses.id))
       .innerJoin(accountHolders, eq(bettingHouses.accountHolderId, accountHolders.id))
       .where(eq(bets.surebetSetId, set.id));
+
+    const formattedBets = setBets.map(row => ({
+      ...row.bets,
+      bettingHouse: {
+        ...row.betting_houses,
+        accountHolder: row.account_holders
+      }
+    }));
     
     return {
       ...set,
-      bets: setBets
+      bets: formattedBets
     };
   }
 
