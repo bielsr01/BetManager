@@ -17,6 +17,7 @@ export const accountHolders = pgTable("account_holders", {
 export const bettingHouses = pgTable("betting_houses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
+  notes: text("notes"), // Campo para notas/informações adicionais
   accountHolderId: varchar("account_holder_id").references(() => accountHolders.id),
   createdAt: timestamp("created_at").defaultNow(),
 });

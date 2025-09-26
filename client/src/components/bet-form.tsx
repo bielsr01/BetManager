@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -10,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { CalendarIcon, Save, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { AccountHolder, BettingHouse } from "@shared/schema";
 
 const betFormSchema = z.object({
   eventDate: z.string(),
@@ -19,16 +21,16 @@ const betFormSchema = z.object({
   teamB: z.string().min(1, "Time B é obrigatório"),
   profitPercentage: z.string().transform(Number),
   
-  // Bet 1
-  bet1House: z.string().min(1, "Casa é obrigatória"),
+  // Bet 1 - using betting house IDs only
+  bet1HouseId: z.string().min(1, "Casa é obrigatória"),
   bet1Type: z.string().min(1, "Tipo de aposta é obrigatório"),
   bet1Odd: z.string().transform(Number),
   bet1Stake: z.string().transform(Number),
   bet1Profit: z.string().transform(Number),
   bet1AccountHolder: z.string().optional(),
   
-  // Bet 2
-  bet2House: z.string().min(1, "Casa é obrigatória"),
+  // Bet 2 - using betting house IDs only
+  bet2HouseId: z.string().min(1, "Casa é obrigatória"),
   bet2Type: z.string().min(1, "Tipo de aposta é obrigatório"),
   bet2Odd: z.string().transform(Number),
   bet2Stake: z.string().transform(Number),
@@ -53,12 +55,28 @@ export function BetForm({
   isLoading = false,
   className,
 }: BetFormProps) {
-  //todo: remove mock functionality
-  const mockAccountHolders = [
-    { value: "holder1", label: "João Silva" },
-    { value: "holder2", label: "Maria Santos" },
-    { value: "holder3", label: "Pedro Costa" },
-  ];
+  // Load account holders from API
+  const { data: holders = [], isLoading: holdersLoading } = useQuery<AccountHolder[]>({
+    queryKey: ["/api/account-holders"],
+  });
+
+  // Load betting houses from API
+  const { data: allHouses = [], isLoading: housesLoading } = useQuery<BettingHouse[]>({
+    queryKey: ["/api/betting-houses"],
+  });
+
+  const isDataLoading = holdersLoading || housesLoading;
+
+  // Create combined options for dropdowns: "Titular - Casa"
+  const houseOptions = allHouses.map(house => {
+    const holder = holders.find(h => h.id === house.accountHolderId);
+    return {
+      id: house.id,
+      name: house.name,
+      holderName: holder?.name || "Titular não encontrado",
+      displayLabel: `${holder?.name || "Titular não encontrado"} - ${house.name}`,
+    };
+  });
 
   const form = useForm<BetFormData>({
     resolver: zodResolver(betFormSchema),
@@ -69,13 +87,13 @@ export function BetForm({
       teamA: initialData?.teamA || "",
       teamB: initialData?.teamB || "",
       profitPercentage: String(initialData?.profitPercentage || ""),
-      bet1House: initialData?.bet1House || "",
+      bet1HouseId: initialData?.bet1HouseId || "",
       bet1Type: initialData?.bet1Type || "",
       bet1Odd: String(initialData?.bet1Odd || ""),
       bet1Stake: String(initialData?.bet1Stake || ""),
       bet1Profit: String(initialData?.bet1Profit || ""),
       bet1AccountHolder: initialData?.bet1AccountHolder || "",
-      bet2House: initialData?.bet2House || "",
+      bet2HouseId: initialData?.bet2HouseId || "",
       bet2Type: initialData?.bet2Type || "",
       bet2Odd: String(initialData?.bet2Odd || ""),
       bet2Stake: String(initialData?.bet2Stake || ""),
@@ -236,24 +254,6 @@ export function BetForm({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
-                  name="bet1House"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Casa</FormLabel>
-                      <FormControl>
-                        <Input 
-                          {...field} 
-                          placeholder="Pinnacle"
-                          data-testid="input-bet1-house"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
                   name="bet1Type"
                   render={({ field }) => (
                     <FormItem>
@@ -272,22 +272,37 @@ export function BetForm({
 
                 <FormField
                   control={form.control}
-                  name="bet1AccountHolder"
+                  name="bet1HouseId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Titular da Conta</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormLabel>Casa de Apostas</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        defaultValue={field.value}
+                      >
                         <FormControl>
-                          <SelectTrigger data-testid="select-bet1-account-holder">
-                            <SelectValue placeholder="Selecionar titular" />
+                          <SelectTrigger data-testid="select-bet1-house" disabled={isDataLoading}>
+                            <SelectValue placeholder={
+                              isDataLoading 
+                                ? "Carregando..." 
+                                : houseOptions.length === 0 
+                                  ? "Nenhuma casa cadastrada" 
+                                  : "Selecionar casa de apostas"
+                            } />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {mockAccountHolders.map((holder) => (
-                            <SelectItem key={holder.value} value={holder.value}>
-                              {holder.label}
+                          {houseOptions.length === 0 && !isDataLoading ? (
+                            <SelectItem value="" disabled>
+                              Nenhuma casa de apostas cadastrada
                             </SelectItem>
-                          ))}
+                          ) : (
+                            houseOptions.map((option) => (
+                              <SelectItem key={option.id} value={option.id}>
+                                {option.displayLabel}
+                              </SelectItem>
+                            ))
+                          )}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -369,24 +384,6 @@ export function BetForm({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
-                  name="bet2House"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Casa</FormLabel>
-                      <FormControl>
-                        <Input 
-                          {...field} 
-                          placeholder="Betano"
-                          data-testid="input-bet2-house"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
                   name="bet2Type"
                   render={({ field }) => (
                     <FormItem>
@@ -405,22 +402,37 @@ export function BetForm({
 
                 <FormField
                   control={form.control}
-                  name="bet2AccountHolder"
+                  name="bet2HouseId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Titular da Conta</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormLabel>Casa de Apostas</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        defaultValue={field.value}
+                      >
                         <FormControl>
-                          <SelectTrigger data-testid="select-bet2-account-holder">
-                            <SelectValue placeholder="Selecionar titular" />
+                          <SelectTrigger data-testid="select-bet2-house" disabled={isDataLoading}>
+                            <SelectValue placeholder={
+                              isDataLoading 
+                                ? "Carregando..." 
+                                : houseOptions.length === 0 
+                                  ? "Nenhuma casa cadastrada" 
+                                  : "Selecionar casa de apostas"
+                            } />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {mockAccountHolders.map((holder) => (
-                            <SelectItem key={holder.value} value={holder.value}>
-                              {holder.label}
+                          {houseOptions.length === 0 && !isDataLoading ? (
+                            <SelectItem value="" disabled>
+                              Nenhuma casa de apostas cadastrada
                             </SelectItem>
-                          ))}
+                          ) : (
+                            houseOptions.map((option) => (
+                              <SelectItem key={option.id} value={option.id}>
+                                {option.displayLabel}
+                              </SelectItem>
+                            ))
+                          )}
                         </SelectContent>
                       </Select>
                       <FormMessage />

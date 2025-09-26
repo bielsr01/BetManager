@@ -16,7 +16,6 @@ import {
   Upload, 
   TestTube, 
   Users, 
-  Building, 
   Filter,
   TrendingUp
 } from "lucide-react";
@@ -45,11 +44,6 @@ const managementItems = [
     title: "Titulares",
     url: "/account-holders",
     icon: Users,
-  },
-  {
-    title: "Casas de Apostas",
-    url: "/betting-houses",
-    icon: Building,
   },
 ];
 

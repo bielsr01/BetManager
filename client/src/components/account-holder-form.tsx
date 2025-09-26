@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Plus, User, Building, Edit, Trash2, Loader2 } from "lucide-react";
@@ -16,12 +17,11 @@ import type { AccountHolder, BettingHouse } from "@shared/schema";
 
 const accountHolderSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
-  email: z.string().email("Email inválido").optional().or(z.literal("")),
-  username: z.string().optional(),
 });
 
 const bettingHouseSchema = z.object({
   name: z.string().min(1, "Nome da casa é obrigatório"),
+  notes: z.string().optional(),
 });
 
 type AccountHolderFormData = z.infer<typeof accountHolderSchema>;
@@ -102,8 +102,6 @@ export function AccountHolderForm({ onSave, onSaveHouse, className }: AccountHol
     resolver: zodResolver(accountHolderSchema),
     defaultValues: {
       name: "",
-      email: "",
-      username: "",
     },
   });
 
@@ -111,6 +109,7 @@ export function AccountHolderForm({ onSave, onSaveHouse, className }: AccountHol
     resolver: zodResolver(bettingHouseSchema),
     defaultValues: {
       name: "",
+      notes: "",
     },
   });
 
@@ -160,35 +159,7 @@ export function AccountHolderForm({ onSave, onSaveHouse, className }: AccountHol
                     <FormItem>
                       <FormLabel>Nome *</FormLabel>
                       <FormControl>
-                        <Input {...field} placeholder="Nome completo" data-testid="input-holder-name" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={holderForm.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input {...field} type="email" placeholder="email@exemplo.com" data-testid="input-holder-email" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={holderForm.control}
-                  name="username"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Usuário</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="nome_usuario" data-testid="input-holder-username" />
+                        <Input {...field} placeholder="Nome completo do titular" data-testid="input-holder-name" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -273,13 +244,6 @@ export function AccountHolderForm({ onSave, onSaveHouse, className }: AccountHol
                   </Button>
                 </div>
               </div>
-              
-              {(holder.email || holder.username) && (
-                <div className="text-sm text-muted-foreground space-y-1">
-                  {holder.email && <p>Email: {holder.email}</p>}
-                  {holder.username && <p>Usuário: {holder.username}</p>}
-                </div>
-              )}
             </CardHeader>
             
             <CardContent>
@@ -339,6 +303,25 @@ export function AccountHolderForm({ onSave, onSaveHouse, className }: AccountHol
                     <FormLabel>Nome da Casa *</FormLabel>
                     <FormControl>
                       <Input {...field} placeholder="Ex: Bet365, Pinnacle, Betano" data-testid="input-house-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={houseForm.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notas/Informações</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        {...field} 
+                        placeholder="Informações adicionais sobre a casa de apostas (opcional)"
+                        className="min-h-[80px]"
+                        data-testid="input-house-notes" 
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
