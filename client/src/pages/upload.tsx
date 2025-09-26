@@ -108,17 +108,17 @@ export default function UploadPage() {
 
       const bet1Data = {
         betType: data.bet1Type,
-        odd: data.bet1Odd.toString(),
-        stake: data.bet1Stake.toString(),
-        potentialProfit: data.bet1Profit.toString(),
+        odd: data.bet1Odd,
+        stake: data.bet1Stake,
+        potentialProfit: data.bet1Profit,
         bettingHouseId: data.bet1HouseId, // Now using the selected house ID
       };
 
       const bet2Data = {
         betType: data.bet2Type,
-        odd: data.bet2Odd.toString(),
-        stake: data.bet2Stake.toString(),
-        potentialProfit: data.bet2Profit.toString(),
+        odd: data.bet2Odd,
+        stake: data.bet2Stake,
+        potentialProfit: data.bet2Profit,
         bettingHouseId: data.bet2HouseId, // Now using the selected house ID
       };
 
