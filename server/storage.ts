@@ -1,38 +1,244 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import { db } from "./db";
+import { accountHolders, bettingHouses, surebetSets, bets } from "@shared/schema";
+import type {
+  AccountHolder,
+  InsertAccountHolder,
+  BettingHouse,
+  InsertBettingHouse,
+  SurebetSet,
+  InsertSurebetSet,
+  Bet,
+  InsertBet,
+  SurebetSetWithBets
+} from "@shared/schema";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  // Account Holders
+  createAccountHolder(data: InsertAccountHolder): Promise<AccountHolder>;
+  getAccountHolders(): Promise<AccountHolder[]>;
+  updateAccountHolder(id: string, data: Partial<InsertAccountHolder>): Promise<AccountHolder>;
+  deleteAccountHolder(id: string): Promise<void>;
+
+  // Betting Houses  
+  createBettingHouse(data: InsertBettingHouse): Promise<BettingHouse>;
+  getBettingHouses(): Promise<BettingHouse[]>;
+  getBettingHousesByHolder(accountHolderId: string): Promise<BettingHouse[]>;
+  updateBettingHouse(id: string, data: Partial<InsertBettingHouse>): Promise<BettingHouse>;
+  deleteBettingHouse(id: string): Promise<void>;
+
+  // Surebet Sets
+  createSurebetSet(data: InsertSurebetSet): Promise<SurebetSet>;
+  getSurebetSets(): Promise<SurebetSetWithBets[]>;
+  getSurebetSetById(id: string): Promise<SurebetSetWithBets | null>;
+  updateSurebetSet(id: string, data: Partial<InsertSurebetSet>): Promise<SurebetSet>;
+  deleteSurebetSet(id: string): Promise<void>;
+
+  // Individual Bets
+  createBet(data: InsertBet): Promise<Bet>;
+  updateBet(id: string, data: Partial<InsertBet>): Promise<Bet>;
+  deleteBet(id: string): Promise<void>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-
-  constructor() {
-    this.users = new Map();
+class DatabaseStorage implements IStorage {
+  // Account Holders
+  async createAccountHolder(data: InsertAccountHolder): Promise<AccountHolder> {
+    const [accountHolder] = await db.insert(accountHolders).values(data).returning();
+    return accountHolder;
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async getAccountHolders(): Promise<AccountHolder[]> {
+    return await db.select().from(accountHolders).orderBy(desc(accountHolders.createdAt));
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  async updateAccountHolder(id: string, data: Partial<InsertAccountHolder>): Promise<AccountHolder> {
+    const [accountHolder] = await db
+      .update(accountHolders)
+      .set(data)
+      .where(eq(accountHolders.id, id))
+      .returning();
+    
+    if (!accountHolder) throw new Error('Account holder not found');
+    return accountHolder;
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  async deleteAccountHolder(id: string): Promise<void> {
+    await db.delete(accountHolders).where(eq(accountHolders.id, id));
+  }
+
+  // Betting Houses
+  async createBettingHouse(data: InsertBettingHouse): Promise<BettingHouse> {
+    const [bettingHouse] = await db.insert(bettingHouses).values(data).returning();
+    return bettingHouse;
+  }
+
+  async getBettingHouses(): Promise<BettingHouse[]> {
+    return await db.select().from(bettingHouses).orderBy(desc(bettingHouses.createdAt));
+  }
+
+  async getBettingHousesByHolder(accountHolderId: string): Promise<BettingHouse[]> {
+    return await db
+      .select()
+      .from(bettingHouses)
+      .where(eq(bettingHouses.accountHolderId, accountHolderId))
+      .orderBy(desc(bettingHouses.createdAt));
+  }
+
+  async updateBettingHouse(id: string, data: Partial<InsertBettingHouse>): Promise<BettingHouse> {
+    const [bettingHouse] = await db
+      .update(bettingHouses)
+      .set(data)
+      .where(eq(bettingHouses.id, id))
+      .returning();
+    
+    if (!bettingHouse) throw new Error('Betting house not found');
+    return bettingHouse;
+  }
+
+  async deleteBettingHouse(id: string): Promise<void> {
+    await db.delete(bettingHouses).where(eq(bettingHouses.id, id));
+  }
+
+  // Surebet Sets
+  async createSurebetSet(data: InsertSurebetSet): Promise<SurebetSet> {
+    const [surebetSet] = await db.insert(surebetSets).values(data).returning();
+    return surebetSet;
+  }
+
+  async getSurebetSets(): Promise<SurebetSetWithBets[]> {
+    const sets = await db
+      .select()
+      .from(surebetSets)
+      .orderBy(desc(surebetSets.createdAt));
+    
+    const result: SurebetSetWithBets[] = [];
+    
+    for (const set of sets) {
+      const setBets = await db
+        .select({
+          id: bets.id,
+          surebetSetId: bets.surebetSetId,
+          bettingHouseId: bets.bettingHouseId,
+          betType: bets.betType,
+          odd: bets.odd,
+          stake: bets.stake,
+          potentialProfit: bets.potentialProfit,
+          result: bets.result,
+          actualProfit: bets.actualProfit,
+          createdAt: bets.createdAt,
+          bettingHouse: {
+            id: bettingHouses.id,
+            name: bettingHouses.name,
+            accountHolderId: bettingHouses.accountHolderId,
+            createdAt: bettingHouses.createdAt,
+            accountHolder: {
+              id: accountHolders.id,
+              name: accountHolders.name,
+              email: accountHolders.email,
+              username: accountHolders.username,
+              password: accountHolders.password,
+              createdAt: accountHolders.createdAt,
+            }
+          }
+        })
+        .from(bets)
+        .innerJoin(bettingHouses, eq(bets.bettingHouseId, bettingHouses.id))
+        .innerJoin(accountHolders, eq(bettingHouses.accountHolderId, accountHolders.id))
+        .where(eq(bets.surebetSetId, set.id));
+      
+      result.push({
+        ...set,
+        bets: setBets
+      });
+    }
+    
+    return result;
+  }
+
+  async getSurebetSetById(id: string): Promise<SurebetSetWithBets | null> {
+    const [set] = await db
+      .select()
+      .from(surebetSets)
+      .where(eq(surebetSets.id, id));
+    
+    if (!set) return null;
+    
+    const setBets = await db
+      .select({
+        id: bets.id,
+        surebetSetId: bets.surebetSetId,
+        bettingHouseId: bets.bettingHouseId,
+        betType: bets.betType,
+        odd: bets.odd,
+        stake: bets.stake,
+        potentialProfit: bets.potentialProfit,
+        result: bets.result,
+        actualProfit: bets.actualProfit,
+        createdAt: bets.createdAt,
+        bettingHouse: {
+          id: bettingHouses.id,
+          name: bettingHouses.name,
+          accountHolderId: bettingHouses.accountHolderId,
+          createdAt: bettingHouses.createdAt,
+          accountHolder: {
+            id: accountHolders.id,
+            name: accountHolders.name,
+            email: accountHolders.email,
+            username: accountHolders.username,
+            password: accountHolders.password,
+            createdAt: accountHolders.createdAt,
+          }
+        }
+      })
+      .from(bets)
+      .innerJoin(bettingHouses, eq(bets.bettingHouseId, bettingHouses.id))
+      .innerJoin(accountHolders, eq(bettingHouses.accountHolderId, accountHolders.id))
+      .where(eq(bets.surebetSetId, set.id));
+    
+    return {
+      ...set,
+      bets: setBets
+    };
+  }
+
+  async updateSurebetSet(id: string, data: Partial<InsertSurebetSet>): Promise<SurebetSet> {
+    const [surebetSet] = await db
+      .update(surebetSets)
+      .set(data)
+      .where(eq(surebetSets.id, id))
+      .returning();
+    
+    if (!surebetSet) throw new Error('Surebet set not found');
+    return surebetSet;
+  }
+
+  async deleteSurebetSet(id: string): Promise<void> {
+    // Delete associated bets first
+    await db.delete(bets).where(eq(bets.surebetSetId, id));
+    // Then delete the set
+    await db.delete(surebetSets).where(eq(surebetSets.id, id));
+  }
+
+  // Individual Bets
+  async createBet(data: InsertBet): Promise<Bet> {
+    const [bet] = await db.insert(bets).values(data).returning();
+    return bet;
+  }
+
+  async updateBet(id: string, data: Partial<InsertBet>): Promise<Bet> {
+    const [bet] = await db
+      .update(bets)
+      .set(data)
+      .where(eq(bets.id, id))
+      .returning();
+    
+    if (!bet) throw new Error('Bet not found');
+    return bet;
+  }
+
+  async deleteBet(id: string): Promise<void> {
+    await db.delete(bets).where(eq(bets.id, id));
   }
 }
 
-export const storage = new MemStorage();
+export const storage: IStorage = new DatabaseStorage();
