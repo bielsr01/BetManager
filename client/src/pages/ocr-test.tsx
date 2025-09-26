@@ -36,10 +36,23 @@ export default function OCRTest() {
       const result = await response.json();
       
       if (response.ok && result.success) {
+        // Convert ISO date format back to Brazilian format for raw display
+        const formatDateForDisplay = (isoDate: string): string => {
+          if (!isoDate) return 'Data não disponível';
+          try {
+            // Convert from "2025-09-26T22:18" to "26/09/2025 22:18"
+            const [datePart, timePart] = isoDate.split('T');
+            const [year, month, day] = datePart.split('-');
+            return `${day}/${month}/${year} ${timePart}`;
+          } catch {
+            return isoDate; // fallback to original format if conversion fails
+          }
+        };
+
         // Format the raw text response to show the actual OCR extraction
         const rawResponse = `=== DADOS EXTRAÍDOS DA IMAGEM ENVIADA ===
 
-DATA: ${result.data.date}
+DATA: ${formatDateForDisplay(result.data.date)}
 ESPORTE: ${result.data.sport}
 LIGA: ${result.data.league}
 Time A: ${result.data.teamA}
