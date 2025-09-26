@@ -15,6 +15,19 @@ export default function OCRTest() {
   const [structuredData, setStructuredData] = useState<any>(null);
   const [, navigate] = useLocation();
 
+  // Convert ISO date format back to Brazilian format for display
+  const formatDateForDisplay = (isoDate: string): string => {
+    if (!isoDate) return 'Data não disponível';
+    try {
+      // Convert from "2025-09-26T22:18" to "26/09/2025 22:18"
+      const [datePart, timePart] = isoDate.split('T');
+      const [year, month, day] = datePart.split('-');
+      return `${day}/${month}/${year} ${timePart}`;
+    } catch {
+      return isoDate; // fallback to original format if conversion fails
+    }
+  };
+
   const handleImageUpload = async (file: File) => {
     const imageUrl = URL.createObjectURL(file);
     setUploadedImage(imageUrl);
@@ -36,19 +49,6 @@ export default function OCRTest() {
       const result = await response.json();
       
       if (response.ok && result.success) {
-        // Convert ISO date format back to Brazilian format for raw display
-        const formatDateForDisplay = (isoDate: string): string => {
-          if (!isoDate) return 'Data não disponível';
-          try {
-            // Convert from "2025-09-26T22:18" to "26/09/2025 22:18"
-            const [datePart, timePart] = isoDate.split('T');
-            const [year, month, day] = datePart.split('-');
-            return `${day}/${month}/${year} ${timePart}`;
-          } catch {
-            return isoDate; // fallback to original format if conversion fails
-          }
-        };
-
         // Format the raw text response to show the actual OCR extraction
         const rawResponse = `=== DADOS EXTRAÍDOS DA IMAGEM ENVIADA ===
 
@@ -272,7 +272,7 @@ Verifique sua conexão com a internet e tente novamente.`;
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-muted-foreground">Data:</span>
-                    <p className="font-medium">{structuredData.date}</p>
+                    <p className="font-medium">{formatDateForDisplay(structuredData.date)}</p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Esporte:</span>
