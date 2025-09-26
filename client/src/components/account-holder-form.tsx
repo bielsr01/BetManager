@@ -2,20 +2,22 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, User, Building, Edit, Trash2 } from "lucide-react";
+import { Plus, User, Building, Edit, Trash2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { AccountHolder, BettingHouse } from "@shared/schema";
 
 const accountHolderSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
   username: z.string().optional(),
-  password: z.string().optional(),
 });
 
 const bettingHouseSchema = z.object({
@@ -25,19 +27,8 @@ const bettingHouseSchema = z.object({
 type AccountHolderFormData = z.infer<typeof accountHolderSchema>;
 type BettingHouseFormData = z.infer<typeof bettingHouseSchema>;
 
-interface AccountHolder {
-  id: string;
-  name: string;
-  email?: string;
-  username?: string;
-  password?: string;
+interface AccountHolderWithHouses extends AccountHolder {
   bettingHouses: BettingHouse[];
-}
-
-interface BettingHouse {
-  id: string;
-  name: string;
-  accountHolderId: string;
 }
 
 interface AccountHolderFormProps {
@@ -47,31 +38,65 @@ interface AccountHolderFormProps {
 }
 
 export function AccountHolderForm({ onSave, onSaveHouse, className }: AccountHolderFormProps) {
-  //todo: remove mock functionality
-  const [accountHolders, setAccountHolders] = useState<AccountHolder[]>([
-    {
-      id: "1",
-      name: "João Silva",
-      email: "joao@email.com",
-      username: "joao_silva",
-      bettingHouses: [
-        { id: "h1", name: "Pinnacle", accountHolderId: "1" },
-        { id: "h2", name: "Betano", accountHolderId: "1" },
-      ]
-    },
-    {
-      id: "2",
-      name: "Maria Santos",
-      email: "maria@email.com",
-      bettingHouses: [
-        { id: "h3", name: "Bet365", accountHolderId: "2" },
-      ]
-    },
-  ]);
+  // Load account holders from API
+  const { data: holders = [], isLoading, error } = useQuery<AccountHolder[]>({
+    queryKey: ["/api/account-holders"],
+  });
+
+  // Load betting houses from API
+  const { data: allHouses = [] } = useQuery<BettingHouse[]>({
+    queryKey: ["/api/betting-houses"],
+  });
+
+  // Group betting houses by account holder
+  const accountHoldersWithHouses: AccountHolderWithHouses[] = holders.map(holder => ({
+    ...holder,
+    bettingHouses: allHouses.filter(house => house.accountHolderId === holder.id)
+  }));
 
   const [isHolderDialogOpen, setIsHolderDialogOpen] = useState(false);
   const [isHouseDialogOpen, setIsHouseDialogOpen] = useState(false);
   const [selectedHolderId, setSelectedHolderId] = useState<string | null>(null);
+
+  // Create account holder mutation
+  const createHolderMutation = useMutation({
+    mutationFn: async (data: AccountHolderFormData) => {
+      const response = await apiRequest("POST", "/api/account-holders", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/account-holders"] });
+      setIsHolderDialogOpen(false);
+      holderForm.reset();
+    },
+  });
+
+  // Create betting house mutation
+  const createHouseMutation = useMutation({
+    mutationFn: async ({ holderId, data }: { holderId: string; data: BettingHouseFormData }) => {
+      const response = await apiRequest("POST", "/api/betting-houses", {
+        ...data,
+        accountHolderId: holderId,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/betting-houses"] });
+      setIsHouseDialogOpen(false);
+      setSelectedHolderId(null);
+      houseForm.reset();
+    },
+  });
+
+  // Delete betting house mutation
+  const deleteHouseMutation = useMutation({
+    mutationFn: async (houseId: string) => {
+      await apiRequest("DELETE", `/api/betting-houses/${houseId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/betting-houses"] });
+    },
+  });
 
   const holderForm = useForm<AccountHolderFormData>({
     resolver: zodResolver(accountHolderSchema),
@@ -79,7 +104,6 @@ export function AccountHolderForm({ onSave, onSaveHouse, className }: AccountHol
       name: "",
       email: "",
       username: "",
-      password: "",
     },
   });
 
@@ -91,46 +115,18 @@ export function AccountHolderForm({ onSave, onSaveHouse, className }: AccountHol
   });
 
   const handleSaveHolder = (data: AccountHolderFormData) => {
-    console.log("Account holder saved:", data);
     onSave(data);
-    
-    // Mock: Add to local state
-    const newHolder: AccountHolder = {
-      id: Date.now().toString(),
-      name: data.name,
-      email: data.email || undefined,
-      username: data.username || undefined,
-      password: data.password || undefined,
-      bettingHouses: [],
-    };
-    setAccountHolders([...accountHolders, newHolder]);
-    
-    holderForm.reset();
-    setIsHolderDialogOpen(false);
+    createHolderMutation.mutate(data);
   };
 
   const handleSaveHouse = (data: BettingHouseFormData) => {
     if (!selectedHolderId) return;
-    
-    console.log("Betting house saved:", data, "for holder:", selectedHolderId);
     onSaveHouse(selectedHolderId, data);
-    
-    // Mock: Add to local state
-    const newHouse: BettingHouse = {
-      id: Date.now().toString(),
-      name: data.name,
-      accountHolderId: selectedHolderId,
-    };
-    
-    setAccountHolders(accountHolders.map(holder => 
-      holder.id === selectedHolderId 
-        ? { ...holder, bettingHouses: [...holder.bettingHouses, newHouse] }
-        : holder
-    ));
-    
-    houseForm.reset();
-    setIsHouseDialogOpen(false);
-    setSelectedHolderId(null);
+    createHouseMutation.mutate({ holderId: selectedHolderId, data });
+  };
+
+  const handleDeleteHouse = (houseId: string) => {
+    deleteHouseMutation.mutate(houseId);
   };
 
   const openHouseDialog = (holderId: string) => {
@@ -199,19 +195,6 @@ export function AccountHolderForm({ onSave, onSaveHouse, className }: AccountHol
                   )}
                 />
                 
-                <FormField
-                  control={holderForm.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Senha</FormLabel>
-                      <FormControl>
-                        <Input {...field} type="password" placeholder="••••••••" data-testid="input-holder-password" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
                 
                 <div className="flex justify-end gap-2">
                   <Button 
@@ -222,7 +205,8 @@ export function AccountHolderForm({ onSave, onSaveHouse, className }: AccountHol
                   >
                     Cancelar
                   </Button>
-                  <Button type="submit" data-testid="button-save-holder">
+                  <Button type="submit" disabled={createHolderMutation.isPending} data-testid="button-save-holder">
+                    {createHolderMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                     Salvar
                   </Button>
                 </div>
@@ -232,8 +216,41 @@ export function AccountHolderForm({ onSave, onSaveHouse, className }: AccountHol
         </Dialog>
       </div>
 
-      <div className="grid gap-6">
-        {accountHolders.map((holder) => (
+      {isLoading ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="h-12 w-12 animate-spin text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Carregando titulares...</h3>
+            <p className="text-muted-foreground text-center">
+              Buscando dados dos titulares de conta
+            </p>
+          </CardContent>
+        </Card>
+      ) : error ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <h3 className="text-lg font-semibold mb-2">Erro ao carregar titulares</h3>
+            <p className="text-muted-foreground text-center mb-4">
+              Não foi possível carregar os dados. Tente novamente.
+            </p>
+            <Button onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/account-holders"] })}>
+              Tentar novamente
+            </Button>
+          </CardContent>
+        </Card>
+      ) : accountHoldersWithHouses.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <User className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Nenhum titular cadastrado</h3>
+            <p className="text-muted-foreground text-center mb-4">
+              Cadastre um titular para começar a gerenciar suas apostas
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-6">
+        {accountHoldersWithHouses.map((holder) => (
           <Card key={holder.id} className="hover-elevate" data-testid={`card-holder-${holder.id}`}>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -284,6 +301,8 @@ export function AccountHolderForm({ onSave, onSaveHouse, className }: AccountHol
                           variant="ghost"
                           size="icon"
                           className="h-4 w-4 ml-1 hover:bg-destructive hover:text-destructive-foreground"
+                          onClick={() => handleDeleteHouse(house.id)}
+                          disabled={deleteHouseMutation.isPending}
                           data-testid={`button-remove-house-${house.id}`}
                         >
                           <Trash2 className="h-3 w-3" />
@@ -301,6 +320,7 @@ export function AccountHolderForm({ onSave, onSaveHouse, className }: AccountHol
           </Card>
         ))}
       </div>
+      )}
 
       {/* Add Betting House Dialog */}
       <Dialog open={isHouseDialogOpen} onOpenChange={setIsHouseDialogOpen}>

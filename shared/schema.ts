@@ -9,7 +9,7 @@ export const accountHolders = pgTable("account_holders", {
   name: text("name").notNull(),
   email: text("email"),
   username: text("username"),
-  password: text("password"),
+  // Removed password field for security - credentials should not be stored
   createdAt: timestamp("created_at").defaultNow(),
 });
 

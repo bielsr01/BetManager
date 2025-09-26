@@ -11,6 +11,8 @@ interface ImageUploadProps {
   isProcessing?: boolean;
   uploadedImage?: string | null;
   className?: string;
+  onOCRComplete?: (data: any) => void;
+  onOCRError?: (error: string) => void;
 }
 
 export function ImageUpload({
@@ -19,15 +21,41 @@ export function ImageUpload({
   isProcessing = false,
   uploadedImage = null,
   className,
+  onOCRComplete,
+  onOCRError,
 }: ImageUploadProps) {
   const [isDragActive, setIsDragActive] = useState(false);
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (file && file.type.startsWith("image/")) {
       onImageUpload(file);
+      
+      // Also trigger OCR processing if handlers are provided
+      if (onOCRComplete && onOCRError) {
+        try {
+          const formData = new FormData();
+          formData.append('image', file);
+          
+          const response = await fetch('/api/ocr/process', {
+            method: 'POST',
+            body: formData,
+          });
+          
+          const result = await response.json();
+          
+          if (response.ok && result.success) {
+            onOCRComplete(result.data);
+          } else {
+            onOCRError(result.error || 'Erro ao processar OCR');
+          }
+        } catch (error) {
+          console.error('OCR processing error:', error);
+          onOCRError('Erro ao processar imagem com OCR');
+        }
+      }
     }
-  }, [onImageUpload]);
+  }, [onImageUpload, onOCRComplete, onOCRError]);
 
   const { getRootProps, getInputProps } = useDropzone({
     onDrop,
@@ -40,7 +68,7 @@ export function ImageUpload({
   });
 
   // Handle paste events
-  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+  const handlePaste = useCallback(async (e: React.ClipboardEvent) => {
     const items = e.clipboardData.items;
     
     for (let i = 0; i < items.length; i++) {
@@ -49,11 +77,35 @@ export function ImageUpload({
         const file = item.getAsFile();
         if (file) {
           onImageUpload(file);
+          
+          // Also trigger OCR processing if handlers are provided
+          if (onOCRComplete && onOCRError) {
+            try {
+              const formData = new FormData();
+              formData.append('image', file);
+              
+              const response = await fetch('/api/ocr/process', {
+                method: 'POST',
+                body: formData,
+              });
+              
+              const result = await response.json();
+              
+              if (response.ok && result.success) {
+                onOCRComplete(result.data);
+              } else {
+                onOCRError(result.error || 'Erro ao processar OCR');
+              }
+            } catch (error) {
+              console.error('OCR processing error:', error);
+              onOCRError('Erro ao processar imagem com OCR');
+            }
+          }
         }
         break;
       }
     }
-  }, [onImageUpload]);
+  }, [onImageUpload, onOCRComplete, onOCRError]);
 
   if (uploadedImage) {
     return (
