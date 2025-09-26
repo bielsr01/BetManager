@@ -27,12 +27,13 @@ Transcreva os dados da imagem de aposta esportiva seguindo as seguintes regras e
 3. **Separação de Times:** O que separa o Time A do Time B é um traço maior (–).
 4. **Coluna de Chance:** Copie todo o conteúdo da coluna "Chance", independentemente do tamanho do texto. INCLUA todas as palavras como "Tempo Extra" e principalmente números com sobrescrito/elevado como "1¹-²", "2¹-²" que aparecem nesta coluna.
 5. **Lucro%:** No canto superior direito, ignore o ROI e extraia apenas o valor percentual do Lucro.
-6. **Data:** Extraia apenas a data e hora no formato \`dd/mm/aaaa HH:mm\` do canto superior direito. Ignore o resto do texto na linha.
+6. **Data e Hora:** Extraia EXATAMENTE a data e hora no formato \`dd/mm/aaaa HH:mm\` do canto superior direito. NÃO altere, corrija ou ajuste NENHUM dígito - copie os números EXATAMENTE como aparecem. Ignore o resto do texto na linha.
 7. **Liga e Time:** O Time A e a Liga são separados pela primeira barra (/) da linha. Tudo antes da primeira barra é o Time A, e tudo depois é a Liga.
 8. **Ignorar Informações Extras:** Não inclua informações como "Mostrar comissões", "Use sua própria taxa de câmbio", "Arredondar aposta até", etc.
 9. **Suporte Completo a Caracteres:** Preserve TODOS os acentos (á, é, í, ó, ú, ã, õ, ç, etc.), símbolos matemáticos (≥, ≤, >, <, =, ±, etc.), números em elevado (1¹, 5645³, etc.) e expressões complexas em elevado (1¹-², 2¹-², 3²⁺¹, etc.). Mantenha a formatação exata como aparece na imagem.
 10. **ATENÇÃO ESPECIAL aos Números Elevados:** Se houver expressões como "1¹-²", "2¹-²", "Tempo Extra", ou qualquer número com sobrescrito/elevado, copie EXATAMENTE como está visível. Estes caracteres são ESSENCIAIS e devem ser preservados integralmente.
-11. **Fidelidade aos Dados:** Extraia EXATAMENTE os dados que aparecem na imagem enviada. Não use dados de outras apostas ou exemplos. Seja 100% fiel ao conteúdo visual presente.
+11. **Fidelidade Total aos Números:** NÃO corrija, ajuste ou "melhore" nenhum dígito. Se vir "15", escreva "15". Se vir "18", escreva "18". Copie todos os números LITERALMENTE como estão na imagem.
+12. **Fidelidade aos Dados:** Extraia EXATAMENTE os dados que aparecem na imagem enviada. Não use dados de outras apostas ou exemplos. Seja 100% fiel ao conteúdo visual presente.
 ---
 **Formato de Saída:**
 DATA: [dd/mm/aaaa HH:mm]
