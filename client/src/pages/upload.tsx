@@ -102,7 +102,7 @@ export default function UploadPage() {
         league: data.league,
         teamA: data.teamA,
         teamB: data.teamB,
-        profitPercentage: data.profitPercentage,
+        profitPercentage: data.profitPercentage.toString(),
         status: "pending",
       };
 
