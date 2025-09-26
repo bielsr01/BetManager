@@ -27,13 +27,14 @@ Transcreva os dados da imagem de aposta esportiva seguindo as seguintes regras e
 3. **Separação de Times:** O que separa o Time A do Time B é um traço maior (–).
 4. **Coluna de Chance:** Copie todo o conteúdo da coluna "Chance", independentemente do tamanho do texto. INCLUA todas as palavras como "Tempo Extra" e principalmente números com sobrescrito/elevado como "1¹-²", "2¹-²" que aparecem nesta coluna.
 5. **Lucro%:** No canto superior direito, ignore o ROI e extraia apenas o valor percentual do Lucro.
-6. **Data e Hora:** Extraia EXATAMENTE a data e hora no formato \`dd/mm/aaaa HH:mm\` do canto superior direito. NÃO altere, corrija ou ajuste NENHUM dígito - copie os números EXATAMENTE como aparecem. Ignore o resto do texto na linha.
+6. **Data e Hora:** PRIORIDADE MÁXIMA - procure por datas no CABEÇALHO/TOPO da imagem primeiro. Se houver texto como "Evento em X dias (AAAA-MM-DD HH:mm)" ou similar no cabeçalho, extraia a data COMPLETA de lá. Se não encontrar no cabeçalho, procure no canto superior direito. SEMPRE use o formato completo com ANO de 4 dígitos (ex: 2025-09-29 13:00). NUNCA use apenas 2 dígitos para o ano.
 7. **Liga e Time:** O Time A e a Liga são separados pela primeira barra (/) da linha. Tudo antes da primeira barra é o Time A, e tudo depois é a Liga.
-8. **Ignorar Informações Extras:** Não inclua informações como "Mostrar comissões", "Use sua própria taxa de câmbio", "Arredondar aposta até", etc.
-9. **Suporte Completo a Caracteres:** Preserve TODOS os acentos (á, é, í, ó, ú, ã, õ, ç, etc.), símbolos matemáticos (≥, ≤, >, <, =, ±, etc.), números em elevado (1¹, 5645³, etc.) e expressões complexas em elevado (1¹-², 2¹-², 3²⁺¹, etc.). Mantenha a formatação exata como aparece na imagem.
-10. **ATENÇÃO ESPECIAL aos Números Elevados:** Se houver expressões como "1¹-²", "2¹-²", "Tempo Extra", ou qualquer número com sobrescrito/elevado, copie EXATAMENTE como está visível. Estes caracteres são ESSENCIAIS e devem ser preservados integralmente.
-11. **Fidelidade Total aos Números:** NÃO corrija, ajuste ou "melhore" nenhum dígito. Se vir "15", escreva "15". Se vir "18", escreva "18". Copie todos os números LITERALMENTE como estão na imagem.
-12. **Fidelidade aos Dados:** Extraia EXATAMENTE os dados que aparecem na imagem enviada. Não use dados de outras apostas ou exemplos. Seja 100% fiel ao conteúdo visual presente.
+8. **Casas de Apostas:** ATENÇÃO ESPECIAL - Extraia o nome EXATO das casas de apostas que aparecem na PRIMEIRA COLUNA à esquerda de cada linha de aposta. Não use termos genéricos como "Surebet". Procure por nomes específicos como "VBet (BR)", "Blaze (BR)", "Pinnacle", "Betano", etc.
+9. **Ignorar Informações Extras:** Não inclua informações como "Mostrar comissões", "Use sua própria taxa de câmbio", "Arredondar aposta até", etc.
+10. **Suporte Completo a Caracteres:** Preserve TODOS os acentos (á, é, í, ó, ú, ã, õ, ç, etc.), símbolos matemáticos (≥, ≤, >, <, =, ±, etc.), números em elevado (1¹, 5645³, etc.) e expressões complexas em elevado (1¹-², 2¹-², 3²⁺¹, etc.). Mantenha a formatação exata como aparece na imagem.
+11. **ATENÇÃO ESPECIAL aos Números Elevados:** Se houver expressões como "1¹-²", "2¹-²", "Tempo Extra", ou qualquer número com sobrescrito/elevado, copie EXATAMENTE como está visível. Estes caracteres são ESSENCIAIS e devem ser preservados integralmente.
+12. **Fidelidade Total aos Números:** NÃO corrija, ajuste ou "melhore" nenhum dígito. Se vir "15", escreva "15". Se vir "18", escreva "18". Copie todos os números LITERALMENTE como estão na imagem.
+13. **Fidelidade aos Dados:** Extraia EXATAMENTE os dados que aparecem na imagem enviada. Não use dados de outras apostas ou exemplos. Seja 100% fiel ao conteúdo visual presente.
 ---
 **Formato de Saída:**
 DATA: [dd/mm/aaaa HH:mm]
@@ -97,6 +98,8 @@ Lucro%: [Valor Percentual do Lucro]`;
         throw new Error('No response content from Mistral API');
       }
 
+      console.log('OCR Raw Response:', content);
+
       // Parse the structured text response
       const extractValue = (text: string, label: string): string => {
         const regex = new RegExp(`${label}:\\s*(.+)`, 'i');
@@ -111,25 +114,37 @@ Lucro%: [Valor Percentual do Lucro]`;
       const teamA = extractValue(content, 'Time A');
       const teamB = extractValue(content, 'Time B');
       const profitPercentage = extractValue(content, 'Lucro%');
+      
+      console.log('Extracted values:', { dateRaw, sport, league, teamA, teamB, profitPercentage });
 
       // Process date to ensure proper format
       let formattedDate = '';
       if (dateRaw) {
-        // Expected format from OCR: "26/09/2025 16:30-03:00" or similar
-        // Extract just the date and time part: "26/09/2025 16:30"
-        const dateMatch = dateRaw.match(/(\d{2}\/\d{2}\/\d{4})\s*(\d{2}:\d{2})/);
-        if (dateMatch) {
-          const [, datePart, timePart] = dateMatch;
-          // Convert to yyyy-mm-ddThh:mm format for datetime-local input
-          const [day, month, year] = datePart.split('/');
-          formattedDate = `${year}-${month}-${day}T${timePart}`;
+        // Try YYYY-MM-DD HH:MM format first (common OCR output)
+        const isoMatch = dateRaw.match(/(\d{4}-\d{2}-\d{2})\s*(\d{2}:\d{2})/);
+        if (isoMatch) {
+          const [, datePart, timePart] = isoMatch;
+          formattedDate = `${datePart}T${timePart}`;
         } else {
-          // Fallback: try to parse as is
-          const fallbackMatch = dateRaw.match(/(\d{2}\/\d{2}\/\d{4})/);
-          if (fallbackMatch) {
-            const [, datePart] = fallbackMatch;
+          // Try DD/MM/YYYY HH:MM format (alternative format)
+          const dateMatch = dateRaw.match(/(\d{2}\/\d{2}\/\d{4})\s*(\d{2}:\d{2})/);
+          if (dateMatch) {
+            const [, datePart, timePart] = dateMatch;
             const [day, month, year] = datePart.split('/');
-            formattedDate = `${year}-${month}-${day}T12:00`; // Default to noon
+            formattedDate = `${year}-${month}-${day}T${timePart}`;
+          } else {
+            // Fallback: try to extract just date and use default time
+            const isoFallback = dateRaw.match(/(\d{4}-\d{2}-\d{2})/);
+            if (isoFallback) {
+              formattedDate = `${isoFallback[1]}T12:00`;
+            } else {
+              const ddmmFallback = dateRaw.match(/(\d{2}\/\d{2}\/\d{4})/);
+              if (ddmmFallback) {
+                const [, datePart] = ddmmFallback;
+                const [day, month, year] = datePart.split('/');
+                formattedDate = `${year}-${month}-${day}T12:00`;
+              }
+            }
           }
         }
       }
@@ -141,6 +156,7 @@ Lucro%: [Valor Percentual do Lucro]`;
       const bet1Type = extractValue(aposta1Section, 'Tipo');
       const bet1Stake = extractValue(aposta1Section, 'Stake');
       const bet1Profit = extractValue(aposta1Section, 'Lucro');
+      
 
       // Extract APOSTA 2 data
       const aposta2Section = content.match(/APOSTA 2:([\s\S]*?)(?=Lucro%:|$)/)?.[1] || '';
@@ -149,6 +165,7 @@ Lucro%: [Valor Percentual do Lucro]`;
       const bet2Type = extractValue(aposta2Section, 'Tipo');
       const bet2Stake = extractValue(aposta2Section, 'Stake');
       const bet2Profit = extractValue(aposta2Section, 'Lucro');
+      
       
       // Validate and format the response
       return {
