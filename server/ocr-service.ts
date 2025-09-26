@@ -30,6 +30,8 @@ Transcreva os dados da imagem de aposta esportiva seguindo as seguintes regras e
 6. **Data:** Extraia apenas a data e hora no formato \`dd/mm/aaaa HH:mm\` do canto superior direito. Ignore o resto do texto na linha.
 7. **Liga e Time:** O Time A e a Liga são separados pela primeira barra (/) da linha. Tudo antes da primeira barra é o Time A, e tudo depois é a Liga.
 8. **Ignorar Informações Extras:** Não inclua informações como "Mostrar comissões", "Use sua própria taxa de câmbio", "Arredondar aposta até", etc.
+9. **Suporte Completo a Caracteres:** Preserve TODOS os acentos (á, é, í, ó, ú, ã, õ, ç, etc.), símbolos matemáticos (≥, ≤, >, <, =, ±, etc.), números em elevado (1¹, 5645³, etc.) e expressões complexas em elevado (1¹-², 3²⁺¹, etc.). Mantenha a formatação exata como aparece na imagem.
+10. **Fidelidade aos Dados:** Extraia EXATAMENTE os dados que aparecem na imagem enviada. Não use dados de outras apostas ou exemplos. Seja 100% fiel ao conteúdo visual presente.
 ---
 **Formato de Saída:**
 DATA: [dd/mm/aaaa HH:mm]

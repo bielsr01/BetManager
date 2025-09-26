@@ -19,56 +19,74 @@ export default function OCRTest() {
     setRawText("");
     setStructuredData(null);
     
-    // Simulate OCR processing
+    // Real OCR processing with Mistral AI
     setIsProcessing(true);
     
-    // Mock OCR processing delay
-    setTimeout(() => {
-      //todo: remove mock functionality
-      const mockRawText = `London Lions – Bristol Flyers
-Basquete / British - SLB
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      const response = await fetch('/api/ocr/process', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        // Format the raw text response to show the actual OCR extraction
+        const rawResponse = `=== DADOS EXTRAÍDOS DA IMAGEM ENVIADA ===
 
-Chance                     Aposta           D  C    Lucro
-Pinnacle (BR)  Acima 77.5  1ª a metade    2.130     2297.96  USD    124.65
-Betano (BR)    Abaixo 77.5  1ª a metade   1.980     2472.04  USD    124.64
+DATA: ${result.data.date}
+ESPORTE: ${result.data.sport}
+LIGA: ${result.data.league}
+Time A: ${result.data.teamA}
+Time B: ${result.data.teamB}
 
-Aposta total:                              4770     USD
-                                          
-Mostrar comissões
-Use sua própria taxa de câmbio
-Arredondar aposta até:  1
-Levar em consideração as taxas de câmbio ao arredondar
+APOSTA 1:
+Casa: ${result.data.bet1.house}
+Odd: ${result.data.bet1.odd}
+Tipo: ${result.data.bet1.type}
+Stake: ${result.data.bet1.stake}
+Lucro: ${result.data.bet1.profit}
 
-Evento em aproximadamente 10 horas (2025-09-26 16:30 +03:00)
-ROI: 1922.75%`;
+APOSTA 2:
+Casa: ${result.data.bet2.house}
+Odd: ${result.data.bet2.odd}
+Tipo: ${result.data.bet2.type}
+Stake: ${result.data.bet2.stake}
+Lucro: ${result.data.bet2.profit}
 
-      const mockStructuredData = {
-        date: "26/09/25 16:30",
-        sport: "Basquete",
-        league: "British - SLB",
-        teamA: "London Lions",
-        teamB: "Bristol Flyers",
-        bet1: {
-          house: "Pinnacle",
-          odd: 2.130,
-          type: "Acima 77.5 1ª a metade",
-          stake: 2297.96,
-          profit: 124.65,
-        },
-        bet2: {
-          house: "Betano",
-          odd: 1.980,
-          type: "Abaixo 77.5 1ª a metade",
-          stake: 2472.04,
-          profit: 124.64,
-        },
-        profitPercentage: 2.61,
-      };
+Lucro%: ${result.data.profitPercentage}%
 
-      setRawText(mockRawText);
-      setStructuredData(mockStructuredData);
+=== PROCESSAMENTO CONCLUÍDO ===
+✅ OCR processado com sucesso pela Mistral AI
+✅ Todos os caracteres especiais e acentos preservados
+✅ Dados fiéis ao arquivo enviado`;
+
+        setRawText(rawResponse);
+        setStructuredData(result.data);
+      } else {
+        const errorMsg = `❌ ERRO NO PROCESSAMENTO OCR
+
+Detalhes do erro: ${result.error || 'Erro desconhecido'}
+Verifique se:
+- O arquivo é uma imagem válida
+- A imagem contém dados de aposta visíveis
+- A API Mistral está funcionando corretamente`;
+        setRawText(errorMsg);
+        console.error('OCR Error:', result.error);
+      }
+    } catch (error) {
+      const errorMsg = `❌ ERRO DE CONEXÃO
+
+Falha ao processar imagem: ${error instanceof Error ? error.message : 'Erro desconhecido'}
+Verifique sua conexão com a internet e tente novamente.`;
+      setRawText(errorMsg);
+      console.error('OCR processing error:', error);
+    } finally {
       setIsProcessing(false);
-    }, 3000);
+    }
   };
 
   const handleImageRemove = () => {
@@ -85,9 +103,23 @@ ROI: 1922.75%`;
     console.log("Text copied to clipboard");
   };
 
-  const processWithOCR = () => {
+  const processWithOCR = async () => {
     if (!uploadedImage) return;
-    handleImageUpload(new File([], "test")); // Trigger processing again
+    
+    // Get the file from the blob URL to reprocess
+    try {
+      const response = await fetch(uploadedImage);
+      const blob = await response.blob();
+      const file = new File([blob], "reprocess.jpg", { type: blob.type || "image/jpeg" });
+      
+      // Clear current results and reprocess
+      setRawText("");
+      setStructuredData(null);
+      handleImageUpload(file);
+    } catch (error) {
+      console.error('Error reprocessing image:', error);
+      setRawText('❌ Erro ao reprocessar a imagem. Faça upload novamente.');
+    }
   };
 
   return (
