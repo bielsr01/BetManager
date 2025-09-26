@@ -97,7 +97,7 @@ export default function UploadPage() {
       
       // Create surebet set and bets
       const surebetSetData = {
-        eventDate: data.eventDate ? new Date(data.eventDate) : null,
+        eventDate: data.eventDate || null,
         sport: data.sport,
         league: data.league,
         teamA: data.teamA,

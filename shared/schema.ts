@@ -63,6 +63,13 @@ export const insertBettingHouseSchema = createInsertSchema(bettingHouses).omit({
 export const insertSurebetSetSchema = createInsertSchema(surebetSets).omit({
   id: true,
   createdAt: true,
+}).extend({
+  eventDate: z.union([z.date(), z.string().nullable()]).transform((val) => {
+    if (typeof val === 'string') {
+      return new Date(val);
+    }
+    return val;
+  }).nullable(),
 });
 
 export const insertBetSchema = createInsertSchema(bets).omit({
