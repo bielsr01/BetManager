@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import { Filter, X, Search } from "lucide-react";
 import { DateRange } from "react-day-picker";
+import type { BettingHouse, SurebetSetWithBets } from "@shared/schema";
 
 interface BetFiltersProps {
   onFiltersChange: (filters: FilterValues) => void;
@@ -29,9 +31,19 @@ export function BetFilters({ onFiltersChange, className }: BetFiltersProps) {
   const [filters, setFilters] = useState<FilterValues>({});
   const [isExpanded, setIsExpanded] = useState(false);
 
-  //todo: remove mock functionality
-  const mockSports = ["Futebol", "Basquete", "Tennis", "Vôlei"];
-  const mockHouses = ["Pinnacle", "Betano", "Bet365", "1xBet", "Sportingbet"];
+  // Load betting houses from API
+  const { data: bettingHouses = [] } = useQuery<BettingHouse[]>({
+    queryKey: ["/api/betting-houses"],
+  });
+
+  // Load surebet sets to extract unique sports
+  const { data: surebetSets = [] } = useQuery<SurebetSetWithBets[]>({
+    queryKey: ["/api/surebet-sets"],
+  });
+
+  // Extract unique sports and houses from data
+  const uniqueSports = Array.from(new Set(surebetSets.map(set => set.sport).filter(Boolean)));
+  const uniqueHouseNames = Array.from(new Set(bettingHouses.map(house => house.name)));
 
   const handleFilterChange = (key: keyof FilterValues, value: any) => {
     const newFilters = { ...filters, [key]: value === 'all' ? undefined : value };
@@ -113,7 +125,7 @@ export function BetFilters({ onFiltersChange, className }: BetFiltersProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos os esportes</SelectItem>
-                {mockSports.map((sport) => (
+                {uniqueSports.map((sport) => (
                   <SelectItem key={sport} value={sport}>
                     {sport}
                   </SelectItem>
@@ -133,7 +145,7 @@ export function BetFilters({ onFiltersChange, className }: BetFiltersProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas as casas</SelectItem>
-                {mockHouses.map((house) => (
+                {uniqueHouseNames.map((house) => (
                   <SelectItem key={house} value={house}>
                     {house}
                   </SelectItem>
