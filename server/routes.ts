@@ -1,8 +1,26 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { OCRService } from "./ocr-service";
 import { insertAccountHolderSchema, insertBettingHouseSchema, insertSurebetSetSchema, insertBetSchema } from "@shared/schema";
 import { z } from "zod";
+import multer from "multer";
+
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  }
+});
+
+const ocrService = new OCRService(process.env.MISTRAL_API_KEY!);
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Account Holders routes
@@ -232,14 +250,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // OCR processing route (placeholder for now)
-  app.post("/api/ocr/process", async (req, res) => {
+  // OCR processing route
+  app.post("/api/ocr/process", upload.single('image'), async (req, res) => {
     try {
-      // This will be implemented in the next task with Mistral integration
-      res.status(501).json({ error: "OCR processing not yet implemented" });
+      if (!req.file) {
+        res.status(400).json({ error: "No image file provided" });
+        return;
+      }
+
+      console.log(`Processing OCR for image: ${req.file.originalname}, size: ${req.file.size} bytes`);
+      
+      const ocrResult = await ocrService.processImageFromBuffer(req.file.buffer);
+      
+      res.json({
+        success: true,
+        data: ocrResult
+      });
     } catch (error) {
       console.error("Error processing OCR:", error);
-      res.status(500).json({ error: "Failed to process OCR" });
+      res.status(500).json({ 
+        error: "Failed to process OCR",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 
