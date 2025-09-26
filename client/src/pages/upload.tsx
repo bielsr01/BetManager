@@ -50,12 +50,14 @@ export default function UploadPage() {
       teamB: ocrData.teamB,
       profitPercentage: ocrData.profitPercentage.toString(),
       bet1House: ocrData.bet1.house,
+      bet1HouseId: "", // User needs to select this manually
       bet1Type: ocrData.bet1.type,
       bet1Odd: ocrData.bet1.odd.toString(),
       bet1Stake: ocrData.bet1.stake.toString(),
       bet1Profit: ocrData.bet1.profit.toString(),
       bet1AccountHolder: "",
       bet2House: ocrData.bet2.house,
+      bet2HouseId: "", // User needs to select this manually
       bet2Type: ocrData.bet2.type,
       bet2Odd: ocrData.bet2.odd.toString(),
       bet2Stake: ocrData.bet2.stake.toString(),
@@ -85,6 +87,14 @@ export default function UploadPage() {
 
   const handleFormSubmit = async (data: any) => {
     try {
+      console.log("Submitting form data:", data);
+      
+      // Validate required fields
+      if (!data.bet1HouseId || !data.bet2HouseId) {
+        alert("Por favor, selecione os titulares de conta para ambas as apostas.");
+        return;
+      }
+      
       // Create surebet set and bets
       const surebetSetData = {
         eventDate: data.eventDate ? new Date(data.eventDate) : null,
@@ -101,7 +111,7 @@ export default function UploadPage() {
         odd: data.bet1Odd,
         stake: data.bet1Stake,
         potentialProfit: data.bet1Profit,
-        bettingHouseId: null, // This would need to be selected from account holders
+        bettingHouseId: data.bet1HouseId, // Now using the selected house ID
       };
 
       const bet2Data = {
@@ -109,7 +119,7 @@ export default function UploadPage() {
         odd: data.bet2Odd,
         stake: data.bet2Stake,
         potentialProfit: data.bet2Profit,
-        bettingHouseId: null, // This would need to be selected from account holders
+        bettingHouseId: data.bet2HouseId, // Now using the selected house ID
       };
 
       const response = await fetch('/api/surebet-sets', {
@@ -124,14 +134,19 @@ export default function UploadPage() {
       });
 
       if (response.ok) {
-        console.log("Bet saved successfully!");
+        const result = await response.json();
+        console.log("Bet saved successfully!", result);
+        alert("Surebet salvo com sucesso!");
         // Redirect to dashboard after save
         window.location.href = "/";
       } else {
-        console.error("Failed to save bet");
+        const errorText = await response.text();
+        console.error("Failed to save bet:", errorText);
+        alert("Erro ao salvar surebet. Verifique os dados e tente novamente.");
       }
     } catch (error) {
       console.error("Error saving bet:", error);
+      alert("Erro ao salvar surebet. Verifique sua conexão e tente novamente.");
     }
   };
 
