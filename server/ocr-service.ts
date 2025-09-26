@@ -62,7 +62,7 @@ Lucro%: [Valor Percentual do Lucro]`;
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: "mistral-ocr-latest",
+          model: "pixtral-12b-2409",
           messages: [
             {
               role: "user",
