@@ -104,12 +104,34 @@ Lucro%: [Valor Percentual do Lucro]`;
       };
 
       // Extract main data
-      const date = extractValue(content, 'DATA');
+      const dateRaw = extractValue(content, 'DATA');
       const sport = extractValue(content, 'ESPORTE');
       const league = extractValue(content, 'LIGA');
       const teamA = extractValue(content, 'Time A');
       const teamB = extractValue(content, 'Time B');
       const profitPercentage = extractValue(content, 'Lucro%');
+
+      // Process date to ensure proper format
+      let formattedDate = '';
+      if (dateRaw) {
+        // Expected format from OCR: "26/09/2025 16:30-03:00" or similar
+        // Extract just the date and time part: "26/09/2025 16:30"
+        const dateMatch = dateRaw.match(/(\d{2}\/\d{2}\/\d{4})\s*(\d{2}:\d{2})/);
+        if (dateMatch) {
+          const [, datePart, timePart] = dateMatch;
+          // Convert to yyyy-mm-ddThh:mm format for datetime-local input
+          const [day, month, year] = datePart.split('/');
+          formattedDate = `${year}-${month}-${day}T${timePart}`;
+        } else {
+          // Fallback: try to parse as is
+          const fallbackMatch = dateRaw.match(/(\d{2}\/\d{2}\/\d{4})/);
+          if (fallbackMatch) {
+            const [, datePart] = fallbackMatch;
+            const [day, month, year] = datePart.split('/');
+            formattedDate = `${year}-${month}-${day}T12:00`; // Default to noon
+          }
+        }
+      }
 
       // Extract APOSTA 1 data
       const aposta1Section = content.match(/APOSTA 1:([\s\S]*?)(?=APOSTA 2:|$)/)?.[1] || '';
@@ -129,7 +151,7 @@ Lucro%: [Valor Percentual do Lucro]`;
       
       // Validate and format the response
       return {
-        date: date || new Date().toLocaleDateString('pt-BR'),
+        date: formattedDate || new Date().toISOString().split('T')[0] + 'T12:00',
         sport: sport || 'Futebol',
         league: league || 'Liga não especificada',
         teamA: teamA || 'Time A',

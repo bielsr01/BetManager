@@ -5,13 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { TestTube, FileText, Wand2, Copy, CheckCircle } from "lucide-react";
+import { TestTube, FileText, Wand2, Copy, CheckCircle, ArrowRight } from "lucide-react";
+import { useLocation } from "wouter";
 
 export default function OCRTest() {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [rawText, setRawText] = useState("");
   const [structuredData, setStructuredData] = useState<any>(null);
+  const [, navigate] = useLocation();
 
   const handleImageUpload = async (file: File) => {
     const imageUrl = URL.createObjectURL(file);
@@ -120,6 +122,44 @@ Verifique sua conexão com a internet e tente novamente.`;
       console.error('Error reprocessing image:', error);
       setRawText('❌ Erro ao reprocessar a imagem. Faça upload novamente.');
     }
+  };
+
+  const useExtractedData = () => {
+    if (!structuredData) return;
+    
+    // Validate required nested fields
+    if (!structuredData.bet1?.house || !structuredData.bet2?.house) {
+      console.error('Invalid OCR data: missing bet information');
+      return;
+    }
+    
+    // Transform OCR data to form format
+    const formattedData = {
+      eventDate: structuredData.date,
+      sport: structuredData.sport,
+      league: structuredData.league,
+      teamA: structuredData.teamA,
+      teamB: structuredData.teamB,
+      profitPercentage: structuredData.profitPercentage?.toString() || "",
+      bet1House: structuredData.bet1.house,
+      bet1Type: structuredData.bet1.type,
+      bet1Odd: structuredData.bet1.odd?.toString() || "",
+      bet1Stake: structuredData.bet1.stake?.toString() || "",
+      bet1Profit: structuredData.bet1.profit?.toString() || "",
+      bet1AccountHolder: "",
+      bet2House: structuredData.bet2.house,
+      bet2Type: structuredData.bet2.type,
+      bet2Odd: structuredData.bet2.odd?.toString() || "",
+      bet2Stake: structuredData.bet2.stake?.toString() || "",
+      bet2Profit: structuredData.bet2.profit?.toString() || "",
+      bet2AccountHolder: "",
+    };
+    
+    // Save to sessionStorage for the upload page to use (more appropriate for temporary data)
+    sessionStorage.setItem('importedOCRData', JSON.stringify(formattedData));
+    
+    // Navigate to upload page
+    navigate('/upload');
   };
 
   return (
@@ -304,8 +344,10 @@ Verifique sua conexão com a internet e tente novamente.`;
 
                 <Button 
                   className="w-full mt-4" 
+                  onClick={useExtractedData}
                   data-testid="button-use-data"
                 >
+                  <ArrowRight className="w-4 h-4 mr-2" />
                   Usar Estes Dados
                 </Button>
               </CardContent>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ImageUpload } from "@/components/image-upload";
 import { BetForm } from "@/components/bet-form";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,26 @@ export default function UploadPage() {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedData, setExtractedData] = useState<any>(null);
+
+  // Check for imported OCR data on component mount
+  useEffect(() => {
+    const importedData = sessionStorage.getItem('importedOCRData');
+    if (importedData) {
+      try {
+        const parsedData = JSON.parse(importedData);
+        // Validate basic structure before using
+        if (parsedData && typeof parsedData === 'object' && parsedData.sport) {
+          setExtractedData(parsedData);
+          setCurrentStep("edit");
+        }
+        // Clear the imported data from sessionStorage
+        sessionStorage.removeItem('importedOCRData');
+      } catch (error) {
+        console.error('Error parsing imported OCR data:', error);
+        sessionStorage.removeItem('importedOCRData');
+      }
+    }
+  }, []);
 
   const handleImageUpload = (file: File) => {
     const imageUrl = URL.createObjectURL(file);
