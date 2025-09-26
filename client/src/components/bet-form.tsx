@@ -21,16 +21,18 @@ const betFormSchema = z.object({
   teamB: z.string().min(1, "Time B é obrigatório"),
   profitPercentage: z.string().transform(Number),
   
-  // Bet 1 - using betting house IDs only
-  bet1HouseId: z.string().min(1, "Casa é obrigatória"),
+  // Bet 1 - casa de apostas (texto para OCR) e titular da conta (selector)
+  bet1House: z.string().min(1, "Casa de apostas é obrigatória"),
+  bet1HouseId: z.string().min(1, "Titular da conta é obrigatório"),
   bet1Type: z.string().min(1, "Tipo de aposta é obrigatório"),
   bet1Odd: z.string().transform(Number),
   bet1Stake: z.string().transform(Number),
   bet1Profit: z.string().transform(Number),
   bet1AccountHolder: z.string().optional(),
   
-  // Bet 2 - using betting house IDs only
-  bet2HouseId: z.string().min(1, "Casa é obrigatória"),
+  // Bet 2 - casa de apostas (texto para OCR) e titular da conta (selector)
+  bet2House: z.string().min(1, "Casa de apostas é obrigatória"),
+  bet2HouseId: z.string().min(1, "Titular da conta é obrigatório"),
   bet2Type: z.string().min(1, "Tipo de aposta é obrigatório"),
   bet2Odd: z.string().transform(Number),
   bet2Stake: z.string().transform(Number),
@@ -87,12 +89,14 @@ export function BetForm({
       teamA: initialData?.teamA || "",
       teamB: initialData?.teamB || "",
       profitPercentage: String(initialData?.profitPercentage || ""),
+      bet1House: initialData?.bet1House || "",
       bet1HouseId: initialData?.bet1HouseId || "",
       bet1Type: initialData?.bet1Type || "",
       bet1Odd: String(initialData?.bet1Odd || ""),
       bet1Stake: String(initialData?.bet1Stake || ""),
       bet1Profit: String(initialData?.bet1Profit || ""),
       bet1AccountHolder: initialData?.bet1AccountHolder || "",
+      bet2House: initialData?.bet2House || "",
       bet2HouseId: initialData?.bet2HouseId || "",
       bet2Type: initialData?.bet2Type || "",
       bet2Odd: String(initialData?.bet2Odd || ""),
@@ -254,6 +258,24 @@ export function BetForm({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
+                  name="bet1House"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Casa de Apostas</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          placeholder="Pinnacle"
+                          data-testid="input-bet1-house"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
                   name="bet1Type"
                   render={({ field }) => (
                     <FormItem>
@@ -275,7 +297,7 @@ export function BetForm({
                   name="bet1HouseId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Casa de Apostas</FormLabel>
+                      <FormLabel>Titular da Conta</FormLabel>
                       <Select 
                         onValueChange={field.onChange} 
                         defaultValue={field.value}
@@ -287,7 +309,7 @@ export function BetForm({
                                 ? "Carregando..." 
                                 : houseOptions.length === 0 
                                   ? "Nenhuma casa cadastrada" 
-                                  : "Selecionar casa de apostas"
+                                  : "Selecionar titular"
                             } />
                           </SelectTrigger>
                         </FormControl>
@@ -384,6 +406,24 @@ export function BetForm({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
+                  name="bet2House"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Casa de Apostas</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          placeholder="Betano"
+                          data-testid="input-bet2-house"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
                   name="bet2Type"
                   render={({ field }) => (
                     <FormItem>
@@ -405,7 +445,7 @@ export function BetForm({
                   name="bet2HouseId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Casa de Apostas</FormLabel>
+                      <FormLabel>Titular da Conta</FormLabel>
                       <Select 
                         onValueChange={field.onChange} 
                         defaultValue={field.value}
@@ -417,7 +457,7 @@ export function BetForm({
                                 ? "Carregando..." 
                                 : houseOptions.length === 0 
                                   ? "Nenhuma casa cadastrada" 
-                                  : "Selecionar casa de apostas"
+                                  : "Selecionar titular"
                             } />
                           </SelectTrigger>
                         </FormControl>
