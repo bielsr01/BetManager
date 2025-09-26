@@ -19,33 +19,37 @@ export class OCRService {
   async processImage(imageBase64: string): Promise<OCRResult> {
     try {
       const prompt = `
-Analise esta imagem de aposta surebet e extraia as seguintes informações em formato JSON:
-
-{
-  "date": "data do evento no formato DD/MM/YY HH:MM",
-  "sport": "esporte (ex: Futebol, Basquete)",
-  "league": "liga ou campeonato",
-  "teamA": "primeiro time/equipe",
-  "teamB": "segundo time/equipe",
-  "bet1": {
-    "house": "nome da casa de apostas",
-    "odd": "valor da odd em decimal",
-    "type": "tipo da aposta (ex: Acima 2.25, Over 77.5)",
-    "stake": "valor da aposta em número",
-    "profit": "lucro estimado em número"
-  },
-  "bet2": {
-    "house": "nome da segunda casa de apostas",
-    "odd": "valor da odd em decimal",
-    "type": "tipo da aposta (ex: Abaixo 2.25, Under 77.5)",
-    "stake": "valor da aposta em número",
-    "profit": "lucro estimado em número"
-  },
-  "profitPercentage": "percentual de lucro em número decimal"
-}
-
-Extraia apenas os dados visíveis na imagem. Se algum dado não estiver claro, use valores razoáveis baseados no contexto.
-Retorne APENAS o JSON, sem texto adicional.`;
+Transcreva os dados da imagem de aposta esportiva seguindo as seguintes regras e formato:
+---
+**Regras:**
+1. **Formato de Saída:** A saída deve seguir a ordem e o formato abaixo, sem informações extras.
+2. **Acentos e Símbolos:** Preserve acentos, símbolos e caracteres especiais.
+3. **Separação de Times:** O que separa o Time A do Time B é um traço maior (–).
+4. **Coluna de Chance:** Copie todo o conteúdo da coluna "Chance", independentemente do tamanho do texto.
+5. **Lucro%:** No canto superior direito, ignore o ROI e extraia apenas o valor percentual do Lucro.
+6. **Data:** Extraia apenas a data e hora no formato \`dd/mm/aaaa HH:mm\` do canto superior direito. Ignore o resto do texto na linha.
+7. **Liga e Time:** O Time A e a Liga são separados pela primeira barra (/) da linha. Tudo antes da primeira barra é o Time A, e tudo depois é a Liga.
+8. **Ignorar Informações Extras:** Não inclua informações como "Mostrar comissões", "Use sua própria taxa de câmbio", "Arredondar aposta até", etc.
+---
+**Formato de Saída:**
+DATA: [dd/mm/aaaa HH:mm]
+ESPORTE: [Nome do Esporte]
+LIGA: [Nome da Liga]
+Time A: [Nome do Time A]
+Time B: [Nome do Time B]
+APOSTA 1:
+Casa: [Nome da Casa de Apostas]
+Odd: [Valor da Odd]
+Tipo: [Descrição do Tipo de Aposta]
+Stake: [Valor da Aposta]
+Lucro: [Valor do Lucro]
+APOSTA 2:
+Casa: [Nome da Casa de Apostas]
+Odd: [Valor da Odd]
+Tipo: [Descrição do Tipo de Aposta]
+Stake: [Valor da Aposta]
+Lucro: [Valor do Lucro]
+Lucro%: [Valor Percentual do Lucro]`;
 
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
@@ -89,36 +93,59 @@ Retorne APENAS o JSON, sem texto adicional.`;
         throw new Error('No response content from Mistral API');
       }
 
-      // Parse the JSON response
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error('No JSON found in response');
-      }
+      // Parse the structured text response
+      const extractValue = (text: string, label: string): string => {
+        const regex = new RegExp(`${label}:\\s*(.+)`, 'i');
+        const match = text.match(regex);
+        return match ? match[1].trim() : '';
+      };
 
-      const extractedData = JSON.parse(jsonMatch[0]);
+      // Extract main data
+      const date = extractValue(content, 'DATA');
+      const sport = extractValue(content, 'ESPORTE');
+      const league = extractValue(content, 'LIGA');
+      const teamA = extractValue(content, 'Time A');
+      const teamB = extractValue(content, 'Time B');
+      const profitPercentage = extractValue(content, 'Lucro%');
+
+      // Extract APOSTA 1 data
+      const aposta1Section = content.match(/APOSTA 1:([\s\S]*?)(?=APOSTA 2:|$)/)?.[1] || '';
+      const bet1House = extractValue(aposta1Section, 'Casa');
+      const bet1Odd = extractValue(aposta1Section, 'Odd');
+      const bet1Type = extractValue(aposta1Section, 'Tipo');
+      const bet1Stake = extractValue(aposta1Section, 'Stake');
+      const bet1Profit = extractValue(aposta1Section, 'Lucro');
+
+      // Extract APOSTA 2 data
+      const aposta2Section = content.match(/APOSTA 2:([\s\S]*?)(?=Lucro%:|$)/)?.[1] || '';
+      const bet2House = extractValue(aposta2Section, 'Casa');
+      const bet2Odd = extractValue(aposta2Section, 'Odd');
+      const bet2Type = extractValue(aposta2Section, 'Tipo');
+      const bet2Stake = extractValue(aposta2Section, 'Stake');
+      const bet2Profit = extractValue(aposta2Section, 'Lucro');
       
       // Validate and format the response
       return {
-        date: extractedData.date || new Date().toLocaleDateString('pt-BR'),
-        sport: extractedData.sport || 'Futebol',
-        league: extractedData.league || 'Liga não especificada',
-        teamA: extractedData.teamA || 'Time A',
-        teamB: extractedData.teamB || 'Time B',
+        date: date || new Date().toLocaleDateString('pt-BR'),
+        sport: sport || 'Futebol',
+        league: league || 'Liga não especificada',
+        teamA: teamA || 'Time A',
+        teamB: teamB || 'Time B',
         bet1: {
-          house: extractedData.bet1?.house || 'Casa 1',
-          odd: parseFloat(extractedData.bet1?.odd) || 2.0,
-          type: extractedData.bet1?.type || 'Aposta 1',
-          stake: parseFloat(extractedData.bet1?.stake) || 1000,
-          profit: parseFloat(extractedData.bet1?.profit) || 50,
+          house: bet1House || 'Casa 1',
+          odd: parseFloat(bet1Odd.replace(',', '.')) || 2.0,
+          type: bet1Type || 'Aposta 1',
+          stake: parseFloat(bet1Stake.replace(/[^\d.,]/g, '').replace(',', '.')) || 1000,
+          profit: parseFloat(bet1Profit.replace(/[^\d.,]/g, '').replace(',', '.')) || 50,
         },
         bet2: {
-          house: extractedData.bet2?.house || 'Casa 2',
-          odd: parseFloat(extractedData.bet2?.odd) || 2.0,
-          type: extractedData.bet2?.type || 'Aposta 2',
-          stake: parseFloat(extractedData.bet2?.stake) || 1000,
-          profit: parseFloat(extractedData.bet2?.profit) || 50,
+          house: bet2House || 'Casa 2',
+          odd: parseFloat(bet2Odd.replace(',', '.')) || 2.0,
+          type: bet2Type || 'Aposta 2',
+          stake: parseFloat(bet2Stake.replace(/[^\d.,]/g, '').replace(',', '.')) || 1000,
+          profit: parseFloat(bet2Profit.replace(/[^\d.,]/g, '').replace(',', '.')) || 50,
         },
-        profitPercentage: parseFloat(extractedData.profitPercentage) || 2.0,
+        profitPercentage: parseFloat(profitPercentage.replace(/[^\d.,]/g, '').replace(',', '.')) || 2.0,
       };
 
     } catch (error) {
