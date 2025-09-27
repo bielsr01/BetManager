@@ -19,42 +19,51 @@ export class OCRService {
   async processImage(imageBase64: string): Promise<OCRResult> {
     try {
       const prompt = `
-Transcreva os dados da imagem de aposta esportiva seguindo as seguintes regras e formato:
----
-**Regras:**
-1. **Formato de Saída:** A saída deve seguir a ordem e o formato abaixo, sem informações extras.
-2. **Acentos e Símbolos:** Preserve acentos, símbolos e caracteres especiais.
-3. **Separação de Times:** O que separa o Time A do Time B é um traço maior (–).
-4. **Coluna de Chance:** Copie todo o conteúdo da coluna "Chance", independentemente do tamanho do texto. INCLUA todas as palavras como "Tempo Extra" e principalmente números com sobrescrito/elevado como "1¹-²", "2¹-²" que aparecem nesta coluna.
-5. **Lucro%:** No canto superior direito, ignore o ROI e extraia apenas o valor percentual do Lucro.
-6. **Data e Hora:** PRIORIDADE MÁXIMA - procure por datas no CABEÇALHO/TOPO da imagem primeiro. Se houver texto como "Evento em X dias (AAAA-MM-DD HH:mm)" ou similar no cabeçalho, extraia a data COMPLETA de lá. Se não encontrar no cabeçalho, procure no canto superior direito. SEMPRE use o formato completo com ANO de 4 dígitos (ex: 2025-09-29 13:00). NUNCA use apenas 2 dígitos para o ano.
-7. **Liga e Time:** O Time A e a Liga são separados pela primeira barra (/) da linha. Tudo antes da primeira barra é o Time A, e tudo depois é a Liga.
-8. **Casas de Apostas:** ATENÇÃO ESPECIAL - Extraia o nome EXATO das casas de apostas que aparecem na PRIMEIRA COLUNA à esquerda de cada linha de aposta. Não use termos genéricos como "Surebet". Procure por nomes específicos como "VBet (BR)", "Blaze (BR)", "Pinnacle", "Betano", etc.
-9. **Ignorar Informações Extras:** Não inclua informações como "Mostrar comissões", "Use sua própria taxa de câmbio", "Arredondar aposta até", etc.
-10. **Suporte Completo a Caracteres:** Preserve TODOS os acentos (á, é, í, ó, ú, ã, õ, ç, etc.), símbolos matemáticos (≥, ≤, >, <, =, ±, etc.), números em elevado (1¹, 5645³, etc.) e expressões complexas em elevado (1¹-², 2¹-², 3²⁺¹, etc.). Mantenha a formatação exata como aparece na imagem.
-11. **ATENÇÃO ESPECIAL aos Números Elevados:** Se houver expressões como "1¹-²", "2¹-²", "Tempo Extra", ou qualquer número com sobrescrito/elevado, copie EXATAMENTE como está visível. Estes caracteres são ESSENCIAIS e devem ser preservados integralmente.
-12. **Fidelidade Total aos Números:** NÃO corrija, ajuste ou "melhore" nenhum dígito. Se vir "15", escreva "15". Se vir "18", escreva "18". Copie todos os números LITERALMENTE como estão na imagem.
-13. **Fidelidade aos Dados:** Extraia EXATAMENTE os dados que aparecem na imagem enviada. Não use dados de outras apostas ou exemplos. Seja 100% fiel ao conteúdo visual presente.
----
-**Formato de Saída:**
-DATA: [dd/mm/aaaa HH:mm]
-ESPORTE: [Nome do Esporte]
-LIGA: [Nome da Liga]
-Time A: [Nome do Time A]
-Time B: [Nome do Time B]
+IMPORTANTE: Analise APENAS a imagem fornecida e extraia os dados EXATAMENTE como aparecem. NÃO use dados de exemplo, outras apostas ou informações fixas do sistema.
+
+Transcreva os dados da imagem de aposta esportiva seguindo estas regras RIGOROSAMENTE:
+
+**REGRAS DE FIDELIDADE ABSOLUTA:**
+1. **ZERO SUBSTITUIÇÕES:** Se um campo não estiver visível na imagem, deixe-o VAZIO. NUNCA use valores padrão ou exemplos.
+2. **TIPOS DE APOSTA:** Na coluna "Chance" ou equivalente, copie LITERALMENTE cada caractere, símbolo e número. Se vir "1", escreva "1". Se vir "X", escreva "X". Se vir "2", escreva "2". Se vir símbolos como "≥", ">", "≤", copie exatamente. Se vir números elevados como "1¹-²", "2¹-²", preserve TODOS os caracteres especiais.
+3. **CASAS DE APOSTAS:** Procure na PRIMEIRA COLUNA (mais à esquerda) de cada linha de aposta. Extraia o nome COMPLETO e EXATO como aparece: "VBet (BR)", "Blaze (BR)", "Pinnacle", etc.
+4. **ODDS:** Copie os números exatos das odds, preservando vírgulas e pontos como aparecem.
+5. **VALORES MONETÁRIOS:** Extraia apenas os números, ignorando símbolos de moeda (R$, USD, etc.).
+6. **DATA:** Procure no cabeçalho/topo da imagem primeiro. Use o formato completo AAAA-MM-DD HH:MM.
+
+**INSTRUÇÕES ESPECÍFICAS PARA TIPOS:**
+- Olhe atentamente a coluna "Chance", "Mercado", "Bet Type" ou similar
+- Se vir "1" isolado, escreva apenas "1"
+- Se vir "X" isolado, escreva apenas "X" 
+- Se vir "2" isolado, escreva apenas "2"
+- Se vir "1X", escreva "1X"
+- Se vir "12", escreva "12"
+- Se vir "Over 2.5", escreva "Over 2.5"
+- Se vir "Under 2.5", escreva "Under 2.5"
+- Se vir expressões como "1¹-²", preserve EXATAMENTE: "1¹-²"
+- Se vir "H1(0)", escreva "H1(0)"
+- Se vir "H2(0)", escreva "H2(0)"
+- JAMAIS substitua por termos genéricos como "Aposta 1" ou "Aposta 2"
+
+**Formato de Saída (apenas com dados REAIS da imagem):**
+DATA: [AAAA-MM-DD HH:MM]
+ESPORTE: [Nome exato do esporte]
+LIGA: [Nome exato da liga]
+Time A: [Nome exato do time A]
+Time B: [Nome exato do time B]
 APOSTA 1:
-Casa: [Nome da Casa de Apostas]
-Odd: [Valor da Odd]
-Tipo: [Descrição COMPLETA do Tipo de Aposta incluindo expressões elevadas como "1¹-² Tempo Extra" se presentes]
-Stake: [Valor da Aposta]
-Lucro: [Valor do Lucro]
+Casa: [Nome EXATO da casa de apostas da primeira linha]
+Odd: [Valor EXATO da odd]
+Tipo: [Texto EXATO da coluna Chance/Mercado]
+Stake: [Valor EXATO da aposta]
+Lucro: [Valor EXATO do lucro]
 APOSTA 2:
-Casa: [Nome da Casa de Apostas]
-Odd: [Valor da Odd]
-Tipo: [Descrição COMPLETA do Tipo de Aposta incluindo expressões elevadas como "2¹-² Tempo Extra" se presentes]
-Stake: [Valor da Aposta]
-Lucro: [Valor do Lucro]
-Lucro%: [Valor Percentual do Lucro]`;
+Casa: [Nome EXATO da casa de apostas da segunda linha]
+Odd: [Valor EXATO da odd]
+Tipo: [Texto EXATO da coluna Chance/Mercado]
+Stake: [Valor EXATO da aposta]
+Lucro: [Valor EXATO do lucro]
+Lucro%: [Valor EXATO do percentual]`;
 
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
@@ -167,28 +176,51 @@ Lucro%: [Valor Percentual do Lucro]`;
       const bet2Profit = extractValue(aposta2Section, 'Lucro');
       
       
-      // Validate and format the response
+
+      // Process extracted values with 100% fidelity - no fallbacks
+      const processOdd = (oddStr: string): number => {
+        if (!oddStr) return 0;
+        const cleaned = oddStr.replace(',', '.');
+        const parsed = parseFloat(cleaned);
+        return isNaN(parsed) ? 0 : parsed;
+      };
+
+      const processAmount = (amountStr: string): number => {
+        if (!amountStr) return 0;
+        const cleaned = amountStr.replace(/[^\d.,]/g, '').replace(',', '.');
+        const parsed = parseFloat(cleaned);
+        return isNaN(parsed) ? 0 : parsed;
+      };
+
+      const processPercentage = (percentStr: string): number => {
+        if (!percentStr) return 0;
+        const cleaned = percentStr.replace(/[^\d.,]/g, '').replace(',', '.');
+        const parsed = parseFloat(cleaned);
+        return isNaN(parsed) ? 0 : parsed;
+      };
+
+      // Return ONLY extracted data, no fallbacks
       return {
         date: formattedDate || new Date().toISOString().split('T')[0] + 'T12:00',
-        sport: sport || 'Futebol',
-        league: league || 'Liga não especificada',
-        teamA: teamA || 'Time A',
-        teamB: teamB || 'Time B',
+        sport: sport || '',
+        league: league || '',
+        teamA: teamA || '',
+        teamB: teamB || '',
         bet1: {
-          house: bet1House || 'Casa 1',
-          odd: parseFloat(bet1Odd.replace(',', '.')) || 2.0,
-          type: bet1Type || 'Aposta 1',
-          stake: parseFloat(bet1Stake.replace(/[^\d.,]/g, '').replace(',', '.')) || 1000,
-          profit: parseFloat(bet1Profit.replace(/[^\d.,]/g, '').replace(',', '.')) || 50,
+          house: bet1House || '',
+          odd: processOdd(bet1Odd),
+          type: bet1Type || '',  // CRITICAL: No fallback - exact extraction only
+          stake: processAmount(bet1Stake),
+          profit: processAmount(bet1Profit),
         },
         bet2: {
-          house: bet2House || 'Casa 2',
-          odd: parseFloat(bet2Odd.replace(',', '.')) || 2.0,
-          type: bet2Type || 'Aposta 2',
-          stake: parseFloat(bet2Stake.replace(/[^\d.,]/g, '').replace(',', '.')) || 1000,
-          profit: parseFloat(bet2Profit.replace(/[^\d.,]/g, '').replace(',', '.')) || 50,
+          house: bet2House || '',
+          odd: processOdd(bet2Odd),
+          type: bet2Type || '',  // CRITICAL: No fallback - exact extraction only
+          stake: processAmount(bet2Stake),
+          profit: processAmount(bet2Profit),
         },
-        profitPercentage: parseFloat(profitPercentage.replace(/[^\d.,]/g, '').replace(',', '.')) || 2.0,
+        profitPercentage: processPercentage(profitPercentage),
       };
 
     } catch (error) {
