@@ -39,7 +39,7 @@ export default function OCRTest() {
     
     try {
       const formData = new FormData();
-      formData.append('image', file);
+      formData.append('file', file);
       
       const response = await fetch('/api/ocr/process', {
         method: 'POST',
