@@ -9,13 +9,13 @@ import multer from "multer";
 const upload = multer({ 
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
+    fileSize: 50 * 1024 * 1024, // 50MB limit for PDFs
   },
   fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
+    if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
       cb(null, true);
     } else {
-      cb(new Error('Only image files are allowed'));
+      cb(new Error('Only image files and PDF documents are allowed'));
     }
   }
 });
@@ -251,16 +251,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // OCR processing route
-  app.post("/api/ocr/process", upload.single('image'), async (req, res) => {
+  app.post("/api/ocr/process", upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
-        res.status(400).json({ error: "No image file provided" });
+        res.status(400).json({ error: "No file provided" });
         return;
       }
 
-      console.log(`Processing OCR for image: ${req.file.originalname}, size: ${req.file.size} bytes`);
+      const fileType = req.file.mimetype === 'application/pdf' ? 'PDF' : 'Image';
+      console.log(`Processing OCR for ${fileType}: ${req.file.originalname}, size: ${req.file.size} bytes`);
       
-      const ocrResult = await ocrService.processImageFromBuffer(req.file.buffer);
+      const ocrResult = await ocrService.processFileFromBuffer(req.file.buffer, req.file.mimetype);
       
       res.json({
         success: true,

@@ -28,14 +28,14 @@ export function ImageUpload({
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
-    if (file && file.type.startsWith("image/")) {
+    if (file && (file.type.startsWith("image/") || file.type === "application/pdf")) {
       onImageUpload(file);
       
       // Also trigger OCR processing if handlers are provided
       if (onOCRComplete && onOCRError) {
         try {
           const formData = new FormData();
-          formData.append('image', file);
+          formData.append('file', file);
           
           const response = await fetch('/api/ocr/process', {
             method: 'POST',
@@ -51,7 +51,7 @@ export function ImageUpload({
           }
         } catch (error) {
           console.error('OCR processing error:', error);
-          onOCRError('Erro ao processar imagem com OCR');
+          onOCRError('Erro ao processar documento com OCR');
         }
       }
     }
@@ -60,7 +60,8 @@ export function ImageUpload({
   const { getRootProps, getInputProps } = useDropzone({
     onDrop,
     accept: {
-      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp']
+      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'],
+      'application/pdf': ['.pdf']
     },
     multiple: false,
     onDragEnter: () => setIsDragActive(true),
@@ -82,7 +83,7 @@ export function ImageUpload({
           if (onOCRComplete && onOCRError) {
             try {
               const formData = new FormData();
-              formData.append('image', file);
+              formData.append('file', file);
               
               const response = await fetch('/api/ocr/process', {
                 method: 'POST',
@@ -98,7 +99,7 @@ export function ImageUpload({
               }
             } catch (error) {
               console.error('OCR processing error:', error);
-              onOCRError('Erro ao processar imagem com OCR');
+              onOCRError('Erro ao processar documento com OCR');
             }
           }
         }
@@ -172,11 +173,11 @@ export function ImageUpload({
           
           <div className="space-y-2">
             <h3 className="text-lg font-semibold">
-              {isProcessing ? "Processando..." : "Faça upload da imagem"}
+              {isProcessing ? "Processando..." : "Faça upload da imagem ou PDF"}
             </h3>
             
             <div className="text-muted-foreground space-y-1">
-              <p>Arraste e solte uma imagem aqui</p>
+              <p>Arraste e solte uma imagem ou PDF aqui</p>
               <p className="text-sm">ou <span className="text-primary font-medium">clique para selecionar</span></p>
               <p className="text-sm">
                 <kbd className="px-2 py-1 bg-muted rounded text-xs">Ctrl+V</kbd> para colar da área de transferência
@@ -186,7 +187,7 @@ export function ImageUpload({
           
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <FileImage className="h-4 w-4" />
-            <span>PNG, JPG, JPEG, GIF, BMP, WEBP</span>
+            <span>PNG, JPG, JPEG, GIF, BMP, WEBP, PDF</span>
           </div>
         </div>
       </CardContent>
