@@ -430,7 +430,8 @@ def processar_aposta_completa(texto_aposta, casa_aposta):
     Garante 100% de precisão na extração
     """
     # === IDENTIFICAÇÃO DE SÍMBOLOS E DIVISÃO ===
-    simbolo_match = re.search(r'[●○]', texto_aposta)
+    # Busca símbolos na ordem: ●, ○, depois \uf35d (unicode F35D)
+    simbolo_match = re.search(r'[●○\uf35d]', texto_aposta)
     
     if simbolo_match:
         parte_antes_simbolo = texto_aposta[:simbolo_match.start()].strip()
@@ -446,13 +447,15 @@ def processar_aposta_completa(texto_aposta, casa_aposta):
             parte_depois_simbolo = ""
     
     # === EXTRAÇÃO DE ODD ===
-    # Busca odd na parte antes do símbolo
+    # A odd geralmente é o último número decimal antes do símbolo/stake
+    # e está no range típico de 1.0 a 50.0
     numeros_antes = re.findall(r'\d+\.\d+', parte_antes_simbolo)
     odd = None
     
     if numeros_antes:
-        # Filtra por range típico de odds (1.0 a 50.0)
-        for num_str in reversed(numeros_antes):  # Do final para o início
+        # Busca do FIM para o início (último número válido antes do símbolo é a odd)
+        # Isso evita pegar números que fazem parte do tipo (ex: "Acima 1.5")
+        for num_str in reversed(numeros_antes):
             num = float(num_str)
             if 1.0 <= num <= 50.0:
                 odd = num
@@ -501,32 +504,41 @@ def processar_aposta_completa(texto_aposta, casa_aposta):
         if palavra in ['USD', 'BRL']:
             continue
             
-        # Se é um número decimal isolado (não parte de expressão como H1(+1.5))
-        if re.match(r'^\d+\.?\d*$', palavra) and '(' not in palavra:
+        # Remove números negativos (profits negativos como -0.88)
+        if re.match(r'^-?\d+\.?\d*$', palavra):
             num = float(palavra)
             
-            # Remove se for odd, stake ou profit
+            # Remove se for odd, stake ou profit (com tolerância)
             if (odd and abs(num - odd) < 0.01) or (stake and abs(num - stake) < 0.01) or (profit and abs(num - profit) < 0.01):
                 continue
-            elif num > 100:  # Se é um número grande (provavelmente stake)
+            # Remove se for negativo (profit negativo)
+            elif num < 0:
                 continue
+            # MUDANÇA: Só remove números grandes (>100) se não houver palavra-chave antes
+            # Isso preserva "Total ≥180.5", "Acima 180.5", etc.
+            elif num > 100:
+                # Verifica se a palavra anterior é uma palavra-chave de tipo de aposta
+                if i > 0 and not re.search(r'(acima|abaixo|total|over|under|≥|≤|>|<)', palavras[i-1].lower()):
+                    continue  # Remove apenas se não for parte do tipo
         
         palavras_filtradas.append(palavra)
     
     tipo_aposta = ' '.join(palavras_filtradas)
     
     # Limpeza final de símbolos e formatação
-    tipo_aposta = re.sub(r'[●○〉]', '', tipo_aposta)
-    tipo_aposta = re.sub(r'\uf35d', '', tipo_aposta)
-    tipo_aposta = re.sub(r'\s+', ' ', tipo_aposta).strip()
-    tipo_aposta = re.sub(r'[-–]\s*$', '', tipo_aposta).strip()
+    tipo_aposta = re.sub(r'[●○〉]', '', tipo_aposta)  # Remove símbolos visuais
+    tipo_aposta = re.sub(r'\uf35d', '', tipo_aposta)  # Remove unicode F35D
+    tipo_aposta = tipo_aposta.replace('〉', '')  # Remove explicitamente 〉
+    tipo_aposta = re.sub(r'\s+', ' ', tipo_aposta).strip()  # Limpa espaços
+    tipo_aposta = re.sub(r'[-–]\s*$', '', tipo_aposta).strip()  # Remove traços finais
     
     # Remove todos os tokens da casa de apostas (incluindo variantes) do tipo
     casa_lower = casa_aposta.lower()
     
     # Remove palavras da casa de apostas do tipo
     if 'super' in casa_lower:
-        # Remove "Super", "Bet" individualmente
+        # Remove "SuperBet" junto e também "Super", "Bet" individualmente
+        tipo_aposta = re.sub(r'\bSuperBet\b', '', tipo_aposta, flags=re.IGNORECASE)
         tipo_aposta = re.sub(r'\bSuper\b', '', tipo_aposta, flags=re.IGNORECASE)
         tipo_aposta = re.sub(r'\bBet\b', '', tipo_aposta, flags=re.IGNORECASE)
     elif 'stake' in casa_lower:
@@ -543,6 +555,11 @@ def processar_aposta_completa(texto_aposta, casa_aposta):
         tipo_aposta = re.sub(r'\bBravoBet\b', '', tipo_aposta, flags=re.IGNORECASE)
     elif 'betfast' in casa_lower:
         tipo_aposta = re.sub(r'\bBetfast\b', '', tipo_aposta, flags=re.IGNORECASE)
+    elif 'betano' in casa_lower:
+        tipo_aposta = re.sub(r'\bBetano\b', '', tipo_aposta, flags=re.IGNORECASE)
+    elif 'marjo' in casa_lower:
+        tipo_aposta = re.sub(r'\bMarjoSports\b', '', tipo_aposta, flags=re.IGNORECASE)
+        tipo_aposta = re.sub(r'\bMarjo\b', '', tipo_aposta, flags=re.IGNORECASE)
     
     # Limpa espaços extras resultantes da remoção
     tipo_aposta = re.sub(r'\s+', ' ', tipo_aposta).strip()
