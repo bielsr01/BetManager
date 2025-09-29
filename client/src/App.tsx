@@ -22,7 +22,14 @@ function Router() {
       <Route path="/upload" component={UploadPage} />
       <Route path="/test-ocr" component={OCRTestPage} />
       <Route path="/account-holders" component={AccountHoldersPage} />
-      <Route component={NotFound} />
+      <Route path="/dashboard" component={Dashboard} />
+      <Route>
+        {() => {
+          // Redireciona qualquer rota não encontrada para o dashboard
+          window.location.href = '/';
+          return null;
+        }}
+      </Route>
     </Switch>
   );
 }
