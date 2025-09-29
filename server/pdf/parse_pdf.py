@@ -94,8 +94,9 @@ def extrair_dados_pdf(caminho_pdf):
                 # === EXTRAÇÃO DE APOSTAS ===
                 # Identifica casas de apostas conhecidas mais dinamicamente
                 casas_conhecidas = [
-                    'Stake', 'Pinnacle', 'Betano', 'Br4bet', 'Super Bet', 'Betfast', 
-                    'Cassino', 'MultiBet', 'BravoBet', 'Bet365', 'SportingBet'
+                    'Stake', 'Pinnacle', 'Betano', 'Br4bet', 'Betfast', 
+                    'Cassino', 'MultiBet', 'BravoBet', 'Bet365', 'SportingBet',
+                    'Super Bet', 'Super'  # Super Bet pode aparecer separado
                 ]
                 
                 apostas_encontradas = []
@@ -110,6 +111,9 @@ def extrair_dados_pdf(caminho_pdf):
                     for casa in casas_conhecidas:
                         if casa in linha:
                             casa_encontrada = casa
+                            # Se encontrou "Super", verifica se é "Super Bet"
+                            if casa == "Super" and "Super Bet" in linha:
+                                casa_encontrada = "Super Bet"
                             break
                     
                     if casa_encontrada:
@@ -175,82 +179,93 @@ def processar_aposta(texto_aposta, casa_aposta):
     # Remove prefixos comuns como "(BR)"
     texto_sem_casa = re.sub(r'\(BR\)', '', texto_sem_casa).strip()
     
-    # Busca todos os números decimais
-    numeros = re.findall(r'\d+\.\d+', texto_sem_casa)
+    # === IDENTIFICAÇÃO DE SÍMBOLOS E POSIÇÕES ===
+    # Busca símbolos ● ○ para identificar divisão entre tipo+odd e stake+profit
+    simbolo_match = re.search(r'[●○]', texto_aposta)
     
-    # Busca moeda (USD, BRL)
-    moeda_match = re.search(r'(USD|BRL)', texto_aposta)
-    
-    if len(numeros) < 3:  # Precisamos pelo menos: odd, stake, profit
-        return None
+    if simbolo_match:
+        # Divide nos símbolos
+        parte_antes_simbolo = texto_aposta[:simbolo_match.start()].strip()
+        parte_depois_simbolo = texto_aposta[simbolo_match.end():].strip()
+    else:
+        # Se não tem símbolo, usa moeda como divisor
+        moeda_match = re.search(r'(USD|BRL)', texto_aposta)
+        if moeda_match:
+            parte_antes_simbolo = texto_aposta[:moeda_match.start()].strip()
+            parte_depois_simbolo = texto_aposta[moeda_match.start():].strip()
+        else:
+            # Fallback: assume que é tudo uma linha
+            parte_antes_simbolo = texto_aposta
+            parte_depois_simbolo = ""
     
     # === EXTRAÇÃO DE ODD ===
-    # A odd geralmente é o primeiro número antes dos símbolos ● ou ○
+    # A odd é o último número na parte antes do símbolo
+    numeros_antes = re.findall(r'\d+\.\d+', parte_antes_simbolo)
     odd = None
-    for num in numeros:
-        # Verifica se este número está antes de um símbolo ou USD
-        num_float = float(num)
-        if 1.0 <= num_float <= 50.0:  # Range típico de odds
-            odd = num_float
-            break
     
-    if not odd and numeros:
-        odd = float(numeros[0])  # Fallback: primeiro número
+    if numeros_antes:
+        # Filtra números que são tipicamente odds (1.0 a 50.0)
+        odds_candidatas = [float(n) for n in numeros_antes if 1.0 <= float(n) <= 50.0]
+        if odds_candidatas:
+            odd = odds_candidatas[-1]  # Última odd válida na linha
+        else:
+            odd = float(numeros_antes[-1])  # Fallback: último número
     
     # === EXTRAÇÃO DE STAKE E PROFIT ===
-    # Busca números após USD/BRL
     stake = None
     profit = None
     
-    if moeda_match:
-        # Pega texto após a moeda
-        pos_moeda = moeda_match.end()
-        texto_pos_moeda = texto_aposta[pos_moeda:].strip()
-        nums_pos_moeda = re.findall(r'\d+\.\d+', texto_pos_moeda)
-        
-        if len(nums_pos_moeda) >= 1:
-            profit = float(nums_pos_moeda[-1])  # Último número é o lucro
-        
-        # Stake é o número antes da moeda
-        texto_pre_moeda = texto_aposta[:moeda_match.start()].strip()
-        nums_pre_moeda = re.findall(r'\d+\.\d+', texto_pre_moeda)
-        
-        if len(nums_pre_moeda) >= 1:
-            # Stake é o último número antes da moeda (excluindo a odd)
-            for num in reversed(nums_pre_moeda):
-                num_float = float(num)
-                if num_float != odd and num_float > 50:  # Valores típicos de stake
-                    stake = num_float
-                    break
+    # Busca números na parte depois do símbolo/moeda
+    numeros_depois = re.findall(r'\d+\.\d+', parte_depois_simbolo)
+    
+    if len(numeros_depois) >= 2:
+        # Primeiro número é stake, último é profit
+        stake = float(numeros_depois[0])
+        profit = float(numeros_depois[-1])
+    elif len(numeros_depois) == 1:
+        # Se só tem um número, pode ser profit
+        num_val = float(numeros_depois[0])
+        if num_val < 100:  # Provavelmente é profit
+            profit = num_val
+        else:  # Provavelmente é stake
+            stake = num_val
     
     # === EXTRAÇÃO DO TIPO DE APOSTA ===
-    # Remove casa, odd, stake, profit e moeda para deixar só o tipo
-    tipo_aposta = texto_sem_casa
+    # Remove casa da parte antes do símbolo
+    tipo_aposta = parte_antes_simbolo.replace(casa_aposta, '', 1).strip()
+    tipo_aposta = re.sub(r'\(BR\)', '', tipo_aposta).strip()
     
-    # Remove odd
+    # Remove a odd do tipo (com cuidado para não remover números que fazem parte do tipo)
     if odd:
-        tipo_aposta = re.sub(r'\b' + str(odd) + r'\b', '', tipo_aposta)
+        # Remove a odd do final se aparece isolada
+        odd_str = str(odd).rstrip('0').rstrip('.')  # Remove zeros desnecessários
+        if odd == int(odd):
+            odd_str = str(int(odd))  # Remove .0 para números inteiros
+        
+        # Tenta diferentes variações da odd
+        odd_patterns = [
+            str(odd),  # Ex: 5.32
+            str(odd).rstrip('0').rstrip('.'),  # Ex: 5.32 -> 5.32
+            str(int(odd * 10) / 10),  # Ex: 5.320 -> 5.3
+            str(int(odd)) if odd == int(odd) else str(odd)  # Ex: 5.0 -> 5
+        ]
+        
+        for pattern in odd_patterns:
+            if pattern in tipo_aposta:
+                # Remove apenas se está no final da string
+                if tipo_aposta.endswith(' ' + pattern) or tipo_aposta.endswith(pattern):
+                    tipo_aposta = tipo_aposta.replace(pattern, '').strip()
+                    break
     
-    # Remove stake se encontrado
-    if stake:
-        tipo_aposta = re.sub(r'\b' + str(stake) + r'\b', '', tipo_aposta)
-    
-    # Remove profit se encontrado  
-    if profit:
-        tipo_aposta = re.sub(r'\b' + str(profit) + r'\b', '', tipo_aposta)
-    
-    # Remove moedas
-    tipo_aposta = re.sub(r'\b(USD|BRL)\b', '', tipo_aposta)
-    
-    # Remove símbolos ● ○ e caracteres especiais de formatação
+    # Remove símbolos especiais e caracteres de formatação
     tipo_aposta = re.sub(r'[●○〉]', '', tipo_aposta)
-    tipo_aposta = re.sub(r'\uf35d', '', tipo_aposta)  # Remove caracteres especiais
+    tipo_aposta = re.sub(r'\uf35d', '', tipo_aposta)
     
     # Limpa espaços múltiplos e remove hífens finais
     tipo_aposta = re.sub(r'\s+', ' ', tipo_aposta).strip()
     tipo_aposta = re.sub(r'[-–]\s*$', '', tipo_aposta).strip()
     
-    # Remove números isolados no final (restos de stake/profit)
+    # Remove qualquer número decimal isolado no final (limpeza final)
     tipo_aposta = re.sub(r'\s+\d+\.\d+\s*$', '', tipo_aposta).strip()
     
     return {
