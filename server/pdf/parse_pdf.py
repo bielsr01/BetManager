@@ -229,6 +229,19 @@ def processar_aposta(texto_aposta, casa_aposta):
             profit = num_val
         else:  # Provavelmente é stake
             stake = num_val
+    else:
+        # Se não encontrou números depois do símbolo, busca no texto completo
+        # por padrões como "604.71 USD" ou "529.41 USD"
+        stake_pattern = re.search(r'(\d+\.\d+)\s+(USD|BRL)', texto_aposta)
+        if stake_pattern:
+            stake = float(stake_pattern.group(1))
+        
+        # Profit geralmente é o último número da linha
+        all_numbers = re.findall(r'\d+\.\d+', texto_aposta)
+        if all_numbers:
+            candidate_profit = float(all_numbers[-1])
+            if candidate_profit != stake and candidate_profit != odd and candidate_profit < 100:
+                profit = candidate_profit
     
     # === EXTRAÇÃO DO TIPO DE APOSTA ===
     # Remove casa da parte antes do símbolo
@@ -242,20 +255,27 @@ def processar_aposta(texto_aposta, casa_aposta):
         if odd == int(odd):
             odd_str = str(int(odd))  # Remove .0 para números inteiros
         
-        # Tenta diferentes variações da odd
-        odd_patterns = [
-            str(odd),  # Ex: 5.32
-            str(odd).rstrip('0').rstrip('.'),  # Ex: 5.32 -> 5.32
-            str(int(odd * 10) / 10),  # Ex: 5.320 -> 5.3
-            str(int(odd)) if odd == int(odd) else str(odd)  # Ex: 5.0 -> 5
-        ]
+        # Remove variações da odd que aparecem no final do tipo
+        # Converte odd para diferentes formatos possíveis
+        odd_patterns = []
         
+        # Formato exato: 5.32
+        odd_patterns.append(str(odd))
+        
+        # Formato com zeros extras: 5.320
+        if '.' in str(odd):
+            odd_patterns.append(f"{odd:.3f}")
+            
+        # Formato inteiro se for número inteiro: 5.0 -> 5
+        if odd == int(odd):
+            odd_patterns.append(str(int(odd)))
+        
+        # Remove cada padrão encontrado no final
         for pattern in odd_patterns:
-            if pattern in tipo_aposta:
-                # Remove apenas se está no final da string
-                if tipo_aposta.endswith(' ' + pattern) or tipo_aposta.endswith(pattern):
-                    tipo_aposta = tipo_aposta.replace(pattern, '').strip()
-                    break
+            # Remove no final da string
+            tipo_aposta = re.sub(r'\s+' + re.escape(pattern) + r'\s*$', '', tipo_aposta)
+            # Remove se estiver isolado no meio/fim
+            tipo_aposta = re.sub(r'\b' + re.escape(pattern) + r'\b(?=\s*$)', '', tipo_aposta)
     
     # Remove símbolos especiais e caracteres de formatação
     tipo_aposta = re.sub(r'[●○〉]', '', tipo_aposta)
