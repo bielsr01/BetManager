@@ -349,7 +349,7 @@ def detectar_casa_apostas(linha):
         'Sportmarket', 'SportsBet', 'SportsBet (AU)', 'SportyBet', 'SportyBet (BR)', 'Stake', 'Stake (BR)',
         'KTO (BR)', 'Stake (CO)', 'Frumzi', 'FunBet', 'LibraBet', 'MafiaCasino', 'StoneVegas', 'StanleyBet (BE)',
         'StanleyBet (IT)', 'StanleyBet (RO)', 'Admiral (RO)', 'StarCasino (NL)', 'Stoiximan (GR)',
-        'Stoiximan (CY)', 'Stoiximan (GR)', 'STS (PL)', 'SuperBet (BR)', 'SuperBet (PL)', 'SuperBet (RO)',
+        'Stoiximan (CY)', 'Stoiximan (GR)', 'STS (PL)', 'SuperBet (BR)', 'Super Bet (BR)', 'SuperBet (PL)', 'SuperBet (RO)',
         'SuperBet (RS)', 'Surebet247', 'SX Bet', 'SynotTip (LV)', 'SynotTip (CZ)', 'SynotTip (SK)', 'Tab (AU)',
         'TeApuesto (PE)', 'TempoBet', 'Tennisi', 'Tennisi (Bet)', 'Tennisi (KZ)', 'ThunderPickIo (NO)',
         'Tipico', 'Tipico (DE)', 'Tipp3 (AT)', 'TippmixPro (HU)', 'Tipsport (CZ)', 'Chance (CZ)',
@@ -372,8 +372,11 @@ def detectar_casa_apostas(linha):
     linha_lower = linha.lower()
     
     # Detecta casas de apostas no texto
+    # Ordena casas por especificidade (mais específicas primeiro)
+    casas_ordenadas = sorted(casas_sistema, key=lambda x: (-len(x), '(' not in x))
+    
     casas_encontradas = []
-    for casa in casas_sistema:
+    for casa in casas_ordenadas:
         casa_lower_normalized = casa.lower()
         
         # Para casas com parênteses, busca de forma mais flexível
@@ -383,9 +386,18 @@ def detectar_casa_apostas(linha):
                 nome_base, sufixo = casa_lower_normalized.split(' (', 1)
                 sufixo = '(' + sufixo  # Re-adiciona o parêntese
                 
-                # Verifica se o nome base existe e o sufixo também existe na linha
-                if nome_base in linha_lower and sufixo in linha_lower:
-                    return casa
+                # Verifica se os componentes do nome base e sufixo existem na linha
+                # Permite que estejam separados (ex: "Super...Bet (BR)")
+                palavras_base = nome_base.split()
+                todas_palavras_presentes = all(palavra in linha_lower for palavra in palavras_base)
+                sufixo_presente = sufixo in linha_lower
+                
+                if todas_palavras_presentes and sufixo_presente:
+                    # Verifica ordem aproximada: primeira palavra antes do sufixo
+                    pos_primeira = linha_lower.find(palavras_base[0])
+                    pos_sufixo = linha_lower.find(sufixo)
+                    if pos_primeira < pos_sufixo:
+                        return casa
             else:
                 # Se não tem espaço antes do parêntese, usa busca simples
                 if casa_lower_normalized in linha_lower:
