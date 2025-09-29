@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "./status-badge";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, TrendingUp, Users } from "lucide-react";
+import { Calendar, TrendingUp, Users, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface BetData {
@@ -24,10 +24,11 @@ interface SurebetCardProps {
   teamA: string;
   teamB: string;
   profitPercentage: number;
-  status: "pending" | "resolved";
+  status: "pending" | "checked" | "resolved";
   bet1: BetData;
   bet2: BetData;
   onResolve: (betId: string, result: "won" | "lost" | "returned") => void;
+  onStatusChange?: (surebetSetId: string, status: "checked") => void;
   className?: string;
 }
 
@@ -43,9 +44,12 @@ export function BetCard({
   bet1,
   bet2,
   onResolve,
+  onStatusChange,
   className,
 }: SurebetCardProps) {
   const isResolved = status === "resolved";
+  const isChecked = status === "checked";
+  const isPending = status === "pending";
   const totalStake = bet1.stake + bet2.stake;
   let actualProfit = 0;
   
@@ -66,7 +70,25 @@ export function BetCard({
             {teamA} vs {teamB}
           </CardTitle>
           <div className="flex items-center gap-2">
-            <StatusBadge status={isResolved ? "won" : "pending"} />
+            {isPending && onStatusChange && (
+              <Button
+                size="sm"
+                onClick={() => onStatusChange(id, "checked")}
+                className="bg-green-600 hover:bg-green-700 text-white"
+                data-testid={`button-mark-checked-${id}`}
+              >
+                <Check className="w-3 h-3 mr-1" />
+                Conferido
+              </Button>
+            )}
+            {isChecked && (
+              <Badge className="bg-green-600 text-white">
+                <Check className="w-3 h-3 mr-1" />
+                Conferido
+              </Badge>
+            )}
+            {isResolved && <StatusBadge status="won" />}
+            {isPending && !isResolved && !isChecked && <StatusBadge status="pending" />}
             <Badge variant="outline" className="bg-betting-profit text-white">
               <TrendingUp className="w-3 h-3 mr-1" />
               {profitPercentage}%

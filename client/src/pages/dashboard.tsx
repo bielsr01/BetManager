@@ -30,51 +30,127 @@ export default function Dashboard() {
     queryKey: ["/api/surebet-sets"],
   });
 
-  // Mutation for updating bet results
+  // Mutation for updating bet results with optimistic updates
   const updateBetMutation = useMutation({
     mutationFn: async ({ betId, result }: { betId: string; result: "won" | "lost" | "returned" }) => {
       const response = await apiRequest("PUT", `/api/bets/${betId}`, {
         result,
-        actualProfit: result === "won" ? undefined : 0, // Will be calculated based on the result
       });
       return response.json();
     },
-    onSuccess: () => {
+    onMutate: async ({ betId, result }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/surebet-sets"] });
+      
+      // Snapshot previous value
+      const previousData = queryClient.getQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"]);
+      
+      // Optimistically update
+      queryClient.setQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"], (old) => {
+        if (!old) return old;
+        
+        return old.map(set => {
+          const updatedBets = set.bets.map(bet => 
+            bet.id === betId ? { ...bet, result } : bet
+          );
+          
+          // Check if both bets have results
+          const allHaveResults = updatedBets.every(b => b.result !== null);
+          
+          return {
+            ...set,
+            bets: updatedBets,
+            status: allHaveResults ? "resolved" : set.status
+          };
+        });
+      });
+      
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousData) {
+        queryClient.setQueryData(["/api/surebet-sets"], context.previousData);
+      }
+    },
+    onSettled: () => {
+      // Refetch to ensure sync
       queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
     },
   });
 
-  // Transform the data to match the BetCard component format
-  const transformedBets = (surebetSets || []).map((set) => ({
-    id: set.id,
-    eventDate: set.eventDate ? new Date(set.eventDate).toISOString() : new Date().toISOString(),
-    sport: set.sport || "Futebol",
-    league: set.league || "Liga não especificada",
-    teamA: set.teamA || "Time A",
-    teamB: set.teamB || "Time B",
-    profitPercentage: parseFloat(set.profitPercentage || "0"),
-    status: set.status === "resolved" ? "resolved" as const : "pending" as const,
-    bet1: set.bets[0] ? {
-      id: set.bets[0].id,
-      house: set.bets[0].bettingHouse.name,
-      accountHolder: set.bets[0].bettingHouse.accountHolder.name,
-      betType: set.bets[0].betType,
-      odd: parseFloat(set.bets[0].odd),
-      stake: parseFloat(set.bets[0].stake),
-      potentialProfit: parseFloat(set.bets[0].potentialProfit),
-      result: set.bets[0].result as "won" | "lost" | "returned" | undefined,
-    } : null,
-    bet2: set.bets[1] ? {
-      id: set.bets[1].id,
-      house: set.bets[1].bettingHouse.name,
-      accountHolder: set.bets[1].bettingHouse.accountHolder.name,
-      betType: set.bets[1].betType,
-      odd: parseFloat(set.bets[1].odd),
-      stake: parseFloat(set.bets[1].stake),
-      potentialProfit: parseFloat(set.bets[1].potentialProfit),
-      result: set.bets[1].result as "won" | "lost" | "returned" | undefined,
-    } : null,
-  })).filter((bet): bet is NonNullable<typeof bet> & { bet1: NonNullable<typeof bet.bet1>; bet2: NonNullable<typeof bet.bet2> } => bet.bet1 !== null && bet.bet2 !== null);
+  // Transform and filter the data to match the BetCard component format
+  // Sort bets within each set to ensure bet1 comes before bet2 (maintain order)
+  const transformedBets = (surebetSets || [])
+    .map((set) => {
+      // Sort bets by createdAt to maintain consistent order
+      const sortedBets = [...set.bets].sort((a, b) => 
+        new Date(a.createdAt!).getTime() - new Date(b.createdAt!).getTime()
+      );
+      
+      return {
+        id: set.id,
+        eventDate: set.eventDate ? new Date(set.eventDate).toISOString() : new Date().toISOString(),
+        sport: set.sport || "Futebol",
+        league: set.league || "Liga não especificada",
+        teamA: set.teamA || "Time A",
+        teamB: set.teamB || "Time B",
+        profitPercentage: parseFloat(set.profitPercentage || "0"),
+        status: (set.status || "pending") as "pending" | "checked" | "resolved",
+        bet1: sortedBets[0] ? {
+          id: sortedBets[0].id,
+          house: sortedBets[0].bettingHouse.name,
+          accountHolder: sortedBets[0].bettingHouse.accountHolder.name,
+          betType: sortedBets[0].betType,
+          odd: parseFloat(sortedBets[0].odd),
+          stake: parseFloat(sortedBets[0].stake),
+          potentialProfit: parseFloat(sortedBets[0].potentialProfit),
+          result: sortedBets[0].result as "won" | "lost" | "returned" | undefined,
+        } : null,
+        bet2: sortedBets[1] ? {
+          id: sortedBets[1].id,
+          house: sortedBets[1].bettingHouse.name,
+          accountHolder: sortedBets[1].bettingHouse.accountHolder.name,
+          betType: sortedBets[1].betType,
+          odd: parseFloat(sortedBets[1].odd),
+          stake: parseFloat(sortedBets[1].stake),
+          potentialProfit: parseFloat(sortedBets[1].potentialProfit),
+          result: sortedBets[1].result as "won" | "lost" | "returned" | undefined,
+        } : null,
+      };
+    })
+    .filter((bet): bet is NonNullable<typeof bet> & { bet1: NonNullable<typeof bet.bet1>; bet2: NonNullable<typeof bet.bet2> } => bet.bet1 !== null && bet.bet2 !== null)
+    .filter((bet) => {
+      // Apply status filter
+      if (filters.status && bet.status !== filters.status) {
+        return false;
+      }
+      
+      // Apply house filter (check both bets)
+      if (filters.house && bet.bet1.house !== filters.house && bet.bet2.house !== filters.house) {
+        return false;
+      }
+      
+      // Apply date range filter
+      if (filters.startDate) {
+        const betDate = new Date(bet.eventDate);
+        const startDate = new Date(filters.startDate);
+        if (betDate < startDate) {
+          return false;
+        }
+      }
+      
+      if (filters.endDate) {
+        const betDate = new Date(bet.eventDate);
+        const endDate = new Date(filters.endDate);
+        endDate.setHours(23, 59, 59, 999); // Include the entire end date
+        if (betDate > endDate) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
 
   // Calculate stats
   const totalBets = transformedBets.length;
@@ -100,8 +176,44 @@ export default function Dashboard() {
       return acc;
     }, 0);
 
+  // Mutation for updating surebet set status
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ surebetSetId, status }: { surebetSetId: string; status: "checked" }) => {
+      const response = await apiRequest("PATCH", `/api/surebet-sets/${surebetSetId}/status`, {
+        status,
+      });
+      return response.json();
+    },
+    onMutate: async ({ surebetSetId, status }) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/surebet-sets"] });
+      
+      const previousData = queryClient.getQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"]);
+      
+      queryClient.setQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"], (old) => {
+        if (!old) return old;
+        return old.map(set => 
+          set.id === surebetSetId ? { ...set, status } : set
+        );
+      });
+      
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(["/api/surebet-sets"], context.previousData);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
+    },
+  });
+
   const handleResolve = (betId: string, result: "won" | "lost" | "returned") => {
     updateBetMutation.mutate({ betId, result });
+  };
+
+  const handleStatusChange = (surebetSetId: string, status: "checked") => {
+    updateStatusMutation.mutate({ surebetSetId, status });
   };
 
   const handleFiltersChange = (newFilters: FilterValues) => {
@@ -129,7 +241,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total de Apostas</CardTitle>
@@ -170,21 +282,6 @@ export default function Dashboard() {
             </div>
             <p className="text-xs text-muted-foreground">
               Lucro de apostas resolvidas
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">ROI Médio</CardTitle>
-            <TrendingDown className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-betting-profit" data-testid="stat-avg-roi">
-              {resolvedBets > 0 ? ((totalProfit / totalInvested) * 100).toFixed(2) : "0.00"}%
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Retorno sobre investimento
             </p>
           </CardContent>
         </Card>
@@ -235,6 +332,7 @@ export default function Dashboard() {
                 key={bet.id}
                 {...bet}
                 onResolve={handleResolve}
+                onStatusChange={handleStatusChange}
               />
             ))}
           </div>

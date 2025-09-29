@@ -1,6 +1,9 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
+import { bets } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { PdfPlumberService } from "./pdf-plumber-service";
 import { insertAccountHolderSchema, insertBettingHouseSchema, insertSurebetSetSchema, insertBetSchema } from "@shared/schema";
 import { z } from "zod";
@@ -235,9 +238,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/bets/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const data = insertBetSchema.partial().parse(req.body);
-      const bet = await storage.updateBet(id, data);
-      res.json(bet);
+      const updateData = insertBetSchema.partial().parse(req.body);
+      
+      // Calculate actualProfit based on result
+      if (updateData.result) {
+        const currentBet = await db.select().from(bets).where(eq(bets.id, id)).limit(1);
+        if (currentBet.length === 0) {
+          res.status(404).json({ error: "Bet not found" });
+          return;
+        }
+        
+        const bet = currentBet[0];
+        if (updateData.result === "won") {
+          updateData.actualProfit = String(bet.potentialProfit);
+        } else if (updateData.result === "lost") {
+          updateData.actualProfit = String(-parseFloat(String(bet.stake)));
+        } else if (updateData.result === "returned") {
+          updateData.actualProfit = "0";
+        }
+      }
+      
+      const updatedBet = await storage.updateBet(id, updateData);
+      
+      // Check if both bets in the surebet set have results
+      if (updatedBet.surebetSetId && updateData.result) {
+        const allBets = await db.select().from(bets).where(eq(bets.surebetSetId, updatedBet.surebetSetId));
+        const allHaveResults = allBets.every(b => b.result !== null);
+        
+        if (allHaveResults) {
+          // Update surebet set status to resolved
+          await storage.updateSurebetSet(updatedBet.surebetSetId, { status: "resolved" });
+        }
+      }
+      
+      res.json(updatedBet);
     } catch (error) {
       console.error("Error updating bet:", error);
       if (error instanceof z.ZodError) {
@@ -247,6 +281,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         res.status(500).json({ error: "Failed to update bet" });
       }
+    }
+  });
+
+  // Update surebet set status
+  app.patch("/api/surebet-sets/:id/status", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = z.object({ status: z.enum(["pending", "checked", "resolved"]) }).parse(req.body);
+      
+      const updatedSet = await storage.updateSurebetSet(id, { status });
+      res.json(updatedSet);
+    } catch (error: any) {
+      console.error("Error updating surebet set status:", error);
+      res.status(400).json({ error: error.message || "Invalid request data" });
     }
   });
 

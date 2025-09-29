@@ -2,13 +2,11 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DatePickerWithRange } from "@/components/ui/date-range-picker";
+import { Input } from "@/components/ui/input";
 import { Filter, X, Search } from "lucide-react";
-import { DateRange } from "react-day-picker";
-import type { BettingHouse, SurebetSetWithBets } from "@shared/schema";
+import type { BettingHouse } from "@shared/schema";
 
 interface BetFiltersProps {
   onFiltersChange: (filters: FilterValues) => void;
@@ -17,45 +15,36 @@ interface BetFiltersProps {
 
 interface FilterValues {
   status?: string;
-  minStake?: number;
-  maxStake?: number;
-  minProfit?: number;
-  maxProfit?: number;
-  dateRange?: DateRange;
-  sport?: string;
-  league?: string;
   house?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 export function BetFilters({ onFiltersChange, className }: BetFiltersProps) {
   const [filters, setFilters] = useState<FilterValues>({});
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [tempFilters, setTempFilters] = useState<FilterValues>({});
 
   // Load betting houses from API
   const { data: bettingHouses = [] } = useQuery<BettingHouse[]>({
     queryKey: ["/api/betting-houses"],
   });
 
-  // Load surebet sets to extract unique sports
-  const { data: surebetSets = [] } = useQuery<SurebetSetWithBets[]>({
-    queryKey: ["/api/surebet-sets"],
-  });
-
-  // Extract unique sports and houses from data
-  const uniqueSports = Array.from(new Set(surebetSets.map(set => set.sport).filter(Boolean)));
+  // Extract unique houses from data
   const uniqueHouseNames = Array.from(new Set(bettingHouses.map(house => house.name)));
 
-  const handleFilterChange = (key: keyof FilterValues, value: any) => {
-    const newFilters = { ...filters, [key]: value === 'all' ? undefined : value };
-    setFilters(newFilters);
-    onFiltersChange(newFilters);
-    console.log("Filters changed:", newFilters);
+  const handleTempFilterChange = (key: keyof FilterValues, value: any) => {
+    setTempFilters({ ...tempFilters, [key]: value === 'all' ? undefined : value });
+  };
+
+  const applyFilters = () => {
+    setFilters(tempFilters);
+    onFiltersChange(tempFilters);
   };
 
   const clearFilters = () => {
     setFilters({});
+    setTempFilters({});
     onFiltersChange({});
-    console.log("Filters cleared");
   };
 
   const hasActiveFilters = Object.values(filters).some(value => 
@@ -82,26 +71,17 @@ export function BetFilters({ onFiltersChange, className }: BetFiltersProps) {
                 Limpar
               </Button>
             )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsExpanded(!isExpanded)}
-              data-testid="button-toggle-filters"
-            >
-              {isExpanded ? "Recolher" : "Expandir"}
-            </Button>
           </div>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Quick Filters - Always Visible */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label htmlFor="status-filter">Status</Label>
             <Select 
-              value={filters.status || ""} 
-              onValueChange={(value) => handleFilterChange("status", value || undefined)}
+              value={tempFilters.status || ""} 
+              onValueChange={(value) => handleTempFilterChange("status", value || undefined)}
             >
               <SelectTrigger id="status-filter" data-testid="select-status-filter">
                 <SelectValue placeholder="Todos os status" />
@@ -115,30 +95,10 @@ export function BetFilters({ onFiltersChange, className }: BetFiltersProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="sport-filter">Esporte</Label>
-            <Select 
-              value={filters.sport || ""} 
-              onValueChange={(value) => handleFilterChange("sport", value || undefined)}
-            >
-              <SelectTrigger id="sport-filter" data-testid="select-sport-filter">
-                <SelectValue placeholder="Todos os esportes" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os esportes</SelectItem>
-                {uniqueSports.map((sport) => (
-                  <SelectItem key={sport} value={sport}>
-                    {sport}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="house-filter">Casa de Apostas</Label>
             <Select 
-              value={filters.house || ""} 
-              onValueChange={(value) => handleFilterChange("house", value || undefined)}
+              value={tempFilters.house || ""} 
+              onValueChange={(value) => handleTempFilterChange("house", value || undefined)}
             >
               <SelectTrigger id="house-filter" data-testid="select-house-filter">
                 <SelectValue placeholder="Todas as casas" />
@@ -153,77 +113,38 @@ export function BetFilters({ onFiltersChange, className }: BetFiltersProps) {
               </SelectContent>
             </Select>
           </div>
-        </div>
 
-        {/* Advanced Filters - Collapsible */}
-        {isExpanded && (
-          <div className="space-y-4 pt-4 border-t">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Período</Label>
-                <DatePickerWithRange
-                  selected={filters.dateRange}
-                  onSelect={(range) => handleFilterChange("dateRange", range)}
-                  placeholder="Selecionar período"
-                  data-testid="date-range-filter"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="league-filter">Liga</Label>
-                <Input
-                  id="league-filter"
-                  placeholder="Filtrar por liga..."
-                  value={filters.league || ""}
-                  onChange={(e) => handleFilterChange("league", e.target.value || undefined)}
-                  data-testid="input-league-filter"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Valor da Aposta (R$)</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    placeholder="Mínimo"
-                    value={filters.minStake || ""}
-                    onChange={(e) => handleFilterChange("minStake", e.target.value ? Number(e.target.value) : undefined)}
-                    data-testid="input-min-stake"
-                  />
-                  <Input
-                    type="number"
-                    placeholder="Máximo"
-                    value={filters.maxStake || ""}
-                    onChange={(e) => handleFilterChange("maxStake", e.target.value ? Number(e.target.value) : undefined)}
-                    data-testid="input-max-stake"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Lucro Potencial (R$)</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    placeholder="Mínimo"
-                    value={filters.minProfit || ""}
-                    onChange={(e) => handleFilterChange("minProfit", e.target.value ? Number(e.target.value) : undefined)}
-                    data-testid="input-min-profit"
-                  />
-                  <Input
-                    type="number"
-                    placeholder="Máximo"
-                    value={filters.maxProfit || ""}
-                    onChange={(e) => handleFilterChange("maxProfit", e.target.value ? Number(e.target.value) : undefined)}
-                    data-testid="input-max-profit"
-                  />
-                </div>
-              </div>
+          <div className="space-y-2">
+            <Label>Período de Data</Label>
+            <div className="flex gap-2">
+              <Input
+                type="date"
+                value={tempFilters.startDate || ""}
+                onChange={(e) => handleTempFilterChange("startDate", e.target.value || undefined)}
+                data-testid="input-start-date"
+                placeholder="Data inicial"
+              />
+              <Input
+                type="date"
+                value={tempFilters.endDate || ""}
+                onChange={(e) => handleTempFilterChange("endDate", e.target.value || undefined)}
+                data-testid="input-end-date"
+                placeholder="Data final"
+              />
             </div>
           </div>
-        )}
+        </div>
+
+        <div className="flex justify-end">
+          <Button
+            onClick={applyFilters}
+            data-testid="button-apply-filters"
+            className="w-full md:w-auto"
+          >
+            <Search className="h-4 w-4 mr-2" />
+            Aplicar Filtros
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
