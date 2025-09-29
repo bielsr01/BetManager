@@ -429,10 +429,22 @@ def processar_aposta_completa(texto_aposta, casa_aposta):
     tokens_casa = []
     casa_lower = casa_aposta.lower()
     
+    # Mapeamento de variantes conhecidas
     if 'super' in casa_lower:
         tokens_casa.extend(['super', 'super bet', 'superbet'])
+    elif 'kto' in casa_lower:
+        tokens_casa.extend(['kto', 'kto (br)'])
+    elif 'blaze' in casa_lower:
+        tokens_casa.extend(['blaze', 'blaze (br)'])
+    elif 'stake' in casa_lower:
+        tokens_casa.extend(['stake', 'stake (br)'])
+    elif 'pinnacle' in casa_lower:
+        tokens_casa.extend(['pinnacle', 'pinnacle (br)'])
     else:
+        # Para outras casas, adiciona a casa principal e variante com (BR) se não tiver
         tokens_casa.append(casa_lower)
+        if '(br)' not in casa_lower and not casa_lower.endswith(')'):
+            tokens_casa.append(casa_lower + ' (br)')
     
     # Remove cada token da casa do tipo
     for token in tokens_casa:
