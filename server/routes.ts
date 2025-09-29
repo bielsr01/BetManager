@@ -242,6 +242,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const updatedBet = await storage.updateBet(id, updateData);
       
+      // If odd or stake is updated, recalculate profit potential for both bets
+      if (updatedBet.surebetSetId && (updateData.odd !== undefined || updateData.stake !== undefined)) {
+        const allBets = await db.select().from(bets).where(eq(bets.surebetSetId, updatedBet.surebetSetId));
+        
+        if (allBets.length === 2) {
+          const bet1 = allBets[0];
+          const bet2 = allBets[1];
+          
+          // Calculate profit potential: (stake1 × odd1) - stake1 - stake2
+          const profitPotential1 = (parseFloat(String(bet1.stake)) * parseFloat(String(bet1.odd))) - parseFloat(String(bet1.stake)) - parseFloat(String(bet2.stake));
+          const profitPotential2 = (parseFloat(String(bet2.stake)) * parseFloat(String(bet2.odd))) - parseFloat(String(bet2.stake)) - parseFloat(String(bet1.stake));
+          
+          // Update both bets with recalculated profit potential
+          await storage.updateBet(bet1.id, { potentialProfit: String(profitPotential1) });
+          await storage.updateBet(bet2.id, { potentialProfit: String(profitPotential2) });
+        }
+      }
+      
       // Check if both bets in the surebet set have results and calculate actual profit
       if (updatedBet.surebetSetId && updateData.result) {
         const allBets = await db.select().from(bets).where(eq(bets.surebetSetId, updatedBet.surebetSetId));
@@ -261,6 +279,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             actualProfit = (parseFloat(String(bet1.stake)) * parseFloat(String(bet1.odd))) - parseFloat(String(bet1.stake)) + parseFloat(String(bet2.stake));
           } else if (bet2.result === "won" && bet1.result === "returned") {
             actualProfit = (parseFloat(String(bet2.stake)) * parseFloat(String(bet2.odd))) - parseFloat(String(bet2.stake)) + parseFloat(String(bet1.stake));
+          } else if (bet1.result === "lost" && bet2.result === "returned") {
+            actualProfit = -parseFloat(String(bet1.stake)) + parseFloat(String(bet2.stake));
+          } else if (bet2.result === "lost" && bet1.result === "returned") {
+            actualProfit = -parseFloat(String(bet2.stake)) + parseFloat(String(bet1.stake));
+          } else if (bet1.result === "won" && bet2.result === "won") {
+            actualProfit = (parseFloat(String(bet1.stake)) * parseFloat(String(bet1.odd)) + parseFloat(String(bet2.stake)) * parseFloat(String(bet2.odd))) - (parseFloat(String(bet1.stake)) + parseFloat(String(bet2.stake)));
           } else if (bet1.result === "lost" && bet2.result === "lost") {
             actualProfit = -(parseFloat(String(bet1.stake)) + parseFloat(String(bet2.stake)));
           } else if (bet1.result === "returned" && bet2.result === "returned") {

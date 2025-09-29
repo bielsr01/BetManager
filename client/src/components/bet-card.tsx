@@ -75,6 +75,15 @@ export function BetCard({
     } else if (bet2.result === "won" && bet1.result === "returned") {
       // Win/Return: (winning_stake × odd) - winning_stake + returned_stake
       actualProfit = (bet2.stake * bet2.odd) - bet2.stake + bet1.stake;
+    } else if (bet1.result === "lost" && bet2.result === "returned") {
+      // Loss/Return: -lost_stake + returned_stake
+      actualProfit = -bet1.stake + bet2.stake;
+    } else if (bet2.result === "lost" && bet1.result === "returned") {
+      // Loss/Return: -lost_stake + returned_stake
+      actualProfit = -bet2.stake + bet1.stake;
+    } else if (bet1.result === "won" && bet2.result === "won") {
+      // Both won: (return1 + return2) - (stake1 + stake2)
+      actualProfit = (bet1.stake * bet1.odd + bet2.stake * bet2.odd) - (bet1.stake + bet2.stake);
     } else if (bet1.result === "lost" && bet2.result === "lost") {
       // Loss/Loss: negative value (lost both stakes)
       actualProfit = -(bet1.stake + bet2.stake);
@@ -88,9 +97,46 @@ export function BetCard({
     <Card className={cn("hover-elevate", className)} data-testid={`card-surebet-${id}`}>
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-semibold">
-            {teamA} vs {teamB}
-          </CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-lg font-semibold">
+              {teamA} vs {teamB}
+            </CardTitle>
+            {onEdit && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onEdit(id)}
+                data-testid={`button-edit-${id}`}
+              >
+                <Edit className="w-3 h-3" />
+              </Button>
+            )}
+            {onDelete && (
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => onDelete(id)}
+                data-testid={`button-delete-${id}`}
+              >
+                <Trash2 className="w-3 h-3" />
+              </Button>
+            )}
+            {onReset && (bet1.result || bet2.result) && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onReset(id)}
+                disabled={isResetting}
+                data-testid={`button-reset-${id}`}
+              >
+                {isResetting ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <RotateCcw className="w-3 h-3" />
+                )}
+              </Button>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             {isPending && onStatusChange && (
               <Button
@@ -125,41 +171,6 @@ export function BetCard({
               <TrendingUp className="w-3 h-3 mr-1" />
               {profitPercentage}%
             </Badge>
-            {onReset && (bet1.result || bet2.result) && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onReset(id)}
-                disabled={isResetting}
-                data-testid={`button-reset-${id}`}
-              >
-                {isResetting ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                ) : (
-                  <RotateCcw className="w-3 h-3" />
-                )}
-              </Button>
-            )}
-            {onEdit && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onEdit(id)}
-                data-testid={`button-edit-${id}`}
-              >
-                <Edit className="w-3 h-3" />
-              </Button>
-            )}
-            {onDelete && (
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => onDelete(id)}
-                data-testid={`button-delete-${id}`}
-              >
-                <Trash2 className="w-3 h-3" />
-              </Button>
-            )}
           </div>
         </div>
         
@@ -186,7 +197,7 @@ export function BetCard({
             {bet1.result && <StatusBadge status={bet1.result} />}
           </div>
           
-          <div className="grid grid-cols-4 gap-2 text-sm">
+          <div className="grid grid-cols-5 gap-2 text-sm">
             <div>
               <span className="text-muted-foreground">Tipo</span>
               <p className="font-medium">{bet1.betType}</p>
@@ -198,6 +209,10 @@ export function BetCard({
             <div>
               <span className="text-muted-foreground">Stake</span>
               <p className="font-medium">R$ {bet1.stake.toFixed(2)}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Retorno</span>
+              <p className="font-medium">R$ {(bet1.odd * bet1.stake).toFixed(2)}</p>
             </div>
             <div>
               <span className="text-muted-foreground">Lucro Pot.</span>
@@ -248,7 +263,7 @@ export function BetCard({
             {bet2.result && <StatusBadge status={bet2.result} />}
           </div>
           
-          <div className="grid grid-cols-4 gap-2 text-sm">
+          <div className="grid grid-cols-5 gap-2 text-sm">
             <div>
               <span className="text-muted-foreground">Tipo</span>
               <p className="font-medium">{bet2.betType}</p>
@@ -260,6 +275,10 @@ export function BetCard({
             <div>
               <span className="text-muted-foreground">Stake</span>
               <p className="font-medium">R$ {bet2.stake.toFixed(2)}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Retorno</span>
+              <p className="font-medium">R$ {(bet2.odd * bet2.stake).toFixed(2)}</p>
             </div>
             <div>
               <span className="text-muted-foreground">Lucro Pot.</span>

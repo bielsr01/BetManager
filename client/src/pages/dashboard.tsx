@@ -184,6 +184,12 @@ export default function Dashboard() {
         profit = (bet1.stake * bet1.odd) - bet1.stake + bet2.stake;
       } else if (bet2.result === "won" && bet1.result === "returned") {
         profit = (bet2.stake * bet2.odd) - bet2.stake + bet1.stake;
+      } else if (bet1.result === "lost" && bet2.result === "returned") {
+        profit = -bet1.stake + bet2.stake;
+      } else if (bet2.result === "lost" && bet1.result === "returned") {
+        profit = -bet2.stake + bet1.stake;
+      } else if (bet1.result === "won" && bet2.result === "won") {
+        profit = (bet1.stake * bet1.odd + bet2.stake * bet2.odd) - (bet1.stake + bet2.stake);
       } else if (bet1.result === "lost" && bet2.result === "lost") {
         profit = -(bet1.stake + bet2.stake);
       } else if (bet1.result === "returned" && bet2.result === "returned") {
