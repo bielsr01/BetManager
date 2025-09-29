@@ -5,6 +5,29 @@ import pdfplumber
 import re
 from datetime import datetime
 
+def preprocessar_linhas_quebradas(texto):
+    """
+    Junta linhas que foram quebradas, especialmente (BR) separado
+    """
+    lines = texto.split('\n')
+    lines_processadas = []
+    
+    i = 0
+    while i < len(lines):
+        linha_atual = lines[i].strip()
+        
+        # Se a próxima linha é apenas "(BR)" ou similar, junta com a atual
+        if (i + 1 < len(lines) and 
+            lines[i + 1].strip() in ['(BR)', '(CO)', '(PT)', '(RO)', '(BE)', '(MX)', '(UK)', '(ZA)', '(SE)']):
+            linha_juntada = linha_atual + ' ' + lines[i + 1].strip()
+            lines_processadas.append(linha_juntada)
+            i += 2  # Pula a próxima linha que já foi processada
+        else:
+            lines_processadas.append(linha_atual)
+            i += 1
+    
+    return '\n'.join(lines_processadas)
+
 def extrair_dados_pdf(caminho_pdf):
     """
     Extrai dados estruturados de um PDF de surebet usando pdfplumber
@@ -41,8 +64,11 @@ def extrair_dados_pdf(caminho_pdf):
                 if not texto:
                     continue
                 
+                # Pré-processa para juntar linhas quebradas (como BravoBet + (BR))
+                texto_preprocessado = preprocessar_linhas_quebradas(texto)
+                
                 # Divide em linhas e limpa
-                linhas = [linha.strip() for linha in texto.split('\n') if linha.strip()]
+                linhas = [linha.strip() for linha in texto_preprocessado.split('\n') if linha.strip()]
                 
                 # === EXTRAÇÃO DE DATA/HORA ===
                 for linha in linhas:
