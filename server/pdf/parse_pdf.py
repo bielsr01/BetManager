@@ -312,12 +312,17 @@ def detectar_casa_apostas(linha):
     # Detecta casas de apostas no texto
     casas_encontradas = []
     for casa in casas_sistema:
-        # Cria padrão flexível para detectar a casa
-        casa_pattern = re.escape(casa.lower()).replace(r'\ ', r'\s*')
+        casa_lower_normalized = casa.lower()
         
-        # Busca pela casa no texto (case insensitive, espaços flexíveis)
-        if re.search(r'\b' + casa_pattern + r'\b', linha_lower):
-            return casa
+        # Para casas com parênteses, usa busca simples sem word boundaries
+        if '(' in casa_lower_normalized:
+            if casa_lower_normalized in linha_lower:
+                return casa
+        else:
+            # Para casas sem parênteses, usa word boundaries para precisão
+            casa_pattern = re.escape(casa_lower_normalized).replace(r'\ ', r'\s*')
+            if re.search(r'\b' + casa_pattern + r'\b', linha_lower):
+                return casa
     
     # Se não encontrou casa conhecida, tenta detecção dinâmica 
     # Busca por padrão: palavra capitalizada seguida de dados de aposta
