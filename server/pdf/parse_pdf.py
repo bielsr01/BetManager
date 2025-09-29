@@ -340,10 +340,20 @@ def detectar_casa_apostas(linha):
     for casa in casas_sistema:
         casa_lower_normalized = casa.lower()
         
-        # Para casas com parênteses, usa busca simples sem word boundaries
+        # Para casas com parênteses, busca de forma mais flexível
         if '(' in casa_lower_normalized:
-            if casa_lower_normalized in linha_lower:
-                return casa
+            # Quebra a casa em nome base + sufixo
+            if ' (' in casa_lower_normalized:
+                nome_base, sufixo = casa_lower_normalized.split(' (', 1)
+                sufixo = '(' + sufixo  # Re-adiciona o parêntese
+                
+                # Verifica se o nome base existe e o sufixo também existe na linha
+                if nome_base in linha_lower and sufixo in linha_lower:
+                    return casa
+            else:
+                # Se não tem espaço antes do parêntese, usa busca simples
+                if casa_lower_normalized in linha_lower:
+                    return casa
         else:
             # Para casas sem parênteses, usa word boundaries para precisão
             casa_pattern = re.escape(casa_lower_normalized).replace(r'\ ', r'\s*')
