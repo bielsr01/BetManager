@@ -111,16 +111,6 @@ export function BetCard({
                 <Edit className="w-3 h-3" />
               </Button>
             )}
-            {onDelete && (
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => onDelete(id)}
-                data-testid={`button-delete-${id}`}
-              >
-                <Trash2 className="w-3 h-3" />
-              </Button>
-            )}
             {onReset && (bet1.result || bet2.result) && (
               <Button
                 size="sm"
@@ -134,6 +124,16 @@ export function BetCard({
                 ) : (
                   <RotateCcw className="w-3 h-3" />
                 )}
+              </Button>
+            )}
+            {onDelete && (
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => onDelete(id)}
+                data-testid={`button-delete-${id}`}
+              >
+                <Trash2 className="w-3 h-3" />
               </Button>
             )}
           </div>
