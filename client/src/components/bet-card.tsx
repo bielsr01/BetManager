@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "./status-badge";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, TrendingUp, Users, Check, Edit, Trash2, RotateCcw } from "lucide-react";
+import { Calendar, TrendingUp, Users, Check, Edit, Trash2, RotateCcw, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface BetData {
@@ -32,6 +32,7 @@ interface SurebetCardProps {
   onReset?: (surebetSetId: string) => void;
   onEdit?: (surebetSetId: string) => void;
   onDelete?: (surebetSetId: string) => void;
+  isResetting?: boolean;
   className?: string;
 }
 
@@ -51,6 +52,7 @@ export function BetCard({
   onReset,
   onEdit,
   onDelete,
+  isResetting,
   className,
 }: SurebetCardProps) {
   const isResolved = status === "resolved";
@@ -128,9 +130,14 @@ export function BetCard({
                 size="sm"
                 variant="outline"
                 onClick={() => onReset(id)}
+                disabled={isResetting}
                 data-testid={`button-reset-${id}`}
               >
-                <RotateCcw className="w-3 h-3" />
+                {isResetting ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <RotateCcw className="w-3 h-3" />
+                )}
               </Button>
             )}
             {onEdit && (

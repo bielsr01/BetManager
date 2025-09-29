@@ -5,6 +5,9 @@ import { BetFilters } from "@/components/bet-filters";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Plus, TrendingUp, TrendingDown, Clock, DollarSign, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -26,6 +29,7 @@ interface FilterValues {
 
 export default function Dashboard() {
   const [filters, setFilters] = useState<FilterValues>({});
+  const [editingBet, setEditingBet] = useState<any>(null);
 
   // Load surebet sets from the API
   const { data: surebetSets = [], isLoading, error } = useQuery<SurebetSetWithBets[]>({
@@ -250,9 +254,74 @@ export default function Dashboard() {
   });
 
   const handleEdit = (surebetSetId: string) => {
-    // TODO: Navigate to edit page
-    console.log("Edit surebet set:", surebetSetId);
+    const bet = transformedBets.find(b => b.id === surebetSetId);
+    if (bet) {
+      setEditingBet({
+        id: bet.id,
+        eventDate: bet.eventDate.split('T')[0],
+        sport: bet.sport,
+        league: bet.league,
+        teamA: bet.teamA,
+        teamB: bet.teamB,
+        profitPercentage: bet.profitPercentage,
+        bet1: {
+          id: bet.bet1.id,
+          house: bet.bet1.house,
+          accountHolder: bet.bet1.accountHolder,
+          betType: bet.bet1.betType,
+          odd: bet.bet1.odd,
+          stake: bet.bet1.stake,
+        },
+        bet2: {
+          id: bet.bet2.id,
+          house: bet.bet2.house,
+          accountHolder: bet.bet2.accountHolder,
+          betType: bet.bet2.betType,
+          odd: bet.bet2.odd,
+          stake: bet.bet2.stake,
+        },
+      });
+    }
   };
+
+  const handleSaveEdit = () => {
+    if (!editingBet) return;
+    
+    updateSurebetMutation.mutate(editingBet);
+  };
+
+  // Update surebet mutation
+  const updateSurebetMutation = useMutation({
+    mutationFn: async (data: any) => {
+      // Update surebet set
+      await apiRequest("PUT", `/api/surebet-sets/${data.id}`, {
+        eventDate: data.eventDate,
+        sport: data.sport,
+        league: data.league,
+        teamA: data.teamA,
+        teamB: data.teamB,
+        profitPercentage: String(data.profitPercentage),
+      });
+      
+      // Update bet 1
+      await apiRequest("PUT", `/api/bets/${data.bet1.id}`, {
+        betType: data.bet1.betType,
+        odd: String(data.bet1.odd),
+        stake: String(data.bet1.stake),
+      });
+      
+      // Update bet 2
+      await apiRequest("PUT", `/api/bets/${data.bet2.id}`, {
+        betType: data.bet2.betType,
+        odd: String(data.bet2.odd),
+        stake: String(data.bet2.stake),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
+      setEditingBet(null);
+    },
+  });
 
   const handleDelete = (surebetSetId: string) => {
     if (confirm("Tem certeza que deseja deletar esta aposta?")) {
@@ -402,6 +471,7 @@ export default function Dashboard() {
                 onReset={handleReset}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
+                isResetting={resetMutation.isPending && resetMutation.variables === bet.id}
               />
             ))}
           </div>
@@ -423,6 +493,169 @@ export default function Dashboard() {
           </Card>
         )}
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editingBet} onOpenChange={(open) => !open && setEditingBet(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Aposta Surebet</DialogTitle>
+          </DialogHeader>
+          
+          {editingBet && (
+            <div className="space-y-6">
+              {/* Event Details */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg">Detalhes do Evento</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Data do Evento</Label>
+                    <Input
+                      type="date"
+                      value={editingBet.eventDate}
+                      onChange={(e) => setEditingBet({ ...editingBet, eventDate: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label>Esporte</Label>
+                    <Input
+                      value={editingBet.sport}
+                      onChange={(e) => setEditingBet({ ...editingBet, sport: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label>Liga</Label>
+                    <Input
+                      value={editingBet.league}
+                      onChange={(e) => setEditingBet({ ...editingBet, league: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label>Lucro (%)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={editingBet.profitPercentage}
+                      onChange={(e) => setEditingBet({ ...editingBet, profitPercentage: parseFloat(e.target.value) })}
+                    />
+                  </div>
+                  <div>
+                    <Label>Time A</Label>
+                    <Input
+                      value={editingBet.teamA}
+                      onChange={(e) => setEditingBet({ ...editingBet, teamA: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label>Time B</Label>
+                    <Input
+                      value={editingBet.teamB}
+                      onChange={(e) => setEditingBet({ ...editingBet, teamB: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Bet 1 */}
+              <div className="space-y-4 p-4 border rounded-lg">
+                <h3 className="font-semibold text-lg">Aposta 1 - {editingBet.bet1.house}</h3>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label>Tipo de Aposta</Label>
+                    <Input
+                      value={editingBet.bet1.betType}
+                      onChange={(e) => setEditingBet({ 
+                        ...editingBet, 
+                        bet1: { ...editingBet.bet1, betType: e.target.value }
+                      })}
+                    />
+                  </div>
+                  <div>
+                    <Label>Odd</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={editingBet.bet1.odd}
+                      onChange={(e) => setEditingBet({ 
+                        ...editingBet, 
+                        bet1: { ...editingBet.bet1, odd: parseFloat(e.target.value) }
+                      })}
+                    />
+                  </div>
+                  <div>
+                    <Label>Stake (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={editingBet.bet1.stake}
+                      onChange={(e) => setEditingBet({ 
+                        ...editingBet, 
+                        bet1: { ...editingBet.bet1, stake: parseFloat(e.target.value) }
+                      })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Bet 2 */}
+              <div className="space-y-4 p-4 border rounded-lg">
+                <h3 className="font-semibold text-lg">Aposta 2 - {editingBet.bet2.house}</h3>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label>Tipo de Aposta</Label>
+                    <Input
+                      value={editingBet.bet2.betType}
+                      onChange={(e) => setEditingBet({ 
+                        ...editingBet, 
+                        bet2: { ...editingBet.bet2, betType: e.target.value }
+                      })}
+                    />
+                  </div>
+                  <div>
+                    <Label>Odd</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={editingBet.bet2.odd}
+                      onChange={(e) => setEditingBet({ 
+                        ...editingBet, 
+                        bet2: { ...editingBet.bet2, odd: parseFloat(e.target.value) }
+                      })}
+                    />
+                  </div>
+                  <div>
+                    <Label>Stake (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={editingBet.bet2.stake}
+                      onChange={(e) => setEditingBet({ 
+                        ...editingBet, 
+                        bet2: { ...editingBet.bet2, stake: parseFloat(e.target.value) }
+                      })}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingBet(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={updateSurebetMutation.isPending}>
+              {updateSurebetMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                "Salvar Alterações"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
