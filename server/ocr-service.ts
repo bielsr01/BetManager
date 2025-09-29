@@ -311,11 +311,8 @@ Lucro%: [Valor EXATO do percentual]`;
                   text: prompt
                 },
                 {
-                  type: "document",
-                  document: {
-                    type: "document_url",
-                    document_url: `data:application/pdf;base64,${base64PDF}`
-                  }
+                  type: "file",
+                  file: `data:application/pdf;base64,${base64PDF}`
                 }
               ]
             }
