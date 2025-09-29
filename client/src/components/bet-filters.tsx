@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Filter, X, Search } from "lucide-react";
 import type { BettingHouse } from "@shared/schema";
+import type { DateRange } from "react-day-picker";
 
 interface BetFiltersProps {
   onFiltersChange: (filters: FilterValues) => void;
@@ -16,8 +17,7 @@ interface BetFiltersProps {
 interface FilterValues {
   status?: string;
   house?: string;
-  startDate?: string;
-  endDate?: string;
+  dateRange?: DateRange;
 }
 
 export function BetFilters({ onFiltersChange, className }: BetFiltersProps) {
@@ -36,6 +36,10 @@ export function BetFilters({ onFiltersChange, className }: BetFiltersProps) {
     setTempFilters({ ...tempFilters, [key]: value === 'all' ? undefined : value });
   };
 
+  const handleDateRangeChange = (dateRange: DateRange | undefined) => {
+    setTempFilters({ ...tempFilters, dateRange });
+  };
+
   const applyFilters = () => {
     setFilters(tempFilters);
     onFiltersChange(tempFilters);
@@ -47,9 +51,13 @@ export function BetFilters({ onFiltersChange, className }: BetFiltersProps) {
     onFiltersChange({});
   };
 
-  const hasActiveFilters = Object.values(filters).some(value => 
-    value !== undefined && value !== "" && value !== null
-  );
+  const hasActiveFilters = Object.values(filters).some(value => {
+    if (value === undefined || value === "" || value === null) return false;
+    if (typeof value === 'object' && value !== null) {
+      return Object.values(value).some(v => v !== undefined);
+    }
+    return true;
+  });
 
   return (
     <Card className={className}>
@@ -89,6 +97,7 @@ export function BetFilters({ onFiltersChange, className }: BetFiltersProps) {
               <SelectContent>
                 <SelectItem value="all">Todos os status</SelectItem>
                 <SelectItem value="pending">Pendentes</SelectItem>
+                <SelectItem value="checked">Conferidas</SelectItem>
                 <SelectItem value="resolved">Resolvidas</SelectItem>
               </SelectContent>
             </Select>
@@ -116,22 +125,12 @@ export function BetFilters({ onFiltersChange, className }: BetFiltersProps) {
 
           <div className="space-y-2">
             <Label>Período de Data</Label>
-            <div className="flex gap-2">
-              <Input
-                type="date"
-                value={tempFilters.startDate || ""}
-                onChange={(e) => handleTempFilterChange("startDate", e.target.value || undefined)}
-                data-testid="input-start-date"
-                placeholder="Data inicial"
-              />
-              <Input
-                type="date"
-                value={tempFilters.endDate || ""}
-                onChange={(e) => handleTempFilterChange("endDate", e.target.value || undefined)}
-                data-testid="input-end-date"
-                placeholder="Data final"
-              />
-            </div>
+            <DateRangePicker
+              date={tempFilters.dateRange}
+              onDateChange={handleDateRangeChange}
+              placeholder="Selecione o período"
+              testId="date-range-filter"
+            />
           </div>
         </div>
 

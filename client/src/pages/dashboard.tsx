@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { BetCard } from "@/components/bet-card";
 import { BetFilters } from "@/components/bet-filters";
@@ -30,10 +30,35 @@ interface FilterValues {
 export default function Dashboard() {
   const [filters, setFilters] = useState<FilterValues>({});
   const [editingBet, setEditingBet] = useState<any>(null);
+  const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [timeDisplay, setTimeDisplay] = useState('Agora mesmo');
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      const now = new Date();
+      const diffInSeconds = Math.floor((now.getTime() - lastUpdate.getTime()) / 1000);
+
+      if (diffInSeconds < 60) {
+        setTimeDisplay(`Há ${diffInSeconds}s`);
+      } else if (diffInSeconds < 3600) {
+        const diffInMinutes = Math.floor(diffInSeconds / 60);
+        setTimeDisplay(`Há ${diffInMinutes}m`);
+      } else if (diffInSeconds < 86400) {
+        const diffInHours = Math.floor(diffInSeconds / 3600);
+        setTimeDisplay(`Há ${diffInHours}h`);
+      } else {
+        const diffInDays = Math.floor(diffInSeconds / 86400);
+        setTimeDisplay(`Há ${diffInDays}d`);
+      }
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [lastUpdate]);
 
   // Load surebet sets from the API
   const { data: surebetSets = [], isLoading, error } = useQuery<SurebetSetWithBets[]>({
     queryKey: ["/api/surebet-sets"],
+    refetchInterval: 60000, // Refetch every minute
   });
 
   // Mutation for updating bet results with optimistic updates
@@ -47,22 +72,22 @@ export default function Dashboard() {
     onMutate: async ({ betId, result }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ["/api/surebet-sets"] });
-      
+
       // Snapshot previous value
       const previousData = queryClient.getQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"]);
-      
+
       // Optimistically update
       queryClient.setQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"], (old) => {
         if (!old) return old;
-        
+
         return old.map(set => {
           const updatedBets = set.bets.map(bet => 
             bet.id === betId ? { ...bet, result } : bet
           );
-          
+
           // Check if both bets have results (check for truthy values, not just !== null)
           const allHaveResults = updatedBets.every(b => b.result != null);
-          
+
           return {
             ...set,
             bets: updatedBets,
@@ -70,7 +95,7 @@ export default function Dashboard() {
           };
         });
       });
-      
+
       return { previousData };
     },
     onError: (err, variables, context) => {
@@ -82,6 +107,8 @@ export default function Dashboard() {
     onSettled: () => {
       // Refetch to ensure sync
       queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
+      setLastUpdate(new Date());
+      setTimeDisplay('Agora mesmo');
     },
   });
 
@@ -93,7 +120,7 @@ export default function Dashboard() {
       const sortedBets = [...set.bets].sort((a, b) => 
         new Date(a.createdAt!).getTime() - new Date(b.createdAt!).getTime()
       );
-      
+
       return {
         id: set.id,
         eventDate: set.eventDate ? set.eventDate : new Date().toISOString(),
@@ -131,12 +158,12 @@ export default function Dashboard() {
       if (filters.status && bet.status !== filters.status) {
         return false;
       }
-      
+
       // Apply house filter (check both bets)
       if (filters.house && bet.bet1.house !== filters.house && bet.bet2.house !== filters.house) {
         return false;
       }
-      
+
       // Apply date range filter
       if (filters.startDate) {
         const betDate = new Date(bet.eventDate);
@@ -145,7 +172,7 @@ export default function Dashboard() {
           return false;
         }
       }
-      
+
       if (filters.endDate) {
         const betDate = new Date(bet.eventDate);
         const endDate = new Date(filters.endDate);
@@ -154,7 +181,7 @@ export default function Dashboard() {
           return false;
         }
       }
-      
+
       return true;
     });
 
@@ -162,20 +189,20 @@ export default function Dashboard() {
   const totalBets = transformedBets.length;
   const pendingBets = transformedBets.filter(bet => bet.status === "pending").length;
   const resolvedBets = transformedBets.filter(bet => bet.status === "resolved").length;
-  
+
   const totalInvested = transformedBets.reduce((acc, bet) => 
     acc + (bet.bet1?.stake || 0) + (bet.bet2?.stake || 0), 0
   );
-  
+
   const totalProfit = transformedBets
     .filter(bet => bet.bet1.result && bet.bet2.result)
     .reduce((acc, bet) => {
       const bet1 = bet.bet1;
       const bet2 = bet.bet2;
       if (!bet1 || !bet2 || !bet1.result || !bet2.result) return acc;
-      
+
       let profit = 0;
-      
+
       if (bet1.result === "won" && bet2.result === "lost") {
         profit = (bet1.stake * bet1.odd) - bet2.stake - bet1.stake;
       } else if (bet2.result === "won" && bet1.result === "lost") {
@@ -195,13 +222,13 @@ export default function Dashboard() {
       } else if (bet1.result === "returned" && bet2.result === "returned") {
         profit = 0;
       }
-      
+
       return acc + profit;
     }, 0);
 
   // Mutation for updating surebet set status
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ surebetSetId, status }: { surebetSetId: string; status: "checked" }) => {
+    mutationFn: async ({ surebetSetId, status }: { surebetSetId: string; status: "checked" | "pending" }) => {
       const response = await apiRequest("PATCH", `/api/surebet-sets/${surebetSetId}/status`, {
         status,
       });
@@ -209,16 +236,16 @@ export default function Dashboard() {
     },
     onMutate: async ({ surebetSetId, status }) => {
       await queryClient.cancelQueries({ queryKey: ["/api/surebet-sets"] });
-      
+
       const previousData = queryClient.getQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"]);
-      
+
       queryClient.setQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"], (old) => {
         if (!old) return old;
         return old.map(set => 
           set.id === surebetSetId ? { ...set, status } : set
         );
       });
-      
+
       return { previousData };
     },
     onError: (err, variables, context) => {
@@ -228,6 +255,8 @@ export default function Dashboard() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
+      setLastUpdate(new Date());
+      setTimeDisplay('Agora mesmo');
     },
   });
 
@@ -235,7 +264,7 @@ export default function Dashboard() {
     updateBetMutation.mutate({ betId, result });
   };
 
-  const handleStatusChange = (surebetSetId: string, status: "checked") => {
+  const handleStatusChange = (surebetSetId: string, status: "checked" | "pending") => {
     updateStatusMutation.mutate({ surebetSetId, status });
   };
 
@@ -256,6 +285,8 @@ export default function Dashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
+      setLastUpdate(new Date());
+      setTimeDisplay('Agora mesmo');
     },
   });
 
@@ -270,7 +301,7 @@ export default function Dashboard() {
       const hours = String(eventDate.getHours()).padStart(2, '0');
       const minutes = String(eventDate.getMinutes()).padStart(2, '0');
       const dateTimeLocal = `${year}-${month}-${day}T${hours}:${minutes}`;
-      
+
       setEditingBet({
         id: bet.id,
         eventDate: dateTimeLocal,
@@ -301,7 +332,7 @@ export default function Dashboard() {
 
   const handleSaveEdit = () => {
     if (!editingBet) return;
-    
+
     updateSurebetMutation.mutate(editingBet);
   };
 
@@ -318,14 +349,14 @@ export default function Dashboard() {
         teamB: data.teamB,
         profitPercentage: String(data.profitPercentage),
       });
-      
+
       // Update bet 1
       await apiRequest("PUT", `/api/bets/${data.bet1.id}`, {
         betType: data.bet1.betType,
         odd: String(data.bet1.odd),
         stake: String(data.bet1.stake),
       });
-      
+
       // Update bet 2
       await apiRequest("PUT", `/api/bets/${data.bet2.id}`, {
         betType: data.bet2.betType,
@@ -336,6 +367,8 @@ export default function Dashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
       setEditingBet(null);
+      setLastUpdate(new Date());
+      setTimeDisplay('Agora mesmo');
     },
   });
 
@@ -353,14 +386,14 @@ export default function Dashboard() {
     },
     onMutate: async (surebetSetId) => {
       await queryClient.cancelQueries({ queryKey: ["/api/surebet-sets"] });
-      
+
       const previousData = queryClient.getQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"]);
-      
+
       queryClient.setQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"], (old) => {
         if (!old) return old;
         return old.filter(set => set.id !== surebetSetId);
       });
-      
+
       return { previousData };
     },
     onError: (err, variables, context) => {
@@ -370,6 +403,23 @@ export default function Dashboard() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
+      setLastUpdate(new Date());
+      setTimeDisplay('Agora mesmo');
+    },
+  });
+
+  // Automatic update mutation (triggered on new bet insert or edit)
+  const updateAutomatic = useMutation({
+    mutationFn: async () => {
+      // This mutation doesn't need to do anything specific other than trigger a refetch.
+      // The API endpoint is just a placeholder to signal a change that should trigger
+      // automatic updates in the backend (which then causes the frontend refetch).
+      await apiRequest("POST", "/api/trigger-auto-update");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
+      setLastUpdate(new Date());
+      setTimeDisplay('Agora mesmo');
     },
   });
 
@@ -382,7 +432,7 @@ export default function Dashboard() {
             Gerencie suas apostas surebet e acompanhe o desempenho
           </p>
         </div>
-        
+
         <Link href="/upload">
           <Button data-testid="button-new-bet">
             <Plus className="w-4 h-4 mr-2" />
@@ -450,8 +500,18 @@ export default function Dashboard() {
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">
-              Atualizado agora
+              Atualizado {timeDisplay}
             </span>
+            <Button variant="outline" size="sm" onClick={() => updateAutomatic.mutate()} disabled={updateAutomatic.isPending}>
+              {updateAutomatic.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Atualizando...
+                </>
+              ) : (
+                "Atualizar"
+              )}
+            </Button>
           </div>
         </div>
 
@@ -518,7 +578,7 @@ export default function Dashboard() {
           <DialogHeader>
             <DialogTitle>Editar Aposta Surebet</DialogTitle>
           </DialogHeader>
-          
+
           {editingBet && (
             <div className="space-y-6">
               {/* Event Details */}
