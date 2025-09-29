@@ -12,6 +12,7 @@ import { Plus, TrendingUp, TrendingDown, Clock, DollarSign, Loader2 } from "luci
 import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { SurebetSetWithBets } from "@shared/schema";
+import type { DateRange } from "react-day-picker";
 
 interface FilterValues {
   status?: string;
@@ -19,12 +20,10 @@ interface FilterValues {
   maxStake?: number;
   minProfit?: number;
   maxProfit?: number;
-  dateRange?: any;
+  dateRange?: DateRange;
   sport?: string;
   league?: string;
   house?: string;
-  startDate?: string;
-  endDate?: string;
 }
 
 export default function Dashboard() {
@@ -123,7 +122,7 @@ export default function Dashboard() {
 
       return {
         id: set.id,
-        eventDate: set.eventDate ? set.eventDate : new Date().toISOString(),
+        eventDate: set.eventDate ? (typeof set.eventDate === 'string' ? set.eventDate : set.eventDate.toISOString()) : new Date().toISOString(),
         sport: set.sport || "Futebol",
         league: set.league || "Liga não especificada",
         teamA: set.teamA || "Time A",
@@ -165,20 +164,24 @@ export default function Dashboard() {
       }
 
       // Apply date range filter
-      if (filters.startDate) {
+      if (filters.dateRange) {
         const betDate = new Date(bet.eventDate);
-        const startDate = new Date(filters.startDate);
-        if (betDate < startDate) {
-          return false;
+        const { from, to } = filters.dateRange;
+        
+        if (from) {
+          const startDate = new Date(from);
+          startDate.setHours(0, 0, 0, 0);
+          if (betDate < startDate) {
+            return false;
+          }
         }
-      }
-
-      if (filters.endDate) {
-        const betDate = new Date(bet.eventDate);
-        const endDate = new Date(filters.endDate);
-        endDate.setHours(23, 59, 59, 999); // Include the entire end date
-        if (betDate > endDate) {
-          return false;
+        
+        if (to) {
+          const endDate = new Date(to);
+          endDate.setHours(23, 59, 59, 999);
+          if (betDate > endDate) {
+            return false;
+          }
         }
       }
 
@@ -212,9 +215,9 @@ export default function Dashboard() {
       } else if (bet2.result === "won" && bet1.result === "returned") {
         profit = (bet2.stake * bet2.odd) - bet2.stake + bet1.stake;
       } else if (bet1.result === "lost" && bet2.result === "returned") {
-        profit = -bet1.stake; // Perdeu apenas o stake da casa que perdeu
+        profit = -bet1.stake + bet2.stake;
       } else if (bet2.result === "lost" && bet1.result === "returned") {
-        profit = -bet2.stake; // Perdeu apenas o stake da casa que perdeu
+        profit = -bet2.stake + bet1.stake
       } else if (bet1.result === "won" && bet2.result === "won") {
         profit = (bet1.stake * bet1.odd + bet2.stake * bet2.odd) - (bet1.stake + bet2.stake);
       } else if (bet1.result === "lost" && bet2.result === "lost") {

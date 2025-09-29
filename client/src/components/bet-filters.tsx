@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import { Filter, X, Search } from "lucide-react";
 import type { BettingHouse } from "@shared/schema";
 import type { DateRange } from "react-day-picker";
@@ -125,11 +125,11 @@ export function BetFilters({ onFiltersChange, className }: BetFiltersProps) {
 
           <div className="space-y-2">
             <Label>Período de Data</Label>
-            <DateRangePicker
-              date={tempFilters.dateRange}
-              onDateChange={handleDateRangeChange}
+            <DatePickerWithRange
+              selected={tempFilters.dateRange}
+              onSelect={handleDateRangeChange}
               placeholder="Selecione o período"
-              testId="date-range-filter"
+              data-testid="date-range-filter"
             />
           </div>
         </div>
