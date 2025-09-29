@@ -280,9 +280,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } else if (bet2.result === "won" && bet1.result === "returned") {
             actualProfit = (parseFloat(String(bet2.stake)) * parseFloat(String(bet2.odd))) - parseFloat(String(bet2.stake)) + parseFloat(String(bet1.stake));
           } else if (bet1.result === "lost" && bet2.result === "returned") {
-            actualProfit = -parseFloat(String(bet1.stake)) + parseFloat(String(bet2.stake));
+            actualProfit = -parseFloat(String(bet1.stake)); // Perdeu apenas o stake da casa que perdeu
           } else if (bet2.result === "lost" && bet1.result === "returned") {
-            actualProfit = -parseFloat(String(bet2.stake)) + parseFloat(String(bet1.stake));
+            actualProfit = -parseFloat(String(bet2.stake)); // Perdeu apenas o stake da casa que perdeu
           } else if (bet1.result === "won" && bet2.result === "won") {
             actualProfit = (parseFloat(String(bet1.stake)) * parseFloat(String(bet1.odd)) + parseFloat(String(bet2.stake)) * parseFloat(String(bet2.odd))) - (parseFloat(String(bet1.stake)) + parseFloat(String(bet2.stake)));
           } else if (bet1.result === "lost" && bet2.result === "lost") {

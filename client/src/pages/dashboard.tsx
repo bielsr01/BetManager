@@ -96,7 +96,7 @@ export default function Dashboard() {
       
       return {
         id: set.id,
-        eventDate: set.eventDate ? new Date(set.eventDate).toISOString() : new Date().toISOString(),
+        eventDate: set.eventDate ? set.eventDate : new Date().toISOString(),
         sport: set.sport || "Futebol",
         league: set.league || "Liga não especificada",
         teamA: set.teamA || "Time A",
@@ -185,9 +185,9 @@ export default function Dashboard() {
       } else if (bet2.result === "won" && bet1.result === "returned") {
         profit = (bet2.stake * bet2.odd) - bet2.stake + bet1.stake;
       } else if (bet1.result === "lost" && bet2.result === "returned") {
-        profit = -bet1.stake + bet2.stake;
+        profit = -bet1.stake; // Perdeu apenas o stake da casa que perdeu
       } else if (bet2.result === "lost" && bet1.result === "returned") {
-        profit = -bet2.stake + bet1.stake;
+        profit = -bet2.stake; // Perdeu apenas o stake da casa que perdeu
       } else if (bet1.result === "won" && bet2.result === "won") {
         profit = (bet1.stake * bet1.odd + bet2.stake * bet2.odd) - (bet1.stake + bet2.stake);
       } else if (bet1.result === "lost" && bet2.result === "lost") {
@@ -262,9 +262,18 @@ export default function Dashboard() {
   const handleEdit = (surebetSetId: string) => {
     const bet = transformedBets.find(b => b.id === surebetSetId);
     if (bet) {
+      // Converte a data ISO para formato datetime-local sem alterar o fuso
+      const eventDate = new Date(bet.eventDate);
+      const year = eventDate.getFullYear();
+      const month = String(eventDate.getMonth() + 1).padStart(2, '0');
+      const day = String(eventDate.getDate()).padStart(2, '0');
+      const hours = String(eventDate.getHours()).padStart(2, '0');
+      const minutes = String(eventDate.getMinutes()).padStart(2, '0');
+      const dateTimeLocal = `${year}-${month}-${day}T${hours}:${minutes}`;
+      
       setEditingBet({
         id: bet.id,
-        eventDate: bet.eventDate.split('T')[0],
+        eventDate: dateTimeLocal,
         sport: bet.sport,
         league: bet.league,
         teamA: bet.teamA,
@@ -299,9 +308,10 @@ export default function Dashboard() {
   // Update surebet mutation
   const updateSurebetMutation = useMutation({
     mutationFn: async (data: any) => {
-      // Update surebet set
+      // Update surebet set - converte datetime-local para ISO
+      const eventDateISO = new Date(data.eventDate).toISOString();
       await apiRequest("PUT", `/api/surebet-sets/${data.id}`, {
-        eventDate: data.eventDate,
+        eventDate: eventDateISO,
         sport: data.sport,
         league: data.league,
         teamA: data.teamA,
@@ -434,7 +444,9 @@ export default function Dashboard() {
       {/* Bets List */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Apostas Ativas</h2>
+          <h2 className="text-xl font-semibold">
+            Apostas Ativas ({transformedBets.length} {transformedBets.length === 1 ? 'aposta' : 'apostas'})
+          </h2>
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">
@@ -514,9 +526,9 @@ export default function Dashboard() {
                 <h3 className="font-semibold text-lg">Detalhes do Evento</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label>Data do Evento</Label>
+                    <Label>Data e Hora do Evento</Label>
                     <Input
-                      type="date"
+                      type="datetime-local"
                       value={editingBet.eventDate}
                       onChange={(e) => setEditingBet({ ...editingBet, eventDate: e.target.value })}
                     />
@@ -538,10 +550,13 @@ export default function Dashboard() {
                   <div>
                     <Label>Lucro (%)</Label>
                     <Input
-                      type="number"
-                      step="0.01"
-                      value={editingBet.profitPercentage}
-                      onChange={(e) => setEditingBet({ ...editingBet, profitPercentage: parseFloat(e.target.value) })}
+                      type="text"
+                      value={editingBet.profitPercentage.toString().replace('.', ',')}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(',', '.');
+                        const numValue = parseFloat(value) || 0;
+                        setEditingBet({ ...editingBet, profitPercentage: numValue });
+                      }}
                     />
                   </div>
                   <div>
@@ -578,25 +593,31 @@ export default function Dashboard() {
                   <div>
                     <Label>Odd</Label>
                     <Input
-                      type="number"
-                      step="0.01"
-                      value={editingBet.bet1.odd}
-                      onChange={(e) => setEditingBet({ 
-                        ...editingBet, 
-                        bet1: { ...editingBet.bet1, odd: parseFloat(e.target.value) }
-                      })}
+                      type="text"
+                      value={editingBet.bet1.odd.toString().replace('.', ',')}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(',', '.');
+                        const numValue = parseFloat(value) || 0;
+                        setEditingBet({ 
+                          ...editingBet, 
+                          bet1: { ...editingBet.bet1, odd: numValue }
+                        });
+                      }}
                     />
                   </div>
                   <div>
                     <Label>Stake (R$)</Label>
                     <Input
-                      type="number"
-                      step="0.01"
-                      value={editingBet.bet1.stake}
-                      onChange={(e) => setEditingBet({ 
-                        ...editingBet, 
-                        bet1: { ...editingBet.bet1, stake: parseFloat(e.target.value) }
-                      })}
+                      type="text"
+                      value={editingBet.bet1.stake.toString().replace('.', ',')}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(',', '.');
+                        const numValue = parseFloat(value) || 0;
+                        setEditingBet({ 
+                          ...editingBet, 
+                          bet1: { ...editingBet.bet1, stake: numValue }
+                        });
+                      }}
                     />
                   </div>
                 </div>
@@ -619,25 +640,31 @@ export default function Dashboard() {
                   <div>
                     <Label>Odd</Label>
                     <Input
-                      type="number"
-                      step="0.01"
-                      value={editingBet.bet2.odd}
-                      onChange={(e) => setEditingBet({ 
-                        ...editingBet, 
-                        bet2: { ...editingBet.bet2, odd: parseFloat(e.target.value) }
-                      })}
+                      type="text"
+                      value={editingBet.bet2.odd.toString().replace('.', ',')}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(',', '.');
+                        const numValue = parseFloat(value) || 0;
+                        setEditingBet({ 
+                          ...editingBet, 
+                          bet2: { ...editingBet.bet2, odd: numValue }
+                        });
+                      }}
                     />
                   </div>
                   <div>
                     <Label>Stake (R$)</Label>
                     <Input
-                      type="number"
-                      step="0.01"
-                      value={editingBet.bet2.stake}
-                      onChange={(e) => setEditingBet({ 
-                        ...editingBet, 
-                        bet2: { ...editingBet.bet2, stake: parseFloat(e.target.value) }
-                      })}
+                      type="text"
+                      value={editingBet.bet2.stake.toString().replace('.', ',')}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(',', '.');
+                        const numValue = parseFloat(value) || 0;
+                        setEditingBet({ 
+                          ...editingBet, 
+                          bet2: { ...editingBet.bet2, stake: numValue }
+                        });
+                      }}
                     />
                   </div>
                 </div>

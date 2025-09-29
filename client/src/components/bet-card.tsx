@@ -60,7 +60,7 @@ export function BetCard({
   const isPending = status === "pending";
   const totalStake = bet1.stake + bet2.stake;
   let actualProfit = 0;
-  
+
   // Calculate actual profit based on bet results
   if (bet1.result && bet2.result) {
     if (bet1.result === "won" && bet2.result === "lost") {
@@ -173,11 +173,11 @@ export function BetCard({
             </Badge>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-1">
             <Calendar className="w-4 h-4" />
-            {new Date(eventDate).toLocaleDateString("pt-BR")}
+            <span>{new Date(eventDate).toLocaleDateString('pt-BR')} às {new Date(eventDate).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
           </div>
           <span>{sport} • {league}</span>
         </div>
@@ -196,7 +196,7 @@ export function BetCard({
             </div>
             {bet1.result && <StatusBadge status={bet1.result} />}
           </div>
-          
+
           <div className="grid grid-cols-5 gap-2 text-sm">
             <div>
               <span className="text-muted-foreground">Tipo</span>
@@ -219,7 +219,7 @@ export function BetCard({
               <p className="font-medium text-betting-profit">R$ {bet1.potentialProfit.toFixed(2)}</p>
             </div>
           </div>
-          
+
           {!bet1.result && (
             <div className="flex gap-2 mt-3">
               <Button
@@ -262,7 +262,7 @@ export function BetCard({
             </div>
             {bet2.result && <StatusBadge status={bet2.result} />}
           </div>
-          
+
           <div className="grid grid-cols-5 gap-2 text-sm">
             <div>
               <span className="text-muted-foreground">Tipo</span>
@@ -285,7 +285,7 @@ export function BetCard({
               <p className="font-medium text-betting-profit">R$ {bet2.potentialProfit.toFixed(2)}</p>
             </div>
           </div>
-          
+
           {!bet2.result && (
             <div className="flex gap-2 mt-3">
               <Button
@@ -322,7 +322,7 @@ export function BetCard({
             <span className="text-muted-foreground">Total Investido: </span>
             <span className="font-medium">R$ {totalStake.toFixed(2)}</span>
           </div>
-          
+
           {(bet1.result && bet2.result) && (
             <div className="text-sm">
               <span className="text-muted-foreground">Lucro Real: </span>
