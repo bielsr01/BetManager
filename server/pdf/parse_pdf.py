@@ -164,14 +164,89 @@ def extrair_dados_pdf(caminho_pdf):
                         texto_aposta = linha
                         j = i + 1
                         
-                        # Continua coletando linhas até encontrar informações completas  
-                        while j < len(linhas) and j < i + 6:  # Máximo 6 linhas por aposta
+                        # PRIMEIRO: Coleta fragmentos do nome da casa (linhas curtas sem números/símbolos)
+                        # Exemplo: "Marjo" -> "Sports" -> "(BR)"
+                        fragmentos_casa = []
+                        linhas_usadas_fragmentos = set()  # Rastreia linhas totalmente usadas
+                        linhas_parcialmente_usadas = {}  # {index_linha: resto_da_linha}
+                        while j < len(linhas) and j < i + 4:  # Máximo 3 linhas para completar casa
+                            proxima_linha = linhas[j].strip()
+                            
+                            # Para se for linha vazia, de separação ou símbolos
+                            if not proxima_linha or proxima_linha in ['〉', '○', '●', '\uf35d', 'new']:
+                                j += 1
+                                continue
+                            
+                            # Se tem dados financeiros/símbolos, não é fragmento da casa
+                            if any(s in proxima_linha for s in ['USD', 'BRL', '●', '○', '\uf35d']) or re.search(r'\d+\.\d+', proxima_linha):
+                                break
+                            
+                            # Se é linha muito curta (< 30 chars), pode ser fragmento da casa
+                            # Exemplos: "Sports", "(BR)", "Sports escanteios"
+                            if len(proxima_linha) < 30:
+                                nova_casa = detectar_casa_apostas(proxima_linha)
+                                
+                                # Fragmento válido se: não é casa nova
+                                if not nova_casa:
+                                    # Aceita (BR), (CO), etc
+                                    if re.match(r'^\([A-Z]{2}\)$', proxima_linha):
+                                        fragmentos_casa.append(proxima_linha)
+                                        linhas_usadas_fragmentos.add(j)
+                                        j += 1
+                                    # Aceita palavras simples como "Sports", "Bet", etc (parte do nome da casa)
+                                    elif len(proxima_linha.split()) == 1 and proxima_linha[0].isupper():
+                                        fragmentos_casa.append(proxima_linha)
+                                        linhas_usadas_fragmentos.add(j)
+                                        j += 1
+                                    # Se tem múltiplas palavras, pega só a PRIMEIRA se for capitalizada
+                                    # Ex: "Sports escanteios" -> pega "Sports", resto vai para tipo
+                                    elif proxima_linha[0].isupper():
+                                        palavras = proxima_linha.split()
+                                        if palavras[0][0].isupper() and not re.search(r'\b(gol|time|cantos?|escanteios?|acima|abaixo)\b', palavras[0].lower()):
+                                            fragmentos_casa.append(palavras[0])
+                                            # Salva o resto da linha para adicionar ao tipo depois
+                                            resto = ' '.join(palavras[1:])
+                                            if resto:
+                                                linhas_parcialmente_usadas[j] = resto
+                                            linhas_usadas_fragmentos.add(j)
+                                            j += 1
+                                        else:
+                                            break
+                                    else:
+                                        break
+                                else:
+                                    break
+                            else:
+                                break
+                        
+                        # Atualiza nome da casa com fragmentos coletados
+                        if fragmentos_casa:
+                            casa_encontrada = casa_encontrada + ' ' + ' '.join(fragmentos_casa)
+                        
+                        # Correção especial para casas conhecidas fragmentadas
+                        # Se detectou "Marjo" mas não tem "Sports" no nome, verifica se está no texto
+                        if casa_encontrada.startswith('Marjo') and 'Sports' not in casa_encontrada:
+                            # Procura "Sports" nas linhas já coletadas (i até j)
+                            for k in range(i, min(j, len(linhas))):
+                                if 'Sports' in linhas[k]:
+                                    casa_encontrada = 'Marjo Sports (BR)'
+                                    break
+                        
+                        # DEPOIS: Coleta linhas com dados financeiros e continuação do tipo
+                        while j < len(linhas) and j < i + 8:  # Máximo total 8 linhas
                             proxima_linha = linhas[j]
+                            
+                            # Trata linhas usadas como fragmentos da casa
+                            if j in linhas_usadas_fragmentos:
+                                # Se foi parcialmente usada, adiciona o resto ao texto
+                                if j in linhas_parcialmente_usadas:
+                                    texto_aposta += ' ' + linhas_parcialmente_usadas[j]
+                                j += 1
+                                continue
                             
                             # Para se encontrar outra casa de apostas COMPLETA (não fragmento)
                             casa_na_proxima = detectar_casa_apostas(proxima_linha)
                             if casa_na_proxima and any(char.isdigit() for char in proxima_linha):
-                                # Só para se encontrar casa + números (aposta completa)
                                 break
                                 
                             # Para se encontrar "Aposta total" ou outras seções
@@ -315,7 +390,7 @@ def detectar_casa_apostas(linha):
         'LivescoreBet (NG)', 'SunBet (ZA)', 'LivescoreBet (UK)', 'LivescoreBet (IE)', 'VirginBet', 'LsBet',
         'KikoBet', 'Mundoapostas', 'ReloadBet', 'SlottoJAM', 'TornadoBet', 'Luckia (ES)', 'Luckia (CO)',
         'Luckia (MX)', 'LvBet', 'LvBet (LV)', 'LvBet (PL)', 'Mansion (M88-BTI)', 'Marathon', 'Marathon (BY)',
-        'Marathon (RU)', 'MBet', 'MarathonBet (DK)', 'MarathonBet (ES)', 'MarathonBet (IT)', 'MarjoSports (BR)',
+        'Marathon (RU)', 'MBet', 'MarathonBet (DK)', 'MarathonBet (ES)', 'MarathonBet (IT)', 'MarjoSports (BR)', 'Marjo Sports (BR)', 'Marjo',
         'Matchbook', 'Maxbet (RS)', 'Maxbet (BA)', 'MaxLine (BY)', 'Mcbookie', 'StarSports', 'MelBet',
         'Betwinner', 'DBbet', 'MelBet (BI)', 'MelBet (KE)', 'MelBet (MN)', 'Meridian', 'Meridian (CY)',
         'Meridian (BE)', 'Meridian (BA)', 'Meridian (ME)', 'Meridian (RS)', 'Meridian (PE)', 'JogaBets (MZ)',
@@ -422,6 +497,8 @@ def detectar_casa_apostas(linha):
         if len(casa_candidata) >= 3:
             return casa_candidata
     
+    # Fallback: palavras individuais capitalizadas (como "Marjo", "Sports")
+    # Retorna None para permitir junção posterior
     return None
 
 def processar_aposta_completa(texto_aposta, casa_aposta):
@@ -557,9 +634,12 @@ def processar_aposta_completa(texto_aposta, casa_aposta):
         tipo_aposta = re.sub(r'\bBetfast\b', '', tipo_aposta, flags=re.IGNORECASE)
     elif 'betano' in casa_lower:
         tipo_aposta = re.sub(r'\bBetano\b', '', tipo_aposta, flags=re.IGNORECASE)
-    elif 'marjo' in casa_lower:
+    elif 'marjo' in casa_lower or 'sports' in casa_lower:
         tipo_aposta = re.sub(r'\bMarjoSports\b', '', tipo_aposta, flags=re.IGNORECASE)
         tipo_aposta = re.sub(r'\bMarjo\b', '', tipo_aposta, flags=re.IGNORECASE)
+        tipo_aposta = re.sub(r'\bSports\b', '', tipo_aposta, flags=re.IGNORECASE)
+    elif 'cassino' in casa_lower:
+        tipo_aposta = re.sub(r'\bCassino\b', '', tipo_aposta, flags=re.IGNORECASE)
     
     # Limpa espaços extras resultantes da remoção
     tipo_aposta = re.sub(r'\s+', ' ', tipo_aposta).strip()
