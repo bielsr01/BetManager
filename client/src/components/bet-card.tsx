@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "./status-badge";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, TrendingUp, Users, Check } from "lucide-react";
+import { Calendar, TrendingUp, Users, Check, Edit, Trash2, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface BetData {
@@ -29,6 +29,9 @@ interface SurebetCardProps {
   bet2: BetData;
   onResolve: (betId: string, result: "won" | "lost" | "returned") => void;
   onStatusChange?: (surebetSetId: string, status: "checked") => void;
+  onReset?: (surebetSetId: string) => void;
+  onEdit?: (surebetSetId: string) => void;
+  onDelete?: (surebetSetId: string) => void;
   className?: string;
 }
 
@@ -45,6 +48,9 @@ export function BetCard({
   bet2,
   onResolve,
   onStatusChange,
+  onReset,
+  onEdit,
+  onDelete,
   className,
 }: SurebetCardProps) {
   const isResolved = status === "resolved";
@@ -53,12 +59,26 @@ export function BetCard({
   const totalStake = bet1.stake + bet2.stake;
   let actualProfit = 0;
   
-  if (isResolved) {
-    const winningBet = bet1.result === "won" ? bet1 : bet2.result === "won" ? bet2 : null;
-    const losingBet = bet1.result === "lost" ? bet1 : bet2.result === "lost" ? bet2 : null;
-    
-    if (winningBet && losingBet) {
-      actualProfit = winningBet.potentialProfit - losingBet.stake;
+  // Calculate actual profit based on bet results
+  if (bet1.result && bet2.result) {
+    if (bet1.result === "won" && bet2.result === "lost") {
+      // Win/Loss: (winning_stake × odd) - losing_stake - winning_stake
+      actualProfit = (bet1.stake * bet1.odd) - bet2.stake - bet1.stake;
+    } else if (bet2.result === "won" && bet1.result === "lost") {
+      // Win/Loss: (winning_stake × odd) - losing_stake - winning_stake
+      actualProfit = (bet2.stake * bet2.odd) - bet1.stake - bet2.stake;
+    } else if (bet1.result === "won" && bet2.result === "returned") {
+      // Win/Return: (winning_stake × odd) - winning_stake + returned_stake
+      actualProfit = (bet1.stake * bet1.odd) - bet1.stake + bet2.stake;
+    } else if (bet2.result === "won" && bet1.result === "returned") {
+      // Win/Return: (winning_stake × odd) - winning_stake + returned_stake
+      actualProfit = (bet2.stake * bet2.odd) - bet2.stake + bet1.stake;
+    } else if (bet1.result === "lost" && bet2.result === "lost") {
+      // Loss/Loss: negative value (lost both stakes)
+      actualProfit = -(bet1.stake + bet2.stake);
+    } else if (bet1.result === "returned" && bet2.result === "returned") {
+      // Both returned: no profit or loss
+      actualProfit = 0;
     }
   }
 
@@ -73,26 +93,66 @@ export function BetCard({
             {isPending && onStatusChange && (
               <Button
                 size="sm"
+                variant="outline"
                 onClick={() => onStatusChange(id, "checked")}
-                className="bg-green-600 hover:bg-green-700 text-white"
+                className="bg-background"
                 data-testid={`button-mark-checked-${id}`}
+              >
+                Conferido
+              </Button>
+            )}
+            {isChecked && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="bg-background"
+                disabled
+                data-testid={`button-checked-${id}`}
               >
                 <Check className="w-3 h-3 mr-1" />
                 Conferido
               </Button>
             )}
-            {isChecked && (
+            {isResolved && (
               <Badge className="bg-green-600 text-white">
-                <Check className="w-3 h-3 mr-1" />
-                Conferido
+                Resolvido
               </Badge>
             )}
-            {isResolved && <StatusBadge status="won" />}
             {isPending && !isResolved && !isChecked && <StatusBadge status="pending" />}
-            <Badge variant="outline" className="bg-betting-profit text-white">
+            <Badge variant="outline" className="bg-primary text-primary-foreground">
               <TrendingUp className="w-3 h-3 mr-1" />
               {profitPercentage}%
             </Badge>
+            {onReset && (bet1.result || bet2.result) && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onReset(id)}
+                data-testid={`button-reset-${id}`}
+              >
+                <RotateCcw className="w-3 h-3" />
+              </Button>
+            )}
+            {onEdit && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onEdit(id)}
+                data-testid={`button-edit-${id}`}
+              >
+                <Edit className="w-3 h-3" />
+              </Button>
+            )}
+            {onDelete && (
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => onDelete(id)}
+                data-testid={`button-delete-${id}`}
+              >
+                <Trash2 className="w-3 h-3" />
+              </Button>
+            )}
           </div>
         </div>
         
@@ -138,7 +198,7 @@ export function BetCard({
             </div>
           </div>
           
-          {!isResolved && (
+          {!bet1.result && (
             <div className="flex gap-2 mt-3">
               <Button
                 size="sm"
@@ -200,7 +260,7 @@ export function BetCard({
             </div>
           </div>
           
-          {!isResolved && (
+          {!bet2.result && (
             <div className="flex gap-2 mt-3">
               <Button
                 size="sm"
@@ -237,7 +297,7 @@ export function BetCard({
             <span className="font-medium">R$ {totalStake.toFixed(2)}</span>
           </div>
           
-          {isResolved && (
+          {(bet1.result && bet2.result) && (
             <div className="text-sm">
               <span className="text-muted-foreground">Lucro Real: </span>
               <span className={cn(

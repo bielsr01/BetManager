@@ -20,6 +20,8 @@ interface FilterValues {
   sport?: string;
   league?: string;
   house?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 export default function Dashboard() {
@@ -54,8 +56,8 @@ export default function Dashboard() {
             bet.id === betId ? { ...bet, result } : bet
           );
           
-          // Check if both bets have results
-          const allHaveResults = updatedBets.every(b => b.result !== null);
+          // Check if both bets have results (check for truthy values, not just !== null)
+          const allHaveResults = updatedBets.every(b => b.result != null);
           
           return {
             ...set,
@@ -162,18 +164,29 @@ export default function Dashboard() {
   );
   
   const totalProfit = transformedBets
-    .filter(bet => bet.status === "resolved")
+    .filter(bet => bet.bet1.result && bet.bet2.result)
     .reduce((acc, bet) => {
       const bet1 = bet.bet1;
       const bet2 = bet.bet2;
-      if (!bet1 || !bet2) return acc;
+      if (!bet1 || !bet2 || !bet1.result || !bet2.result) return acc;
       
-      const winningBet = bet1.result === "won" ? bet1 : bet2.result === "won" ? bet2 : null;
-      const losingBet = bet1.result === "lost" ? bet1 : bet2.result === "lost" ? bet2 : null;
-      if (winningBet && losingBet) {
-        return acc + (winningBet.potentialProfit - losingBet.stake);
+      let profit = 0;
+      
+      if (bet1.result === "won" && bet2.result === "lost") {
+        profit = (bet1.stake * bet1.odd) - bet2.stake - bet1.stake;
+      } else if (bet2.result === "won" && bet1.result === "lost") {
+        profit = (bet2.stake * bet2.odd) - bet1.stake - bet2.stake;
+      } else if (bet1.result === "won" && bet2.result === "returned") {
+        profit = (bet1.stake * bet1.odd) - bet1.stake + bet2.stake;
+      } else if (bet2.result === "won" && bet1.result === "returned") {
+        profit = (bet2.stake * bet2.odd) - bet2.stake + bet1.stake;
+      } else if (bet1.result === "lost" && bet2.result === "lost") {
+        profit = -(bet1.stake + bet2.stake);
+      } else if (bet1.result === "returned" && bet2.result === "returned") {
+        profit = 0;
       }
-      return acc;
+      
+      return acc + profit;
     }, 0);
 
   // Mutation for updating surebet set status
@@ -219,8 +232,61 @@ export default function Dashboard() {
   const handleFiltersChange = (newFilters: FilterValues) => {
     setFilters(newFilters);
     console.log("Filters applied:", newFilters);
-    // Here would be the filtering logic
   };
+
+  const handleReset = async (surebetSetId: string) => {
+    resetMutation.mutate(surebetSetId);
+  };
+
+  // Reset mutation
+  const resetMutation = useMutation({
+    mutationFn: async (surebetSetId: string) => {
+      const response = await apiRequest("POST", `/api/surebet-sets/${surebetSetId}/reset`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
+    },
+  });
+
+  const handleEdit = (surebetSetId: string) => {
+    // TODO: Navigate to edit page
+    console.log("Edit surebet set:", surebetSetId);
+  };
+
+  const handleDelete = (surebetSetId: string) => {
+    if (confirm("Tem certeza que deseja deletar esta aposta?")) {
+      deleteSurebetMutation.mutate(surebetSetId);
+    }
+  };
+
+  // Delete mutation
+  const deleteSurebetMutation = useMutation({
+    mutationFn: async (surebetSetId: string) => {
+      const response = await apiRequest("DELETE", `/api/surebet-sets/${surebetSetId}`);
+      return response.json();
+    },
+    onMutate: async (surebetSetId) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/surebet-sets"] });
+      
+      const previousData = queryClient.getQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"]);
+      
+      queryClient.setQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"], (old) => {
+        if (!old) return old;
+        return old.filter(set => set.id !== surebetSetId);
+      });
+      
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(["/api/surebet-sets"], context.previousData);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
+    },
+  });
 
   return (
     <div className="space-y-6 p-6">
@@ -333,6 +399,9 @@ export default function Dashboard() {
                 {...bet}
                 onResolve={handleResolve}
                 onStatusChange={handleStatusChange}
+                onReset={handleReset}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
               />
             ))}
           </div>

@@ -240,32 +240,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const updateData = insertBetSchema.partial().parse(req.body);
       
-      // Calculate actualProfit based on result
-      if (updateData.result) {
-        const currentBet = await db.select().from(bets).where(eq(bets.id, id)).limit(1);
-        if (currentBet.length === 0) {
-          res.status(404).json({ error: "Bet not found" });
-          return;
-        }
-        
-        const bet = currentBet[0];
-        if (updateData.result === "won") {
-          updateData.actualProfit = String(bet.potentialProfit);
-        } else if (updateData.result === "lost") {
-          updateData.actualProfit = String(-parseFloat(String(bet.stake)));
-        } else if (updateData.result === "returned") {
-          updateData.actualProfit = "0";
-        }
-      }
-      
       const updatedBet = await storage.updateBet(id, updateData);
       
-      // Check if both bets in the surebet set have results
+      // Check if both bets in the surebet set have results and calculate actual profit
       if (updatedBet.surebetSetId && updateData.result) {
         const allBets = await db.select().from(bets).where(eq(bets.surebetSetId, updatedBet.surebetSetId));
-        const allHaveResults = allBets.every(b => b.result !== null);
+        const allHaveResults = allBets.every(b => b.result != null);
         
-        if (allHaveResults) {
+        if (allHaveResults && allBets.length === 2) {
+          const bet1 = allBets[0];
+          const bet2 = allBets[1];
+          let actualProfit = 0;
+          
+          // Calculate actual profit based on both bet results
+          if (bet1.result === "won" && bet2.result === "lost") {
+            actualProfit = (parseFloat(String(bet1.stake)) * parseFloat(String(bet1.odd))) - parseFloat(String(bet2.stake)) - parseFloat(String(bet1.stake));
+          } else if (bet2.result === "won" && bet1.result === "lost") {
+            actualProfit = (parseFloat(String(bet2.stake)) * parseFloat(String(bet2.odd))) - parseFloat(String(bet1.stake)) - parseFloat(String(bet2.stake));
+          } else if (bet1.result === "won" && bet2.result === "returned") {
+            actualProfit = (parseFloat(String(bet1.stake)) * parseFloat(String(bet1.odd))) - parseFloat(String(bet1.stake)) + parseFloat(String(bet2.stake));
+          } else if (bet2.result === "won" && bet1.result === "returned") {
+            actualProfit = (parseFloat(String(bet2.stake)) * parseFloat(String(bet2.odd))) - parseFloat(String(bet2.stake)) + parseFloat(String(bet1.stake));
+          } else if (bet1.result === "lost" && bet2.result === "lost") {
+            actualProfit = -(parseFloat(String(bet1.stake)) + parseFloat(String(bet2.stake)));
+          } else if (bet1.result === "returned" && bet2.result === "returned") {
+            actualProfit = 0;
+          }
+          
+          // Update both bets with the calculated actual profit
+          await storage.updateBet(bet1.id, { actualProfit: String(actualProfit) });
+          await storage.updateBet(bet2.id, { actualProfit: String(actualProfit) });
+          
           // Update surebet set status to resolved
           await storage.updateSurebetSet(updatedBet.surebetSetId, { status: "resolved" });
         }
@@ -295,6 +300,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error updating surebet set status:", error);
       res.status(400).json({ error: error.message || "Invalid request data" });
+    }
+  });
+
+  // Reset surebet set results
+  app.post("/api/surebet-sets/:id/reset", async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Get all bets for this surebet set
+      const allBets = await db.select().from(bets).where(eq(bets.surebetSetId, id));
+      
+      // Reset all bets
+      for (const bet of allBets) {
+        await storage.updateBet(bet.id, { 
+          result: null, 
+          actualProfit: null 
+        });
+      }
+      
+      // Reset surebet set status to pending
+      const updatedSet = await storage.updateSurebetSet(id, { status: "pending" });
+      
+      res.json(updatedSet);
+    } catch (error: any) {
+      console.error("Error resetting surebet set:", error);
+      res.status(500).json({ error: error.message || "Failed to reset surebet set" });
     }
   });
 
