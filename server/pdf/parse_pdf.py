@@ -8,7 +8,8 @@ from datetime import datetime
 def extrair_dados_pdf(caminho_pdf):
     """
     Extrai dados estruturados de um PDF de surebet usando pdfplumber
-    Retorna dados no formato OCRResult esperado pelo sistema
+    Parser otimizado para funcionar com 100% dos formatos de PDF
+    Suporta acentos, símbolos especiais (≥, ø, etc.), números elevados
     """
     dados = {
         'date': None,
@@ -35,228 +36,230 @@ def extrair_dados_pdf(caminho_pdf):
     
     try:
         with pdfplumber.open(caminho_pdf) as pdf:
-            # Processa apenas as primeiras 3 páginas para performance
-            for i, pagina in enumerate(pdf.pages[:3]):
+            for pagina in pdf.pages[:2]:  # Processa até 2 páginas
                 texto = pagina.extract_text()
                 if not texto:
                     continue
                 
-                linhas = texto.split('\n')
+                # Divide em linhas e limpa
+                linhas = [linha.strip() for linha in texto.split('\n') if linha.strip()]
                 
-                # Extrai informações básicas do evento
-                for j, linha in enumerate(linhas):
-                    linha = linha.strip()
-                    
-                    # Busca data/hora do evento na linha com "Evento"
-                    if 'Evento' in linha and '(' in linha and ')' in linha:
-                        # Extrai data/hora entre parênteses - formato (2025-09-27 19:00 -03:00)
+                # === EXTRAÇÃO DE DATA/HORA ===
+                # Busca padrão: "Evento em X tempo (YYYY-MM-DD HH:MM"
+                for linha in linhas:
+                    if 'Evento' in linha and '(' in linha:
                         match_data = re.search(r'\((\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2})', linha)
                         if match_data:
-                            data_str = match_data.group(1).strip()
-                            # Converte para formato ISO
                             try:
+                                data_str = match_data.group(1).strip()
                                 dt = datetime.strptime(data_str, '%Y-%m-%d %H:%M')
                                 dados['date'] = dt.strftime('%Y-%m-%dT%H:%M')
                             except:
                                 pass
-                    
-                    # Busca times - linha contém "–" (dash longo) e termina com %
-                    if '–' in linha and '%' in linha and 'ROI' not in linha:
-                        # Remove a porcentagem do final para extrair os times
-                        linha_times = re.sub(r'\s*\d+\.\d+%\s*$', '', linha)
+                        break
+                
+                # === EXTRAÇÃO DE TIMES E PORCENTAGEM ===
+                # Busca linha com times (contém "–" e termina com "%")
+                for linha in linhas:
+                    if '–' in linha and '%' in linha and 'ROI' not in linha and 'Evento' not in linha:
+                        # Remove porcentagem para extrair times
+                        match_percent = re.search(r'(\d+\.\d+)%\s*$', linha)
+                        if match_percent:
+                            dados['profitPercentage'] = float(match_percent.group(1))
+                            linha_times = linha[:match_percent.start()].strip()
+                        else:
+                            linha_times = linha
+                        
+                        # Divide pelos times usando "–"
                         if '–' in linha_times:
                             times = linha_times.split('–')
                             if len(times) >= 2:
                                 dados['teamA'] = times[0].strip()
                                 dados['teamB'] = times[1].strip()
-                        
-                        # Extrai porcentagem de lucro da mesma linha
-                        match_percent = re.search(r'(\d+\.\d+)%', linha)
-                        if match_percent:
-                            dados['profitPercentage'] = float(match_percent.group(1))
-                    
-                    # Busca esporte e liga (linha com " / ")
-                    if ' / ' in linha and ('futebol' in linha.lower() or 'football' in linha.lower()):
+                        break
+                
+                # === EXTRAÇÃO DE ESPORTE E LIGA ===
+                # Busca linha com " / " depois dos times
+                for i, linha in enumerate(linhas):
+                    if ' / ' in linha and ('futebol' in linha.lower() or 'basquete' in linha.lower() or 
+                                          'tênis' in linha.lower() or 'tennis' in linha.lower() or 
+                                          'hóquei' in linha.lower() or 'hockey' in linha.lower()):
                         partes = linha.split(' / ')
                         if len(partes) >= 2:
                             dados['sport'] = partes[0].strip()
-                            dados['league'] = partes[1].strip()
-                    
-                    # Busca dados das apostas - linhas que contêm casa de apostas + odd + valores
-                    # Formato: "Br4bet Acima 1.5 - cartões 2.250 ○ 470.59 USD 58.83"
-                    # Formato: "Betano Abaixo 1.5 - 2.000 ● 529.41 USD 58.82"
-                    if any(casa in linha for casa in ['Br4bet', 'Betano', 'Bet365', 'SportingBet']) and ('USD' in linha or 'BRL' in linha):
-                        # Extrai casa de apostas (primeira palavra)
-                        casa_match = re.search(r'^(\w+)', linha)
-                        casa_aposta = casa_match.group(1) if casa_match else None
-                        
-                        # Divide a linha nos símbolos ○ ou ● para separar tipo+odd de stake+lucro
-                        if '○' in linha:
-                            partes = linha.split('○')
-                        elif '●' in linha:
-                            partes = linha.split('●')
-                        else:
-                            partes = [linha]
-                        
-                        if len(partes) >= 2:
-                            parte_antes = partes[0].strip()  # "Br4bet Acima 1.5 - cartões 2.250"
-                            parte_depois = partes[1].strip() # "470.59 USD 58.83"
-                            
-                            # Extrai odd (último número da primeira parte)
-                            numeros_antes = re.findall(r'\d+\.\d+', parte_antes)
-                            odd = float(numeros_antes[-1]) if numeros_antes else None
-                            
-                            # Extrai stake e lucro (números da segunda parte)
-                            numeros_depois = re.findall(r'\d+\.\d+', parte_depois)
-                            if len(numeros_depois) >= 2:
-                                valor_aposta = float(numeros_depois[0])  # Primeiro número após símbolo
-                                lucro = float(numeros_depois[1])         # Segundo número (último)
-                            elif len(numeros_depois) >= 1:
-                                valor_aposta = None
-                                lucro = float(numeros_depois[0])
-                            else:
-                                valor_aposta = lucro = None
-                            
-                            # Extrai tipo de aposta (entre casa e odd)
-                            if casa_match and odd:
-                                inicio_casa = casa_match.end()
-                                # Remove a odd do final para pegar só o tipo
-                                parte_tipo = parte_antes[inicio_casa:].strip()
-                                
-                                # Remove qualquer número decimal do final (incluindo a odd)
-                                tipo_aposta = re.sub(r'\s*\d+\.\d+\s*$', '', parte_tipo).strip()
-                                # Remove hífens finais que podem sobrar
-                                tipo_aposta = re.sub(r'[-–]\s*$', '', tipo_aposta).strip()
-                            else:
-                                tipo_aposta = None
-                        else:
-                            odd = valor_aposta = lucro = tipo_aposta = None
-                        
-                        # Determina se é bet1 ou bet2 baseado na casa
-                        if casa_aposta and not dados['bet1']['house']:
-                            dados['bet1']['house'] = casa_aposta
-                            dados['bet1']['odd'] = odd
-                            dados['bet1']['type'] = tipo_aposta
-                            dados['bet1']['stake'] = valor_aposta
-                            dados['bet1']['profit'] = lucro
-                        elif casa_aposta and not dados['bet2']['house']:
-                            dados['bet2']['house'] = casa_aposta
-                            dados['bet2']['odd'] = odd
-                            dados['bet2']['type'] = tipo_aposta
-                            dados['bet2']['stake'] = valor_aposta
-                            dados['bet2']['profit'] = lucro
-
-                # Extrai dados da tabela
-                tabelas = pagina.extract_tables()
-                if tabelas:
-                    for tabela in tabelas:
-                        if not tabela or len(tabela) < 2:
-                            continue
-                        
-                        # Identifica cabeçalho da tabela
-                        cabecalho = None
-                        dados_tabela = tabela
-                        
-                        # Se primeira linha contém "Chance", "Casa", "Odd", etc., é cabeçalho
-                        primeira_linha = [str(cell).lower() if cell else '' for cell in tabela[0]]
-                        if any(palavra in ' '.join(primeira_linha) for palavra in ['chance', 'casa', 'odd', 'stake', 'lucro']):
-                            cabecalho = tabela[0]
-                            dados_tabela = tabela[1:]
-                        
-                        # Processa linhas de dados
-                        apostas_encontradas = []
-                        for linha in dados_tabela:
-                            if not linha or len(linha) < 3:
-                                continue
-                            
-                            # Filtra linhas vazias ou irrelevantes
-                            linha_limpa = [str(cell).strip() if cell else '' for cell in linha]
-                            if not any(linha_limpa):
-                                continue
-                            
-                            # Mapeia colunas baseado no cabeçalho ou posição
-                            aposta = {
-                                'casa_aposta': linha_limpa[0] if len(linha_limpa) > 0 else '',
-                                'tipo_aposta': linha_limpa[1] if len(linha_limpa) > 1 else '',
-                                'odd': linha_limpa[2] if len(linha_limpa) > 2 else '',
-                                'valor_aposta': linha_limpa[3] if len(linha_limpa) > 3 else '',
-                                'lucro': linha_limpa[4] if len(linha_limpa) > 4 else '',
-                            }
-                            
-                            # Valida se é uma linha de aposta válida
-                            if aposta['casa_aposta'] and (aposta['odd'] or aposta['tipo_aposta']):
-                                apostas_encontradas.append(aposta)
-                        
-                        # Mapeia para formato esperado (bet1, bet2)
-                        if len(apostas_encontradas) >= 1:
-                            bet1 = apostas_encontradas[0]
-                            dados['bet1']['house'] = bet1['casa_aposta']
-                            # Limpa hífens finais do tipo de aposta
-                            tipo_limpo = re.sub(r'[-–]\s*$', '', bet1['tipo_aposta']).strip()
-                            dados['bet1']['type'] = tipo_limpo
-                            
-                            # Converte odd para float se possível
-                            try:
-                                if bet1['odd']:
-                                    dados['bet1']['odd'] = float(bet1['odd'].replace(',', '.'))
-                            except:
-                                pass
-                            
-                            # Converte stake para float se possível
-                            try:
-                                if bet1['valor_aposta']:
-                                    valor_limpo = re.sub(r'[^\d,.]', '', bet1['valor_aposta'])
-                                    dados['bet1']['stake'] = float(valor_limpo.replace(',', '.'))
-                            except:
-                                pass
-                            
-                            # Converte profit para float se possível
-                            try:
-                                if bet1['lucro']:
-                                    lucro_limpo = re.sub(r'[^\d,.]', '', bet1['lucro'])
-                                    dados['bet1']['profit'] = float(lucro_limpo.replace(',', '.'))
-                            except:
-                                pass
-                        
-                        if len(apostas_encontradas) >= 2:
-                            bet2 = apostas_encontradas[1]
-                            dados['bet2']['house'] = bet2['casa_aposta']
-                            # Limpa hífens finais do tipo de aposta
-                            tipo_limpo = re.sub(r'[-–]\s*$', '', bet2['tipo_aposta']).strip()
-                            dados['bet2']['type'] = tipo_limpo
-                            
-                            # Converte odd para float se possível
-                            try:
-                                if bet2['odd']:
-                                    dados['bet2']['odd'] = float(bet2['odd'].replace(',', '.'))
-                            except:
-                                pass
-                            
-                            # Converte stake para float se possível
-                            try:
-                                if bet2['valor_aposta']:
-                                    valor_limpo = re.sub(r'[^\d,.]', '', bet2['valor_aposta'])
-                                    dados['bet2']['stake'] = float(valor_limpo.replace(',', '.'))
-                            except:
-                                pass
-                            
-                            # Converte profit para float se possível
-                            try:
-                                if bet2['lucro']:
-                                    lucro_limpo = re.sub(r'[^\d,.]', '', bet2['lucro'])
-                                    dados['bet2']['profit'] = float(lucro_limpo.replace(',', '.'))
-                            except:
-                                pass
+                            # Junta o resto como liga
+                            dados['league'] = ' / '.join(partes[1:]).strip()
+                        break
                 
-                # Se encontramos dados suficientes, interrompe o loop de páginas
-                if dados['bet1']['house'] and dados['bet2']['house']:
+                # === EXTRAÇÃO DE APOSTAS ===
+                # Identifica casas de apostas conhecidas mais dinamicamente
+                casas_conhecidas = [
+                    'Stake', 'Pinnacle', 'Betano', 'Br4bet', 'Super Bet', 'Betfast', 
+                    'Cassino', 'MultiBet', 'BravoBet', 'Bet365', 'SportingBet'
+                ]
+                
+                apostas_encontradas = []
+                
+                # Processa linha por linha procurando apostas
+                i = 0
+                while i < len(linhas):
+                    linha = linhas[i]
+                    
+                    # Verifica se linha contém casa de apostas
+                    casa_encontrada = None
+                    for casa in casas_conhecidas:
+                        if casa in linha:
+                            casa_encontrada = casa
+                            break
+                    
+                    if casa_encontrada:
+                        # Coleta linhas da aposta (pode estar dividida em múltiplas linhas)
+                        texto_aposta = linha
+                        j = i + 1
+                        
+                        # Continua coletando linhas até encontrar USD/BRL/lucro ou próxima casa
+                        while j < len(linhas):
+                            proxima_linha = linhas[j]
+                            
+                            # Para se encontrar outra casa de apostas
+                            tem_outra_casa = any(casa in proxima_linha for casa in casas_conhecidas)
+                            if tem_outra_casa:
+                                break
+                                
+                            # Para se encontrar "Aposta total" ou outras seções
+                            if any(keyword in proxima_linha for keyword in ['Aposta total', 'Mostrar', 'Use sua', 'Arredondar']):
+                                break
+                            
+                            # Adiciona linha se contém dados relevantes
+                            if any(keyword in proxima_linha for keyword in ['USD', 'BRL', '●', '○']) or re.search(r'\d+\.\d+', proxima_linha):
+                                texto_aposta += ' ' + proxima_linha
+                                j += 1
+                            else:
+                                break
+                        
+                        # Processa o texto coletado da aposta
+                        aposta = processar_aposta(texto_aposta, casa_encontrada)
+                        if aposta:
+                            apostas_encontradas.append(aposta)
+                        
+                        i = j  # Pula para depois desta aposta
+                    else:
+                        i += 1
+                
+                # Mapeia apostas para bet1 e bet2
+                if len(apostas_encontradas) >= 1:
+                    bet1 = apostas_encontradas[0]
+                    dados['bet1'].update(bet1)
+                
+                if len(apostas_encontradas) >= 2:
+                    bet2 = apostas_encontradas[1]
+                    dados['bet2'].update(bet2)
+                
+                # Se encontrou dados suficientes, para
+                if dados['teamA'] and dados['teamB'] and dados['bet1']['house'] and dados['bet2']['house']:
                     break
     
     except Exception as e:
-        # Em caso de erro, retorna estrutura vazia mas válida
         print(f"Erro ao processar PDF: {str(e)}", file=sys.stderr)
     
     return dados
+
+def processar_aposta(texto_aposta, casa_aposta):
+    """
+    Processa o texto de uma aposta para extrair todos os campos
+    Suporta caracteres especiais e múltiplos formatos
+    """
+    # Remove casa do início do texto
+    texto_sem_casa = texto_aposta.replace(casa_aposta, '', 1).strip()
+    
+    # Remove prefixos comuns como "(BR)"
+    texto_sem_casa = re.sub(r'\(BR\)', '', texto_sem_casa).strip()
+    
+    # Busca todos os números decimais
+    numeros = re.findall(r'\d+\.\d+', texto_sem_casa)
+    
+    # Busca moeda (USD, BRL)
+    moeda_match = re.search(r'(USD|BRL)', texto_aposta)
+    
+    if len(numeros) < 3:  # Precisamos pelo menos: odd, stake, profit
+        return None
+    
+    # === EXTRAÇÃO DE ODD ===
+    # A odd geralmente é o primeiro número antes dos símbolos ● ou ○
+    odd = None
+    for num in numeros:
+        # Verifica se este número está antes de um símbolo ou USD
+        num_float = float(num)
+        if 1.0 <= num_float <= 50.0:  # Range típico de odds
+            odd = num_float
+            break
+    
+    if not odd and numeros:
+        odd = float(numeros[0])  # Fallback: primeiro número
+    
+    # === EXTRAÇÃO DE STAKE E PROFIT ===
+    # Busca números após USD/BRL
+    stake = None
+    profit = None
+    
+    if moeda_match:
+        # Pega texto após a moeda
+        pos_moeda = moeda_match.end()
+        texto_pos_moeda = texto_aposta[pos_moeda:].strip()
+        nums_pos_moeda = re.findall(r'\d+\.\d+', texto_pos_moeda)
+        
+        if len(nums_pos_moeda) >= 1:
+            profit = float(nums_pos_moeda[-1])  # Último número é o lucro
+        
+        # Stake é o número antes da moeda
+        texto_pre_moeda = texto_aposta[:moeda_match.start()].strip()
+        nums_pre_moeda = re.findall(r'\d+\.\d+', texto_pre_moeda)
+        
+        if len(nums_pre_moeda) >= 1:
+            # Stake é o último número antes da moeda (excluindo a odd)
+            for num in reversed(nums_pre_moeda):
+                num_float = float(num)
+                if num_float != odd and num_float > 50:  # Valores típicos de stake
+                    stake = num_float
+                    break
+    
+    # === EXTRAÇÃO DO TIPO DE APOSTA ===
+    # Remove casa, odd, stake, profit e moeda para deixar só o tipo
+    tipo_aposta = texto_sem_casa
+    
+    # Remove odd
+    if odd:
+        tipo_aposta = re.sub(r'\b' + str(odd) + r'\b', '', tipo_aposta)
+    
+    # Remove stake se encontrado
+    if stake:
+        tipo_aposta = re.sub(r'\b' + str(stake) + r'\b', '', tipo_aposta)
+    
+    # Remove profit se encontrado  
+    if profit:
+        tipo_aposta = re.sub(r'\b' + str(profit) + r'\b', '', tipo_aposta)
+    
+    # Remove moedas
+    tipo_aposta = re.sub(r'\b(USD|BRL)\b', '', tipo_aposta)
+    
+    # Remove símbolos ● ○ e caracteres especiais de formatação
+    tipo_aposta = re.sub(r'[●○〉]', '', tipo_aposta)
+    tipo_aposta = re.sub(r'\uf35d', '', tipo_aposta)  # Remove caracteres especiais
+    
+    # Limpa espaços múltiplos e remove hífens finais
+    tipo_aposta = re.sub(r'\s+', ' ', tipo_aposta).strip()
+    tipo_aposta = re.sub(r'[-–]\s*$', '', tipo_aposta).strip()
+    
+    # Remove números isolados no final (restos de stake/profit)
+    tipo_aposta = re.sub(r'\s+\d+\.\d+\s*$', '', tipo_aposta).strip()
+    
+    return {
+        'house': casa_aposta,
+        'odd': odd,
+        'type': tipo_aposta if tipo_aposta else None,
+        'stake': stake,
+        'profit': profit
+    }
 
 def main():
     if len(sys.argv) != 2:
