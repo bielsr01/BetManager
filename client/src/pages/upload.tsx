@@ -41,27 +41,27 @@ export default function UploadPage() {
   };
 
   const handleOCRComplete = (ocrData: any) => {
-    // Transform OCR data to form format
+    // Transform OCR data to form format, safely handling null values
     const formattedData = {
       eventDate: ocrData.date,
-      sport: ocrData.sport,
-      league: ocrData.league,
-      teamA: ocrData.teamA,
-      teamB: ocrData.teamB,
-      profitPercentage: ocrData.profitPercentage.toString(),
-      bet1House: ocrData.bet1.house,
+      sport: ocrData.sport || "",
+      league: ocrData.league || "",
+      teamA: ocrData.teamA || "",
+      teamB: ocrData.teamB || "",
+      profitPercentage: String(ocrData.profitPercentage ?? ""),
+      bet1House: ocrData.bet1?.house || "",
       bet1HouseId: "", // User needs to select this manually
-      bet1Type: ocrData.bet1.type,
-      bet1Odd: ocrData.bet1.odd.toString(),
-      bet1Stake: ocrData.bet1.stake.toString(),
-      bet1Profit: ocrData.bet1.profit.toString(),
+      bet1Type: ocrData.bet1?.type || "",
+      bet1Odd: String(ocrData.bet1?.odd ?? ""),
+      bet1Stake: String(ocrData.bet1?.stake ?? ""),
+      bet1Profit: String(ocrData.bet1?.profit ?? ""),
       bet1AccountHolder: "",
-      bet2House: ocrData.bet2.house,
+      bet2House: ocrData.bet2?.house || "",
       bet2HouseId: "", // User needs to select this manually
-      bet2Type: ocrData.bet2.type,
-      bet2Odd: ocrData.bet2.odd.toString(),
-      bet2Stake: ocrData.bet2.stake.toString(),
-      bet2Profit: ocrData.bet2.profit.toString(),
+      bet2Type: ocrData.bet2?.type || "",
+      bet2Odd: String(ocrData.bet2?.odd ?? ""),
+      bet2Stake: String(ocrData.bet2?.stake ?? ""),
+      bet2Profit: String(ocrData.bet2?.profit ?? ""),
       bet2AccountHolder: "",
     };
     
