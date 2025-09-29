@@ -7,7 +7,7 @@ from datetime import datetime
 
 def preprocessar_linhas_quebradas(texto):
     """
-    Junta linhas que foram quebradas, especialmente (BR) separado
+    Junta linhas que foram quebradas, incluindo casas e tipos divididos
     """
     lines = texto.split('\n')
     lines_processadas = []
@@ -16,15 +16,49 @@ def preprocessar_linhas_quebradas(texto):
     while i < len(lines):
         linha_atual = lines[i].strip()
         
-        # Se a próxima linha é apenas "(BR)" ou similar, junta com a atual
+        if not linha_atual:
+            i += 1
+            continue
+            
+        # === CASO 1: Linha seguinte é apenas sufixo (BR), (CO), etc ===
         if (i + 1 < len(lines) and 
             lines[i + 1].strip() in ['(BR)', '(CO)', '(PT)', '(RO)', '(BE)', '(MX)', '(UK)', '(ZA)', '(SE)']):
             linha_juntada = linha_atual + ' ' + lines[i + 1].strip()
             lines_processadas.append(linha_juntada)
-            i += 2  # Pula a próxima linha que já foi processada
-        else:
-            lines_processadas.append(linha_atual)
-            i += 1
+            i += 2
+            continue
+        
+        # === CASO 2: Casa de apostas fragmentada ===
+        # Detecta linhas com dados de aposta que podem ter continuação
+        tem_odds_usd = 'USD' in linha_atual and any(char.isdigit() for char in linha_atual)
+        
+        if tem_odds_usd and i + 1 < len(lines):
+            proxima_linha = lines[i + 1].strip()
+            
+            # Próxima linha é continuação se:
+            # - Não tem números (não é nova aposta)
+            # - Não é separador/seção
+            # - Tem palavras que podem ser casa/tipo
+            # Verifica se próxima linha tem números significativos (odds/stakes)
+            # Ignora números em texto como "1º", "2º", etc.
+            tem_odds_significativos = bool(re.search(r'\d+\.\d+|\d+\s+USD', proxima_linha))
+            
+            eh_continuacao = (proxima_linha and 
+                            not tem_odds_significativos and  # Não é nova aposta
+                            proxima_linha not in ['〉', '○', '●'] and
+                            not any(keyword in proxima_linha.lower() for keyword in 
+                                   ['aposta total', 'mostrar', 'use sua', 'arredondar', 'evento', 'chance']) and
+                            len(proxima_linha) > 2)  # Não é linha muito curta
+            
+            if eh_continuacao:
+                linha_juntada = linha_atual + ' ' + proxima_linha
+                lines_processadas.append(linha_juntada)
+                i += 2
+                continue
+        
+        # === CASO 3: Linha normal ===
+        lines_processadas.append(linha_atual)
+        i += 1
     
     return '\n'.join(lines_processadas)
 
@@ -129,12 +163,14 @@ def extrair_dados_pdf(caminho_pdf):
                         texto_aposta = linha
                         j = i + 1
                         
-                        # Continua coletando linhas até encontrar informações completas
-                        while j < len(linhas) and j < i + 4:  # Máximo 4 linhas por aposta
+                        # Continua coletando linhas até encontrar informações completas  
+                        while j < len(linhas) and j < i + 6:  # Máximo 6 linhas por aposta
                             proxima_linha = linhas[j]
                             
-                            # Para se encontrar outra casa de apostas
-                            if detectar_casa_apostas(proxima_linha):
+                            # Para se encontrar outra casa de apostas COMPLETA (não fragmento)
+                            casa_na_proxima = detectar_casa_apostas(proxima_linha)
+                            if casa_na_proxima and any(char.isdigit() for char in proxima_linha):
+                                # Só para se encontrar casa + números (aposta completa)
                                 break
                                 
                             # Para se encontrar "Aposta total" ou outras seções
