@@ -173,7 +173,7 @@ export default function UploadPage() {
         <div>
           <h1 className="text-3xl font-bold">Nova Aposta</h1>
           <p className="text-muted-foreground">
-            Faça upload de um screenshot para extrair automaticamente os dados da aposta
+            Faça upload de um PDF para extrair automaticamente os dados da aposta
           </p>
         </div>
         
@@ -189,7 +189,7 @@ export default function UploadPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5" />
-            Upload da Imagem
+            Upload do PDF
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -208,7 +208,7 @@ export default function UploadPage() {
               <div className="flex items-center gap-2">
                 <Wand2 className="h-4 w-4 animate-pulse" />
                 <span className="text-sm">
-                  Processando imagem com OCR... Isso pode levar alguns segundos.
+                  Processando PDF com pdfplumber... Isso pode levar alguns segundos.
                 </span>
               </div>
             </div>

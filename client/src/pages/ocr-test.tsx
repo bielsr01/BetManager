@@ -8,12 +8,12 @@ import { Separator } from "@/components/ui/separator";
 import { TestTube, FileText, Wand2, Copy, CheckCircle, ArrowRight } from "lucide-react";
 import { useLocation } from "wouter";
 
-export default function OCRTest() {
+export default function PdfExtractTest() {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [originalFile, setOriginalFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [rawText, setRawText] = useState("");
   const [structuredData, setStructuredData] = useState<any>(null);
-  const [customPrompt, setCustomPrompt] = useState("");
   const [, navigate] = useLocation();
 
   // Convert ISO date format back to Brazilian format for display
@@ -32,18 +32,17 @@ export default function OCRTest() {
   const handleImageUpload = async (file: File) => {
     const imageUrl = URL.createObjectURL(file);
     setUploadedImage(imageUrl);
+    setOriginalFile(file);
     setRawText("");
     setStructuredData(null);
     
-    // Real OCR processing with Mistral AI
+    // Real PDF processing with pdfplumber
     setIsProcessing(true);
     
     try {
       const formData = new FormData();
       formData.append('file', file);
-      if (customPrompt.trim()) {
-        formData.append('prompt', customPrompt);
-      }
+
       
       const response = await fetch('/api/ocr/process', {
         method: 'POST',
@@ -53,8 +52,8 @@ export default function OCRTest() {
       const result = await response.json();
       
       if (response.ok && result.success) {
-        // Format the raw text response to show the actual OCR extraction
-        const rawResponse = `=== DADOS EXTRAÍDOS DA IMAGEM ENVIADA ===
+        // Format the raw text response to show the actual PDF extraction
+        const rawResponse = `=== DADOS EXTRAÍDOS DO PDF ENVIADO ===
 
 DATA: ${formatDateForDisplay(result.data.date)}
 ESPORTE: ${result.data.sport}
@@ -79,30 +78,30 @@ Lucro: ${result.data.bet2.profit}
 Lucro%: ${result.data.profitPercentage}%
 
 === PROCESSAMENTO CONCLUÍDO ===
-✅ OCR processado com sucesso pela Mistral AI
+✅ PDF processado com sucesso pelo pdfplumber
 ✅ Todos os caracteres especiais e acentos preservados
 ✅ Dados fiéis ao arquivo enviado`;
 
         setRawText(rawResponse);
         setStructuredData(result.data);
       } else {
-        const errorMsg = `❌ ERRO NO PROCESSAMENTO OCR
+        const errorMsg = `❌ ERRO NO PROCESSAMENTO PDF
 
 Detalhes do erro: ${result.error || 'Erro desconhecido'}
 Verifique se:
-- O arquivo é uma imagem válida
-- A imagem contém dados de aposta visíveis
-- A API Mistral está funcionando corretamente`;
+- O arquivo é um PDF válido
+- O PDF contém dados de aposta visíveis
+- O pdfplumber está funcionando corretamente`;
         setRawText(errorMsg);
-        console.error('OCR Error:', result.error);
+        console.error('PDF Processing Error:', result.error);
       }
     } catch (error) {
       const errorMsg = `❌ ERRO DE CONEXÃO
 
-Falha ao processar imagem: ${error instanceof Error ? error.message : 'Erro desconhecido'}
+Falha ao processar PDF: ${error instanceof Error ? error.message : 'Erro desconhecido'}
 Verifique sua conexão com a internet e tente novamente.`;
       setRawText(errorMsg);
-      console.error('OCR processing error:', error);
+      console.error('PDF processing error:', error);
     } finally {
       setIsProcessing(false);
     }
@@ -113,6 +112,7 @@ Verifique sua conexão com a internet e tente novamente.`;
       URL.revokeObjectURL(uploadedImage);
     }
     setUploadedImage(null);
+    setOriginalFile(null);
     setRawText("");
     setStructuredData(null);
   };
@@ -122,25 +122,19 @@ Verifique sua conexão com a internet e tente novamente.`;
     console.log("Text copied to clipboard");
   };
 
-  const processWithOCR = async () => {
-    if (!uploadedImage) return;
+  const processWithPdfplumber = async () => {
+    if (!originalFile) return;
     
-    // Get the file from the blob URL to reprocess
+    // Use the original PDF file to reprocess
     try {
-      const response = await fetch(uploadedImage);
-      const blob = await response.blob();
-      const file = new File([blob], "reprocess.jpg", { type: blob.type || "image/jpeg" });
-      
-      // Clear current results and reprocess with current prompt
+      // Clear current results and reprocess with original file
       setRawText("");
       setStructuredData(null);
       setIsProcessing(true);
       
       const formData = new FormData();
-      formData.append('file', file);
-      if (customPrompt.trim()) {
-        formData.append('prompt', customPrompt);
-      }
+      formData.append('file', originalFile);
+
       
       const apiResponse = await fetch('/api/ocr/process', {
         method: 'POST',
@@ -150,8 +144,8 @@ Verifique sua conexão com a internet e tente novamente.`;
       const result = await apiResponse.json();
       
       if (apiResponse.ok && result.success) {
-        // Format the raw text response to show the actual OCR extraction
-        const rawResponse = `=== DADOS EXTRAÍDOS DA IMAGEM ENVIADA ===
+        // Format the raw text response to show the actual PDF extraction
+        const rawResponse = `=== DADOS EXTRAÍDOS DO PDF ENVIADO ===
 
 DATA: ${formatDateForDisplay(result.data.date)}
 ESPORTE: ${result.data.sport}
@@ -176,27 +170,27 @@ Lucro: ${result.data.bet2.profit}
 Lucro%: ${result.data.profitPercentage}%
 
 === PROCESSAMENTO CONCLUÍDO ===
-✅ OCR processado com sucesso pela Pixtral Large
+✅ PDF processado com sucesso pelo pdfplumber
 ✅ Todos os caracteres especiais e acentos preservados
 ✅ Dados fiéis ao arquivo enviado`;
 
         setRawText(rawResponse);
         setStructuredData(result.data);
       } else {
-        const errorMsg = `❌ ERRO NO PROCESSAMENTO OCR
+        const errorMsg = `❌ ERRO NO PROCESSAMENTO PDF
 
 Detalhes do erro: ${result.error || 'Erro desconhecido'}
 Verifique se:
-- O arquivo é uma imagem válida
-- A imagem contém dados de aposta visíveis
-- A API Pixtral Large está funcionando corretamente`;
+- O arquivo é um PDF válido
+- O PDF contém dados de aposta visíveis
+- O pdfplumber está funcionando corretamente`;
         setRawText(errorMsg);
-        console.error('OCR Error:', result.error);
+        console.error('PDF Processing Error:', result.error);
       }
       
     } catch (error) {
       console.error('Error reprocessing image:', error);
-      setRawText('❌ Erro ao reprocessar a imagem. Faça upload novamente.');
+      setRawText('❌ Erro ao reprocessar o PDF. Faça upload novamente.');
     } finally {
       setIsProcessing(false);
     }
@@ -207,11 +201,11 @@ Verifique se:
     
     // Validate required nested fields
     if (!structuredData.bet1?.house || !structuredData.bet2?.house) {
-      console.error('Invalid OCR data: missing bet information');
+      console.error('Invalid PDF data: missing bet information');
       return;
     }
     
-    // Transform OCR data to form format
+    // Transform PDF data to form format
     const formattedData = {
       eventDate: structuredData.date,
       sport: structuredData.sport,
@@ -234,7 +228,7 @@ Verifique se:
     };
     
     // Save to sessionStorage for the upload page to use (more appropriate for temporary data)
-    sessionStorage.setItem('importedOCRData', JSON.stringify(formattedData));
+    sessionStorage.setItem('importedPDFData', JSON.stringify(formattedData));
     
     // Navigate to upload page
     navigate('/upload');
@@ -245,9 +239,9 @@ Verifique se:
       <div className="flex items-center gap-2">
         <TestTube className="h-8 w-8 text-primary" />
         <div>
-          <h1 className="text-3xl font-bold">Teste de OCR</h1>
+          <h1 className="text-3xl font-bold">Teste de Extração PDF</h1>
           <p className="text-muted-foreground">
-            Teste o reconhecimento óptico de caracteres e verifique a precisão da extração
+            Teste a extração de dados do PDF e verifique a precisão do pdfplumber
           </p>
         </div>
       </div>
@@ -259,44 +253,27 @@ Verifique se:
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5" />
-                Upload da Imagem
+                Upload do PDF
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <label htmlFor="custom-prompt" className="block text-sm font-medium mb-2">
-                  Prompt Personalizado (Opcional)
-                </label>
-                <Textarea
-                  id="custom-prompt"
-                  placeholder="Digite um prompt personalizado para o Pixtral Large (deixe vazio para usar o prompt padrão)..."
-                  value={customPrompt}
-                  onChange={(e) => setCustomPrompt(e.target.value)}
-                  className="min-h-[80px]"
-                  data-testid="textarea-custom-prompt"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  O Pixtral Large processará seu documento usando este prompt personalizado
-                </p>
-              </div>
               
               <ImageUpload
                 onImageUpload={handleImageUpload}
                 onImageRemove={handleImageRemove}
                 uploadedImage={uploadedImage}
                 isProcessing={isProcessing}
-                customPrompt={customPrompt}
               />
               
               {uploadedImage && !isProcessing && (
                 <div className="mt-4">
                   <Button 
-                    onClick={processWithOCR} 
+                    onClick={processWithPdfplumber} 
                     className="w-full"
                     data-testid="button-process-ocr"
                   >
                     <Wand2 className="w-4 h-4 mr-2" />
-                    Processar com Pixtral Large
+                    Processar com pdfplumber
                   </Button>
                 </div>
               )}
@@ -312,7 +289,7 @@ Verifique se:
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="h-5 w-5" />
-                  Texto Extraído (Raw)
+                  Dados Extraídos (Raw)
                 </CardTitle>
                 {rawText && (
                   <Button
@@ -336,7 +313,7 @@ Verifique se:
                 />
               ) : (
                 <div className="flex items-center justify-center h-[200px] text-muted-foreground">
-                  {isProcessing ? "Processando OCR..." : "Aguardando upload da imagem"}
+                  {isProcessing ? "Processando PDF..." : "Aguardando upload do PDF"}
                 </div>
               )}
             </CardContent>
