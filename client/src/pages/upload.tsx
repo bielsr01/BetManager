@@ -16,7 +16,7 @@ export default function UploadPage() {
 
   // Check for imported OCR data on component mount
   useEffect(() => {
-    const importedData = sessionStorage.getItem('importedOCRData');
+    const importedData = sessionStorage.getItem('importedPDFData');
     if (importedData) {
       try {
         const parsedData = JSON.parse(importedData);
@@ -26,10 +26,10 @@ export default function UploadPage() {
           setCurrentStep("edit");
         }
         // Clear the imported data from sessionStorage
-        sessionStorage.removeItem('importedOCRData');
+        sessionStorage.removeItem('importedPDFData');
       } catch (error) {
         console.error('Error parsing imported OCR data:', error);
-        sessionStorage.removeItem('importedOCRData');
+        sessionStorage.removeItem('importedPDFData');
       }
     }
   }, []);
