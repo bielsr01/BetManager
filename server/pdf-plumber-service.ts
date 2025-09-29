@@ -7,7 +7,7 @@ import { OCRResult } from '../shared/schema';
 export class PdfPlumberService {
   private readonly tempDir = '/tmp';
   private readonly pythonScript = path.join(path.dirname(fileURLToPath(import.meta.url)), 'pdf', 'parse_pdf.py');
-  private readonly timeout = 15000; // 15 segundos timeout
+  private readonly timeout = 30000; // 30 segundos timeout
 
   async processDocument(
     fileBuffer: Buffer, 
