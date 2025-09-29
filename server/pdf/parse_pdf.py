@@ -526,9 +526,9 @@ def processar_aposta_completa(texto_aposta, casa_aposta):
     tipo_aposta = ' '.join(palavras_filtradas)
     
     # Limpeza final de símbolos e formatação
-    tipo_aposta = re.sub(r'[●○〉]', '', tipo_aposta)  # Remove símbolos visuais
+    tipo_aposta = re.sub(r'[●○]', '', tipo_aposta)  # Remove símbolos circulares
     tipo_aposta = re.sub(r'\uf35d', '', tipo_aposta)  # Remove unicode F35D
-    tipo_aposta = tipo_aposta.replace('〉', '')  # Remove explicitamente 〉
+    tipo_aposta = tipo_aposta.replace('\u232A', '')  # Remove U+232A (〉)
     tipo_aposta = re.sub(r'\s+', ' ', tipo_aposta).strip()  # Limpa espaços
     tipo_aposta = re.sub(r'[-–]\s*$', '', tipo_aposta).strip()  # Remove traços finais
     
