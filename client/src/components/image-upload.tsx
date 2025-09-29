@@ -13,6 +13,7 @@ interface ImageUploadProps {
   className?: string;
   onOCRComplete?: (data: any) => void;
   onOCRError?: (error: string) => void;
+  customPrompt?: string; // Optional custom prompt for Pixtral Large
 }
 
 export function ImageUpload({
@@ -23,6 +24,7 @@ export function ImageUpload({
   className,
   onOCRComplete,
   onOCRError,
+  customPrompt,
 }: ImageUploadProps) {
   const [isDragActive, setIsDragActive] = useState(false);
 
@@ -36,6 +38,9 @@ export function ImageUpload({
         try {
           const formData = new FormData();
           formData.append('file', file);
+          if (customPrompt) {
+            formData.append('prompt', customPrompt);
+          }
           
           const response = await fetch('/api/ocr/process', {
             method: 'POST',
@@ -55,7 +60,7 @@ export function ImageUpload({
         }
       }
     }
-  }, [onImageUpload, onOCRComplete, onOCRError]);
+  }, [onImageUpload, onOCRComplete, onOCRError, customPrompt]);
 
   const { getRootProps, getInputProps } = useDropzone({
     onDrop,
@@ -84,6 +89,9 @@ export function ImageUpload({
             try {
               const formData = new FormData();
               formData.append('file', file);
+              if (customPrompt) {
+                formData.append('prompt', customPrompt);
+              }
               
               const response = await fetch('/api/ocr/process', {
                 method: 'POST',
@@ -106,7 +114,7 @@ export function ImageUpload({
         break;
       }
     }
-  }, [onImageUpload, onOCRComplete, onOCRError]);
+  }, [onImageUpload, onOCRComplete, onOCRError, customPrompt]);
 
   if (uploadedImage) {
     return (

@@ -13,6 +13,7 @@ export default function OCRTest() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [rawText, setRawText] = useState("");
   const [structuredData, setStructuredData] = useState<any>(null);
+  const [customPrompt, setCustomPrompt] = useState("");
   const [, navigate] = useLocation();
 
   // Convert ISO date format back to Brazilian format for display
@@ -197,12 +198,30 @@ Verifique sua conexão com a internet e tente novamente.`;
                 Upload da Imagem
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              <div>
+                <label htmlFor="custom-prompt" className="block text-sm font-medium mb-2">
+                  Prompt Personalizado (Opcional)
+                </label>
+                <Textarea
+                  id="custom-prompt"
+                  placeholder="Digite um prompt personalizado para o Pixtral Large (deixe vazio para usar o prompt padrão)..."
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  className="min-h-[80px]"
+                  data-testid="textarea-custom-prompt"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  O Pixtral Large processará seu documento usando este prompt personalizado
+                </p>
+              </div>
+              
               <ImageUpload
                 onImageUpload={handleImageUpload}
                 onImageRemove={handleImageRemove}
                 uploadedImage={uploadedImage}
                 isProcessing={isProcessing}
+                customPrompt={customPrompt}
               />
               
               {uploadedImage && !isProcessing && (
@@ -213,7 +232,7 @@ Verifique sua conexão com a internet e tente novamente.`;
                     data-testid="button-process-ocr"
                   >
                     <Wand2 className="w-4 h-4 mr-2" />
-                    Processar com OCR
+                    Processar com Pixtral Large
                   </Button>
                 </div>
               )}

@@ -99,28 +99,28 @@ export type SurebetSetWithBets = SurebetSet & {
   })[];
 };
 
-// OCR extraction result type
+// OCR extraction result type - allows null values for missing data (no fallbacks)
 export type OCRResult = {
-  date: string;
-  sport: string;
-  league: string;
-  teamA: string;
-  teamB: string;
+  date: string | null;
+  sport: string | null;
+  league: string | null;
+  teamA: string | null;
+  teamB: string | null;
   bet1: {
-    house: string;
-    odd: number;
-    type: string;
-    stake: number;
-    profit: number;
+    house: string | null;
+    odd: number | null;
+    type: string | null;
+    stake: number | null;
+    profit: number | null;
     accountHolder?: string;
   };
   bet2: {
-    house: string;
-    odd: number;
-    type: string;
-    stake: number;
-    profit: number;
+    house: string | null;
+    odd: number | null;
+    type: string | null;
+    stake: number | null;
+    profit: number | null;
     accountHolder?: string;
   };
-  profitPercentage: number;
+  profitPercentage: number | null;
 };

@@ -250,7 +250,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // OCR processing route
+  // OCR processing route - accepts file and optional custom prompt
   app.post("/api/ocr/process", upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
@@ -258,18 +258,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
+      // Extract custom prompt from request body (if provided)
+      const customPrompt = req.body.prompt || null;
       const fileType = req.file.mimetype === 'application/pdf' ? 'PDF' : 'Image';
-      console.log(`Processing OCR for ${fileType}: ${req.file.originalname}, size: ${req.file.size} bytes`);
       
-      const ocrResult = await ocrService.processFileFromBuffer(req.file.buffer, req.file.mimetype);
+      console.log(`Processing ${fileType} with Pixtral Large: ${req.file.originalname}, size: ${req.file.size} bytes`);
+      console.log(`Custom prompt provided: ${customPrompt ? 'Yes' : 'No'}`);
+      
+      const ocrResult = await ocrService.processFileFromBuffer(req.file.buffer, req.file.mimetype, customPrompt);
       
       res.json({
         success: true,
         data: ocrResult
       });
     } catch (error) {
-      console.error("Error processing OCR:", error);
-      res.status(500).json({ 
+      console.error("Pixtral Large OCR processing error:", error);
+      res.status(400).json({ 
         error: "Failed to process OCR",
         message: error instanceof Error ? error.message : "Unknown error"
       });
