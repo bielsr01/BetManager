@@ -313,16 +313,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update surebet set status
+  // Update surebet set status or checked flag
   app.patch("/api/surebet-sets/:id/status", async (req, res) => {
     try {
       const { id } = req.params;
-      const { status } = z.object({ status: z.enum(["pending", "checked", "resolved"]) }).parse(req.body);
+      const body = z.object({ 
+        status: z.enum(["pending", "resolved"]).optional(),
+        isChecked: z.boolean().optional()
+      }).parse(req.body);
       
-      const updatedSet = await storage.updateSurebetSet(id, { status });
+      const updatedSet = await storage.updateSurebetSet(id, body);
       res.json(updatedSet);
     } catch (error: any) {
-      console.error("Error updating surebet set status:", error);
+      console.error("Error updating surebet set:", error);
       res.status(400).json({ error: error.message || "Invalid request data" });
     }
   });
