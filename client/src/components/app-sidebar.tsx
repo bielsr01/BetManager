@@ -17,7 +17,8 @@ import {
   TestTube, 
   Users, 
   Filter,
-  TrendingUp
+  TrendingUp,
+  BarChart3
 } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -26,6 +27,11 @@ const menuItems = [
     title: "Dashboard",
     url: "/",
     icon: LayoutDashboard,
+  },
+  {
+    title: "Gerenciamento",
+    url: "/gerenciamento",
+    icon: BarChart3,
   },
   {
     title: "Nova Aposta",

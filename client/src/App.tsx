@@ -13,6 +13,7 @@ import Dashboard from "@/pages/dashboard";
 import UploadPage from "@/pages/upload";
 import OCRTestPage from "@/pages/ocr-test";
 import AccountHoldersPage from "@/pages/account-holders";
+import ManagementPage from "@/pages/management";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/upload" component={UploadPage} />
       <Route path="/test-ocr" component={OCRTestPage} />
       <Route path="/account-holders" component={AccountHoldersPage} />
+      <Route path="/gerenciamento" component={ManagementPage} />
       <Route path="/dashboard" component={Dashboard} />
       <Route>
         {() => {
