@@ -24,11 +24,12 @@ interface SurebetCardProps {
   teamA: string;
   teamB: string;
   profitPercentage: number;
-  status: "pending" | "checked" | "resolved";
+  status: "pending" | "resolved";
+  isChecked: boolean;
   bet1: BetData;
   bet2: BetData;
   onResolve: (betId: string, result: "won" | "lost" | "returned") => void;
-  onStatusChange?: (surebetSetId: string, status: "checked" | "pending") => void;
+  onStatusChange?: (surebetSetId: string, isChecked: boolean) => void;
   onReset?: (surebetSetId: string) => void;
   onEdit?: (surebetSetId: string) => void;
   onDelete?: (surebetSetId: string) => void;
@@ -45,6 +46,7 @@ export function BetCard({
   teamB,
   profitPercentage,
   status,
+  isChecked,
   bet1,
   bet2,
   onResolve,
@@ -56,7 +58,6 @@ export function BetCard({
   className,
 }: SurebetCardProps) {
   const isResolved = status === "resolved";
-  const isChecked = status === "checked";
   const isPending = status === "pending";
   const totalStake = bet1.stake + bet2.stake;
   let actualProfit = 0;
@@ -138,23 +139,23 @@ export function BetCard({
             )}
           </div>
           <div className="flex items-center gap-2">
-            {isPending && onStatusChange && (
+            {!isChecked && onStatusChange && !isResolved && (
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => onStatusChange(id, "checked")}
+                onClick={() => onStatusChange(id, true)}
                 className="bg-background"
                 data-testid={`button-mark-checked-${id}`}
               >
                 Conferido
               </Button>
             )}
-            {isChecked && onStatusChange && (
+            {isChecked && onStatusChange && !isResolved && (
               <Button
                 size="sm"
                 variant="outline"
                 className="bg-background"
-                onClick={() => onStatusChange(id, "pending")}
+                onClick={() => onStatusChange(id, false)}
                 data-testid={`button-uncheck-${id}`}
               >
                 <Check className="w-3 h-3 mr-1" />
