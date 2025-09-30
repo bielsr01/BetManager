@@ -28,7 +28,7 @@ interface SurebetCardProps {
   bet1: BetData;
   bet2: BetData;
   onResolve: (betId: string, result: "won" | "lost" | "returned") => void;
-  onStatusChange?: (surebetSetId: string, status: "checked") => void;
+  onStatusChange?: (surebetSetId: string, status: "checked" | "pending") => void;
   onReset?: (surebetSetId: string) => void;
   onEdit?: (surebetSetId: string) => void;
   onDelete?: (surebetSetId: string) => void;
@@ -149,13 +149,13 @@ export function BetCard({
                 Conferido
               </Button>
             )}
-            {isChecked && (
+            {isChecked && onStatusChange && (
               <Button
                 size="sm"
                 variant="outline"
                 className="bg-background"
-                disabled
-                data-testid={`button-checked-${id}`}
+                onClick={() => onStatusChange(id, "pending")}
+                data-testid={`button-uncheck-${id}`}
               >
                 <Check className="w-3 h-3 mr-1" />
                 Conferido

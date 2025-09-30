@@ -137,8 +137,8 @@ export default function UploadPage() {
         const result = await response.json();
         console.log("Bet saved successfully!", result);
         alert("Surebet salvo com sucesso!");
-        // Redirect to dashboard after save
-        window.location.href = "/";
+        // Clear form and stay on upload page
+        handleImageRemove(); // This will reset to upload step and clear all data
       } else {
         const errorText = await response.text();
         console.error("Failed to save bet:", errorText);

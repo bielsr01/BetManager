@@ -73,8 +73,8 @@ export default function Management() {
 
   // Mutation for checking/unchecking surebet set
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ surebetSetId, status }: { surebetSetId: string; status: "checked" }) => {
-      const response = await apiRequest("PUT", `/api/surebet-sets/${surebetSetId}/status`, { status });
+    mutationFn: async ({ surebetSetId, status }: { surebetSetId: string; status: "checked" | "pending" }) => {
+      const response = await apiRequest("PATCH", `/api/surebet-sets/${surebetSetId}/status`, { status });
       return response.json();
     },
     onSuccess: () => {

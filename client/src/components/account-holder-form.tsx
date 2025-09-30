@@ -9,6 +9,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Plus, User, Building, Edit, Trash2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -57,6 +58,9 @@ export function AccountHolderForm({ onSave, onSaveHouse, className }: AccountHol
   const [isHolderDialogOpen, setIsHolderDialogOpen] = useState(false);
   const [isHouseDialogOpen, setIsHouseDialogOpen] = useState(false);
   const [selectedHolderId, setSelectedHolderId] = useState<string | null>(null);
+  const [editingHolder, setEditingHolder] = useState<AccountHolder | null>(null);
+  const [isDeleteHolderDialogOpen, setIsDeleteHolderDialogOpen] = useState(false);
+  const [holderToDelete, setHolderToDelete] = useState<AccountHolder | null>(null);
 
   // Create account holder mutation
   const createHolderMutation = useMutation({
@@ -88,6 +92,33 @@ export function AccountHolderForm({ onSave, onSaveHouse, className }: AccountHol
     },
   });
 
+  // Update account holder mutation
+  const updateHolderMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: AccountHolderFormData }) => {
+      const response = await apiRequest("PUT", `/api/account-holders/${id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/account-holders"] });
+      setIsHolderDialogOpen(false);
+      setEditingHolder(null);
+      holderForm.reset();
+    },
+  });
+
+  // Delete account holder mutation
+  const deleteHolderMutation = useMutation({
+    mutationFn: async (holderId: string) => {
+      await apiRequest("DELETE", `/api/account-holders/${holderId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/account-holders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/betting-houses"] });
+      setIsDeleteHolderDialogOpen(false);
+      setHolderToDelete(null);
+    },
+  });
+
   // Delete betting house mutation
   const deleteHouseMutation = useMutation({
     mutationFn: async (houseId: string) => {
@@ -114,8 +145,12 @@ export function AccountHolderForm({ onSave, onSaveHouse, className }: AccountHol
   });
 
   const handleSaveHolder = (data: AccountHolderFormData) => {
-    onSave(data);
-    createHolderMutation.mutate(data);
+    if (editingHolder) {
+      updateHolderMutation.mutate({ id: editingHolder.id, data });
+    } else {
+      onSave(data);
+      createHolderMutation.mutate(data);
+    }
   };
 
   const handleSaveHouse = (data: BettingHouseFormData) => {
@@ -133,6 +168,29 @@ export function AccountHolderForm({ onSave, onSaveHouse, className }: AccountHol
     setIsHouseDialogOpen(true);
   };
 
+  const openEditHolderDialog = (holder: AccountHolder) => {
+    setEditingHolder(holder);
+    holderForm.reset({ name: holder.name });
+    setIsHolderDialogOpen(true);
+  };
+
+  const openDeleteHolderDialog = (holder: AccountHolder) => {
+    setHolderToDelete(holder);
+    setIsDeleteHolderDialogOpen(true);
+  };
+
+  const handleDeleteHolder = () => {
+    if (holderToDelete) {
+      deleteHolderMutation.mutate(holderToDelete.id);
+    }
+  };
+
+  const handleCloseHolderDialog = () => {
+    setIsHolderDialogOpen(false);
+    setEditingHolder(null);
+    holderForm.reset();
+  };
+
   return (
     <div className={cn("space-y-6", className)}>
       <div className="flex items-center justify-between">
@@ -147,7 +205,7 @@ export function AccountHolderForm({ onSave, onSaveHouse, className }: AccountHol
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Adicionar Titular</DialogTitle>
+              <DialogTitle>{editingHolder ? "Editar Titular" : "Adicionar Titular"}</DialogTitle>
             </DialogHeader>
             
             <Form {...holderForm}>
@@ -171,14 +229,18 @@ export function AccountHolderForm({ onSave, onSaveHouse, className }: AccountHol
                   <Button 
                     type="button" 
                     variant="outline" 
-                    onClick={() => setIsHolderDialogOpen(false)}
+                    onClick={handleCloseHolderDialog}
                     data-testid="button-cancel-holder"
                   >
                     Cancelar
                   </Button>
-                  <Button type="submit" disabled={createHolderMutation.isPending} data-testid="button-save-holder">
-                    {createHolderMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                    Salvar
+                  <Button 
+                    type="submit" 
+                    disabled={createHolderMutation.isPending || updateHolderMutation.isPending} 
+                    data-testid="button-save-holder"
+                  >
+                    {(createHolderMutation.isPending || updateHolderMutation.isPending) ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                    {editingHolder ? "Atualizar" : "Salvar"}
                   </Button>
                 </div>
               </form>
@@ -239,8 +301,21 @@ export function AccountHolderForm({ onSave, onSaveHouse, className }: AccountHol
                     <Plus className="w-4 h-4 mr-1" />
                     Nova Casa
                   </Button>
-                  <Button variant="ghost" size="icon" data-testid={`button-edit-holder-${holder.id}`}>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => openEditHolderDialog(holder)}
+                    data-testid={`button-edit-holder-${holder.id}`}
+                  >
                     <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => openDeleteHolderDialog(holder)}
+                    data-testid={`button-delete-holder-${holder.id}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
@@ -348,6 +423,40 @@ export function AccountHolderForm({ onSave, onSaveHouse, className }: AccountHol
           </Form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Holder Confirmation Dialog */}
+      <AlertDialog open={isDeleteHolderDialogOpen} onOpenChange={setIsDeleteHolderDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o titular "{holderToDelete?.name}"? 
+              Todas as casas de apostas associadas a este titular também serão removidas. 
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-holder">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteHolder}
+              disabled={deleteHolderMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete-holder"
+            >
+              {deleteHolderMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                "Excluir"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
