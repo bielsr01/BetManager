@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { accountHolders, bettingHouses, surebetSets, bets } from "@shared/schema";
+import { accountHolders, bettingHouses, surebetSets, bets, users } from "@shared/schema";
 import type {
   AccountHolder,
   InsertAccountHolder,
@@ -9,11 +9,29 @@ import type {
   InsertSurebetSet,
   Bet,
   InsertBet,
-  SurebetSetWithBets
+  SurebetSetWithBets,
+  User,
+  InsertUser
 } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
+import session from "express-session";
+import connectPg from "connect-pg-simple";
+import { pool } from "./db";
+
+const PostgresSessionStore = connectPg(session);
 
 export interface IStorage {
+  // Session store
+  sessionStore: session.Store;
+
+  // Users
+  createUser(data: InsertUser): Promise<User>;
+  getUser(id: string): Promise<User | null>;
+  getUserByEmail(email: string): Promise<User | null>;
+  getAllUsers(): Promise<User[]>;
+  updateUser(id: string, data: Partial<InsertUser>): Promise<User>;
+  deleteUser(id: string): Promise<void>;
+
   // Account Holders
   createAccountHolder(data: InsertAccountHolder): Promise<AccountHolder>;
   getAccountHolders(): Promise<AccountHolder[]>;
@@ -41,6 +59,47 @@ export interface IStorage {
 }
 
 class DatabaseStorage implements IStorage {
+  sessionStore: session.Store;
+
+  constructor() {
+    this.sessionStore = new PostgresSessionStore({ pool, createTableIfMissing: true });
+  }
+
+  // Users
+  async createUser(data: InsertUser): Promise<User> {
+    const [user] = await db.insert(users).values(data).returning();
+    return user;
+  }
+
+  async getUser(id: string): Promise<User | null> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || null;
+  }
+
+  async getUserByEmail(email: string): Promise<User | null> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || null;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users).orderBy(desc(users.createdAt));
+  }
+
+  async updateUser(id: string, data: Partial<InsertUser>): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set(data)
+      .where(eq(users.id, id))
+      .returning();
+    
+    if (!user) throw new Error('User not found');
+    return user;
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    await db.delete(users).where(eq(users.id, id));
+  }
+
   // Account Holders
   async createAccountHolder(data: InsertAccountHolder): Promise<AccountHolder> {
     const [accountHolder] = await db.insert(accountHolders).values(data).returning();

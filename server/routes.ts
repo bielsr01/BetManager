@@ -5,9 +5,10 @@ import { db } from "./db";
 import { bets } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { PdfPlumberService } from "./pdf-plumber-service";
-import { insertAccountHolderSchema, insertBettingHouseSchema, insertSurebetSetSchema, insertBetSchema } from "@shared/schema";
+import { insertAccountHolderSchema, insertBettingHouseSchema, insertSurebetSetSchema, insertBetSchema, insertUserSchema } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
+import { setupAuth, hashPassword } from "./auth";
 
 const upload = multer({ 
   storage: multer.memoryStorage(),
@@ -26,6 +27,92 @@ const upload = multer({
 const pdfPlumberService = new PdfPlumberService();
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Setup authentication
+  setupAuth(app);
+
+  // Middleware to check if user is authenticated
+  const requireAuth = (req: any, res: any, next: any) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    next();
+  };
+
+  // Middleware to check if user is admin
+  const requireAdmin = (req: any, res: any, next: any) => {
+    if (!req.isAuthenticated() || req.user.role !== 'admin') {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    next();
+  };
+
+  // User management routes (admin only)
+  app.get("/api/users", requireAdmin, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      const usersWithoutPassword = users.map(({ password, ...user }) => user);
+      res.json(usersWithoutPassword);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  app.post("/api/users", requireAdmin, async (req, res) => {
+    try {
+      const data = insertUserSchema.parse(req.body);
+      const hashedData = {
+        ...data,
+        password: await hashPassword(data.password),
+      };
+      const user = await storage.createUser(hashedData);
+      const { password, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Error creating user:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Invalid data", details: error.errors });
+      } else {
+        res.status(500).json({ error: "Failed to create user" });
+      }
+    }
+  });
+
+  app.put("/api/users/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      // Users can only edit themselves unless they're admin
+      if (req.user.role !== 'admin' && req.user.id !== id) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+
+      const data = insertUserSchema.partial().parse(req.body);
+      const updateData: any = { ...data };
+      
+      if (data.password) {
+        updateData.password = await hashPassword(data.password);
+      }
+
+      const user = await storage.updateUser(id, updateData);
+      const { password, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ error: "Failed to update user" });
+    }
+  });
+
+  app.delete("/api/users/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteUser(id);
+      res.sendStatus(204);
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ error: "Failed to delete user" });
+    }
+  });
+
   // Account Holders routes
   app.get("/api/account-holders", async (req, res) => {
     try {

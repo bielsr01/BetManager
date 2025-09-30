@@ -3,19 +3,30 @@ import { pgTable, text, varchar, decimal, timestamp, boolean } from "drizzle-orm
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Users (system users with login credentials)
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull().unique(),
+  password: text("password").notNull(), // hashed password
+  name: text("name").notNull(),
+  role: text("role").notNull().default("user"), // "admin" or "user"
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Account holders (people who own betting accounts)
 export const accountHolders = pgTable("account_holders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
   name: text("name").notNull(),
   email: text("email"),
   username: text("username"),
-  // Removed password field for security - credentials should not be stored
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Betting houses (casas de apostas)
 export const bettingHouses = pgTable("betting_houses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
   name: text("name").notNull(),
   notes: text("notes"), // Campo para notas/informações adicionais
   accountHolderId: varchar("account_holder_id").references(() => accountHolders.id),
@@ -25,6 +36,7 @@ export const bettingHouses = pgTable("betting_houses", {
 // Surebet sets (each OCR extraction creates one set with two bets)
 export const surebetSets = pgTable("surebet_sets", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
   eventDate: timestamp("event_date"),
   sport: text("sport"),
   league: text("league"),
@@ -51,6 +63,11 @@ export const bets = pgTable("bets", {
 });
 
 // Insert schemas
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertAccountHolderSchema = createInsertSchema(accountHolders).omit({
   id: true,
   createdAt: true,
@@ -79,6 +96,9 @@ export const insertBetSchema = createInsertSchema(bets).omit({
 });
 
 // Types
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+
 export type AccountHolder = typeof accountHolders.$inferSelect;
 export type InsertAccountHolder = z.infer<typeof insertAccountHolderSchema>;
 

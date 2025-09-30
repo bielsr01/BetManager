@@ -18,9 +18,13 @@ import {
   Users, 
   Filter,
   TrendingUp,
-  BarChart3
+  BarChart3,
+  Settings,
+  LogOut,
+  User
 } from "lucide-react";
-import { ThemeToggle } from "./theme-toggle";
+import { useAuth } from "@/hooks/use-auth";
+import { Button } from "@/components/ui/button";
 
 const menuItems = [
   {
@@ -55,6 +59,7 @@ const managementItems = [
 
 export function AppSidebar() {
   const [location] = useLocation();
+  const { user, logoutMutation } = useAuth();
 
   return (
     <Sidebar>
@@ -116,11 +121,45 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4">
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Tema</span>
-          <ThemeToggle />
-        </div>
+      <SidebarFooter className="p-4 border-t">
+        {user && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-full">
+                <User className="h-4 w-4 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{user.name}</p>
+                <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {user.role === 'admin' && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex-1"
+                  asChild
+                  data-testid="button-settings"
+                >
+                  <Link href="/users">
+                    <Settings className="h-4 w-4 mr-1" />
+                    Configurações
+                  </Link>
+                </Button>
+              )}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => logoutMutation.mutate()}
+                disabled={logoutMutation.isPending}
+                data-testid="button-logout"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </SidebarFooter>
     </Sidebar>
   );
