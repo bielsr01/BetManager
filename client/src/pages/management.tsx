@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
-import { TrendingUp, DollarSign, Clock, CheckCircle, XCircle, X } from "lucide-react";
+import { TrendingUp, DollarSign, Clock, CheckCircle, XCircle, X, ArrowUpDown } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { SurebetSetWithBets, BettingHouse } from "@shared/schema";
 import type { DateRange } from "react-day-picker";
@@ -21,6 +21,7 @@ interface FilterValues {
 export default function Management() {
   const [filters, setFilters] = useState<FilterValues>({});
   const [tempFilters, setTempFilters] = useState<FilterValues>({});
+  const [chronologicalSort, setChronologicalSort] = useState(false);
 
   // Load surebet sets from the API
   const { data: surebetSets = [], isLoading } = useQuery<SurebetSetWithBets[]>({
@@ -181,6 +182,14 @@ export default function Management() {
     }
 
     return true;
+  })
+  .sort((a, b) => {
+    if (chronologicalSort) {
+      // Ordenar por data do evento (mais antiga primeiro)
+      return new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime();
+    }
+    // Ordenação padrão (por ordem de criação)
+    return 0;
   });
 
   // Calculate metrics
@@ -249,8 +258,23 @@ export default function Management() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Gerenciamento</h1>
-          <p className="text-muted-foreground">Análise detalhada de apostas</p>
+          <p className="text-muted-foreground">
+            Análise detalhada de apostas
+            {hasActiveFilters && (
+              <span className="ml-2 text-primary font-medium" data-testid="text-filtered-count">
+                • {filteredBets.length} {filteredBets.length === 1 ? 'resultado' : 'resultados'}
+              </span>
+            )}
+          </p>
         </div>
+        <Button
+          variant={chronologicalSort ? "default" : "outline"}
+          onClick={() => setChronologicalSort(!chronologicalSort)}
+          data-testid="button-chronological-sort-management"
+        >
+          <ArrowUpDown className="w-4 h-4 mr-2" />
+          {chronologicalSort ? "Ordenado por Data" : "Ordenar por Data"}
+        </Button>
       </div>
 
       {/* Metrics Cards */}

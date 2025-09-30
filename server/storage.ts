@@ -22,7 +22,7 @@ export interface IStorage {
 
   // Betting Houses  
   createBettingHouse(data: InsertBettingHouse): Promise<BettingHouse>;
-  getBettingHouses(): Promise<BettingHouse[]>;
+  getBettingHouses(): Promise<any[]>;
   getBettingHousesByHolder(accountHolderId: string): Promise<BettingHouse[]>;
   updateBettingHouse(id: string, data: Partial<InsertBettingHouse>): Promise<BettingHouse>;
   deleteBettingHouse(id: string): Promise<void>;
@@ -72,8 +72,17 @@ class DatabaseStorage implements IStorage {
     return bettingHouse;
   }
 
-  async getBettingHouses(): Promise<BettingHouse[]> {
-    return await db.select().from(bettingHouses).orderBy(desc(bettingHouses.createdAt));
+  async getBettingHouses(): Promise<any[]> {
+    const houses = await db
+      .select()
+      .from(bettingHouses)
+      .leftJoin(accountHolders, eq(bettingHouses.accountHolderId, accountHolders.id))
+      .orderBy(desc(bettingHouses.createdAt));
+    
+    return houses.map(row => ({
+      ...row.betting_houses,
+      accountHolder: row.account_holders
+    }));
   }
 
   async getBettingHousesByHolder(accountHolderId: string): Promise<BettingHouse[]> {

@@ -8,10 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, TrendingUp, TrendingDown, Clock, DollarSign, Loader2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, TrendingUp, TrendingDown, Clock, DollarSign, Loader2, ArrowUpDown } from "lucide-react";
 import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { SurebetSetWithBets } from "@shared/schema";
+import type { SurebetSetWithBets, BettingHouseWithAccountHolder } from "@shared/schema";
 import type { DateRange } from "react-day-picker";
 
 interface FilterValues {
@@ -31,6 +32,7 @@ export default function Dashboard() {
   const [editingBet, setEditingBet] = useState<any>(null);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [timeDisplay, setTimeDisplay] = useState('Agora mesmo');
+  const [chronologicalSort, setChronologicalSort] = useState(false);
 
   useEffect(() => {
     const intervalId = setInterval(() => {
@@ -58,6 +60,11 @@ export default function Dashboard() {
   const { data: surebetSets = [], isLoading, error } = useQuery<SurebetSetWithBets[]>({
     queryKey: ["/api/surebet-sets"],
     refetchInterval: 60000, // Refetch every minute
+  });
+
+  // Load betting houses for editing
+  const { data: bettingHouses = [] } = useQuery<BettingHouseWithAccountHolder[]>({
+    queryKey: ["/api/betting-houses"],
   });
 
   // Mutation for updating bet results with optimistic updates
@@ -131,6 +138,7 @@ export default function Dashboard() {
         status: (set.status || "pending") as "pending" | "checked" | "resolved",
         bet1: sortedBets[0] ? {
           id: sortedBets[0].id,
+          bettingHouseId: sortedBets[0].bettingHouseId,
           house: sortedBets[0].bettingHouse.name,
           accountHolder: sortedBets[0].bettingHouse.accountHolder.name,
           betType: sortedBets[0].betType,
@@ -141,6 +149,7 @@ export default function Dashboard() {
         } : null,
         bet2: sortedBets[1] ? {
           id: sortedBets[1].id,
+          bettingHouseId: sortedBets[1].bettingHouseId,
           house: sortedBets[1].bettingHouse.name,
           accountHolder: sortedBets[1].bettingHouse.accountHolder.name,
           betType: sortedBets[1].betType,
@@ -186,11 +195,19 @@ export default function Dashboard() {
       }
 
       return true;
+    })
+    .sort((a, b) => {
+      if (chronologicalSort) {
+        // Ordenar por data do evento (mais antiga primeiro)
+        return new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime();
+      }
+      // Ordenação padrão (por ordem de criação, já vem do backend)
+      return 0;
     });
 
   // Calculate stats
   const totalBets = transformedBets.length;
-  const pendingBets = transformedBets.filter(bet => bet.status === "pending").length;
+  const pendingBets = transformedBets.filter(bet => bet.status === "pending" || bet.status === "checked").length;
   const resolvedBets = transformedBets.filter(bet => bet.status === "resolved").length;
 
   const totalInvested = transformedBets.reduce((acc, bet) => 
@@ -315,6 +332,7 @@ export default function Dashboard() {
         profitPercentage: bet.profitPercentage,
         bet1: {
           id: bet.bet1.id,
+          bettingHouseId: bet.bet1.bettingHouseId,
           house: bet.bet1.house,
           accountHolder: bet.bet1.accountHolder,
           betType: bet.bet1.betType,
@@ -323,6 +341,7 @@ export default function Dashboard() {
         },
         bet2: {
           id: bet.bet2.id,
+          bettingHouseId: bet.bet2.bettingHouseId,
           house: bet.bet2.house,
           accountHolder: bet.bet2.accountHolder,
           betType: bet.bet2.betType,
@@ -355,6 +374,7 @@ export default function Dashboard() {
 
       // Update bet 1
       await apiRequest("PUT", `/api/bets/${data.bet1.id}`, {
+        bettingHouseId: data.bet1.bettingHouseId,
         betType: data.bet1.betType,
         odd: String(data.bet1.odd),
         stake: String(data.bet1.stake),
@@ -362,6 +382,7 @@ export default function Dashboard() {
 
       // Update bet 2
       await apiRequest("PUT", `/api/bets/${data.bet2.id}`, {
+        bettingHouseId: data.bet2.bettingHouseId,
         betType: data.bet2.betType,
         odd: String(data.bet2.odd),
         stake: String(data.bet2.stake),
@@ -436,12 +457,22 @@ export default function Dashboard() {
           </p>
         </div>
 
-        <Link href="/upload">
-          <Button data-testid="button-new-bet">
-            <Plus className="w-4 h-4 mr-2" />
-            Nova Aposta
+        <div className="flex gap-2">
+          <Button
+            variant={chronologicalSort ? "default" : "outline"}
+            onClick={() => setChronologicalSort(!chronologicalSort)}
+            data-testid="button-chronological-sort"
+          >
+            <ArrowUpDown className="w-4 h-4 mr-2" />
+            {chronologicalSort ? "Ordenado por Data" : "Ordenar por Data"}
           </Button>
-        </Link>
+          <Link href="/upload">
+            <Button data-testid="button-new-bet">
+              <Plus className="w-4 h-4 mr-2" />
+              Nova Aposta
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -641,8 +672,37 @@ export default function Dashboard() {
 
               {/* Bet 1 */}
               <div className="space-y-4 p-4 border rounded-lg">
-                <h3 className="font-semibold text-lg">Aposta 1 - {editingBet.bet1.house}</h3>
-                <div className="grid grid-cols-3 gap-4">
+                <h3 className="font-semibold text-lg">Aposta 1</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Casa de Aposta</Label>
+                    <Select
+                      value={editingBet.bet1.bettingHouseId}
+                      onValueChange={(value) => {
+                        const selectedHouse = bettingHouses.find(h => h.id === value);
+                        setEditingBet({ 
+                          ...editingBet, 
+                          bet1: { 
+                            ...editingBet.bet1, 
+                            bettingHouseId: value,
+                            house: selectedHouse?.name || editingBet.bet1.house,
+                            accountHolder: selectedHouse?.accountHolder?.name || editingBet.bet1.accountHolder
+                          }
+                        });
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a casa" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {bettingHouses.map(house => (
+                          <SelectItem key={house.id} value={house.id}>
+                            {house.name} {house.accountHolder?.name ? `(${house.accountHolder.name})` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div>
                     <Label>Tipo de Aposta</Label>
                     <Input
@@ -653,6 +713,8 @@ export default function Dashboard() {
                       })}
                     />
                   </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>Odd</Label>
                     <Input
@@ -688,8 +750,37 @@ export default function Dashboard() {
 
               {/* Bet 2 */}
               <div className="space-y-4 p-4 border rounded-lg">
-                <h3 className="font-semibold text-lg">Aposta 2 - {editingBet.bet2.house}</h3>
-                <div className="grid grid-cols-3 gap-4">
+                <h3 className="font-semibold text-lg">Aposta 2</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Casa de Aposta</Label>
+                    <Select
+                      value={editingBet.bet2.bettingHouseId}
+                      onValueChange={(value) => {
+                        const selectedHouse = bettingHouses.find(h => h.id === value);
+                        setEditingBet({ 
+                          ...editingBet, 
+                          bet2: { 
+                            ...editingBet.bet2, 
+                            bettingHouseId: value,
+                            house: selectedHouse?.name || editingBet.bet2.house,
+                            accountHolder: selectedHouse?.accountHolder?.name || editingBet.bet2.accountHolder
+                          }
+                        });
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a casa" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {bettingHouses.map(house => (
+                          <SelectItem key={house.id} value={house.id}>
+                            {house.name} {house.accountHolder?.name ? `(${house.accountHolder.name})` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div>
                     <Label>Tipo de Aposta</Label>
                     <Input
@@ -700,6 +791,8 @@ export default function Dashboard() {
                       })}
                     />
                   </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>Odd</Label>
                     <Input

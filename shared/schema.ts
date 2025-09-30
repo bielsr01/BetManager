@@ -91,6 +91,10 @@ export type Bet = typeof bets.$inferSelect;
 export type InsertBet = z.infer<typeof insertBetSchema>;
 
 // Combined types for API responses
+export type BettingHouseWithAccountHolder = BettingHouse & {
+  accountHolder: AccountHolder | null;
+};
+
 export type SurebetSetWithBets = SurebetSet & {
   bets: (Bet & {
     bettingHouse: BettingHouse & {
