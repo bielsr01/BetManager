@@ -30,6 +30,13 @@ interface FilterValues {
 export default function Dashboard() {
   const [filters, setFilters] = useState<FilterValues>({});
   const [editingBet, setEditingBet] = useState<any>(null);
+  const [editingNumericFields, setEditingNumericFields] = useState<{
+    profitPercentage: string;
+    bet1Odd: string;
+    bet1Stake: string;
+    bet2Odd: string;
+    bet2Stake: string;
+  }>({ profitPercentage: '', bet1Odd: '', bet1Stake: '', bet2Odd: '', bet2Stake: '' });
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [timeDisplay, setTimeDisplay] = useState('Agora mesmo');
   const [chronologicalSort, setChronologicalSort] = useState(false);
@@ -350,13 +357,34 @@ export default function Dashboard() {
           stake: bet.bet2.stake,
         },
       });
+
+      // Initialize string fields for numeric inputs
+      setEditingNumericFields({
+        profitPercentage: bet.profitPercentage.toString().replace('.', ','),
+        bet1Odd: bet.bet1.odd.toString().replace('.', ','),
+        bet1Stake: bet.bet1.stake.toString().replace('.', ','),
+        bet2Odd: bet.bet2.odd.toString().replace('.', ','),
+        bet2Stake: bet.bet2.stake.toString().replace('.', ','),
+      });
     }
   };
 
   const handleSaveEdit = () => {
     if (!editingBet) return;
 
-    updateSurebetMutation.mutate(editingBet);
+    // Convert string fields back to numbers
+    const profitPercentage = parseFloat(editingNumericFields.profitPercentage.replace(',', '.')) || 0;
+    const bet1Odd = parseFloat(editingNumericFields.bet1Odd.replace(',', '.')) || 0;
+    const bet1Stake = parseFloat(editingNumericFields.bet1Stake.replace(',', '.')) || 0;
+    const bet2Odd = parseFloat(editingNumericFields.bet2Odd.replace(',', '.')) || 0;
+    const bet2Stake = parseFloat(editingNumericFields.bet2Stake.replace(',', '.')) || 0;
+
+    updateSurebetMutation.mutate({
+      ...editingBet,
+      profitPercentage,
+      bet1: { ...editingBet.bet1, odd: bet1Odd, stake: bet1Stake },
+      bet2: { ...editingBet.bet2, odd: bet2Odd, stake: bet2Stake },
+    });
   };
 
   // Update surebet mutation
@@ -646,12 +674,14 @@ export default function Dashboard() {
                     <Label>Lucro (%)</Label>
                     <Input
                       type="text"
-                      value={editingBet.profitPercentage.toString().replace('.', ',')}
+                      value={editingNumericFields.profitPercentage}
                       onChange={(e) => {
-                        const value = e.target.value.replace(',', '.');
-                        const numValue = parseFloat(value) || 0;
-                        setEditingBet({ ...editingBet, profitPercentage: numValue });
+                        setEditingNumericFields({ 
+                          ...editingNumericFields, 
+                          profitPercentage: e.target.value 
+                        });
                       }}
+                      data-testid="input-profit-percentage"
                     />
                   </div>
                   <div>
@@ -720,30 +750,28 @@ export default function Dashboard() {
                     <Label>Odd</Label>
                     <Input
                       type="text"
-                      value={editingBet.bet1.odd.toString().replace('.', ',')}
+                      value={editingNumericFields.bet1Odd}
                       onChange={(e) => {
-                        const value = e.target.value.replace(',', '.');
-                        const numValue = parseFloat(value) || 0;
-                        setEditingBet({ 
-                          ...editingBet, 
-                          bet1: { ...editingBet.bet1, odd: numValue }
+                        setEditingNumericFields({ 
+                          ...editingNumericFields, 
+                          bet1Odd: e.target.value 
                         });
                       }}
+                      data-testid="input-bet1-odd"
                     />
                   </div>
                   <div>
                     <Label>Stake (R$)</Label>
                     <Input
                       type="text"
-                      value={editingBet.bet1.stake.toString().replace('.', ',')}
+                      value={editingNumericFields.bet1Stake}
                       onChange={(e) => {
-                        const value = e.target.value.replace(',', '.');
-                        const numValue = parseFloat(value) || 0;
-                        setEditingBet({ 
-                          ...editingBet, 
-                          bet1: { ...editingBet.bet1, stake: numValue }
+                        setEditingNumericFields({ 
+                          ...editingNumericFields, 
+                          bet1Stake: e.target.value 
                         });
                       }}
+                      data-testid="input-bet1-stake"
                     />
                   </div>
                 </div>
@@ -798,30 +826,28 @@ export default function Dashboard() {
                     <Label>Odd</Label>
                     <Input
                       type="text"
-                      value={editingBet.bet2.odd.toString().replace('.', ',')}
+                      value={editingNumericFields.bet2Odd}
                       onChange={(e) => {
-                        const value = e.target.value.replace(',', '.');
-                        const numValue = parseFloat(value) || 0;
-                        setEditingBet({ 
-                          ...editingBet, 
-                          bet2: { ...editingBet.bet2, odd: numValue }
+                        setEditingNumericFields({ 
+                          ...editingNumericFields, 
+                          bet2Odd: e.target.value 
                         });
                       }}
+                      data-testid="input-bet2-odd"
                     />
                   </div>
                   <div>
                     <Label>Stake (R$)</Label>
                     <Input
                       type="text"
-                      value={editingBet.bet2.stake.toString().replace('.', ',')}
+                      value={editingNumericFields.bet2Stake}
                       onChange={(e) => {
-                        const value = e.target.value.replace(',', '.');
-                        const numValue = parseFloat(value) || 0;
-                        setEditingBet({ 
-                          ...editingBet, 
-                          bet2: { ...editingBet.bet2, stake: numValue }
+                        setEditingNumericFields({ 
+                          ...editingNumericFields, 
+                          bet2Stake: e.target.value 
                         });
                       }}
+                      data-testid="input-bet2-stake"
                     />
                   </div>
                 </div>
