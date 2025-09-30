@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CalendarIcon } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
@@ -24,6 +24,10 @@ export function DatePickerWithRange({
   "data-testid": testId,
 }: DatePickerWithRangeProps) {
   const [date, setDate] = useState<DateRange | undefined>(selected);
+
+  useEffect(() => {
+    setDate(selected);
+  }, [selected]);
 
   const handleSelect = (range: DateRange | undefined) => {
     setDate(range);
