@@ -315,7 +315,7 @@ export function BetForm({
                         </FormControl>
                         <SelectContent>
                           {houseOptions.length === 0 && !isDataLoading ? (
-                            <SelectItem value="" disabled>
+                            <SelectItem value="no-houses" disabled>
                               Nenhuma casa de apostas cadastrada
                             </SelectItem>
                           ) : (
@@ -463,7 +463,7 @@ export function BetForm({
                         </FormControl>
                         <SelectContent>
                           {houseOptions.length === 0 && !isDataLoading ? (
-                            <SelectItem value="" disabled>
+                            <SelectItem value="no-houses" disabled>
                               Nenhuma casa de apostas cadastrada
                             </SelectItem>
                           ) : (
