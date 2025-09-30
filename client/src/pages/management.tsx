@@ -73,8 +73,8 @@ export default function Management() {
 
   // Mutation for checking/unchecking surebet set
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ surebetSetId, status }: { surebetSetId: string; status: "checked" | "pending" }) => {
-      const response = await apiRequest("PATCH", `/api/surebet-sets/${surebetSetId}/status`, { status });
+    mutationFn: async ({ surebetSetId, isChecked }: { surebetSetId: string; isChecked: boolean }) => {
+      const response = await apiRequest("PATCH", `/api/surebet-sets/${surebetSetId}/status`, { isChecked });
       return response.json();
     },
     onSuccess: () => {
@@ -120,7 +120,8 @@ export default function Management() {
         teamA: set.teamA || "Time A",
         teamB: set.teamB || "Time B",
         profitPercentage: Number(set.profitPercentage) || 0,
-        status: (set.status || "pending") as "pending" | "checked" | "resolved",
+        status: (set.status || "pending") as "pending" | "resolved",
+        isChecked: set.isChecked || false,
         bet1: {
           id: sortedBets[0]?.id || "",
           house: sortedBets[0]?.bettingHouse?.name || "Casa 1",
@@ -193,7 +194,7 @@ export default function Management() {
   });
 
   // Calculate metrics
-  const pendingBets = filteredBets.filter(bet => bet.status === "pending" || bet.status === "checked");
+  const pendingBets = filteredBets.filter(bet => bet.status === "pending");
   const resolvedBets = filteredBets.filter(bet => bet.status === "resolved");
 
   const totalStakePending = pendingBets.reduce((sum, bet) => sum + bet.bet1.stake + bet.bet2.stake, 0);
@@ -447,7 +448,7 @@ export default function Management() {
               key={bet.id}
               {...bet}
               onResolve={(betId, result) => updateBetMutation.mutate({ betId, result })}
-              onStatusChange={(surebetSetId, status) => updateStatusMutation.mutate({ surebetSetId, status })}
+              onStatusChange={(surebetSetId, isChecked) => updateStatusMutation.mutate({ surebetSetId, isChecked })}
               onReset={(surebetSetId) => resetMutation.mutate(surebetSetId)}
               onDelete={(surebetSetId) => deleteMutation.mutate(surebetSetId)}
               isResetting={resetMutation.isPending}

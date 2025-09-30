@@ -135,7 +135,8 @@ export default function Dashboard() {
         teamA: set.teamA || "Time A",
         teamB: set.teamB || "Time B",
         profitPercentage: parseFloat(set.profitPercentage || "0"),
-        status: (set.status || "pending") as "pending" | "checked" | "resolved",
+        status: (set.status || "pending") as "pending" | "resolved",
+        isChecked: set.isChecked || false,
         bet1: sortedBets[0] ? {
           id: sortedBets[0].id,
           bettingHouseId: sortedBets[0].bettingHouseId,
@@ -207,7 +208,7 @@ export default function Dashboard() {
 
   // Calculate stats
   const totalBets = transformedBets.length;
-  const pendingBets = transformedBets.filter(bet => bet.status === "pending" || bet.status === "checked").length;
+  const pendingBets = transformedBets.filter(bet => bet.status === "pending").length;
   const resolvedBets = transformedBets.filter(bet => bet.status === "resolved").length;
 
   const totalInvested = transformedBets.reduce((acc, bet) => 
@@ -246,15 +247,15 @@ export default function Dashboard() {
       return acc + profit;
     }, 0);
 
-  // Mutation for updating surebet set status
+  // Mutation for updating surebet set checked status
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ surebetSetId, status }: { surebetSetId: string; status: "checked" | "pending" }) => {
+    mutationFn: async ({ surebetSetId, isChecked }: { surebetSetId: string; isChecked: boolean }) => {
       const response = await apiRequest("PATCH", `/api/surebet-sets/${surebetSetId}/status`, {
-        status,
+        isChecked,
       });
       return response.json();
     },
-    onMutate: async ({ surebetSetId, status }) => {
+    onMutate: async ({ surebetSetId, isChecked }) => {
       await queryClient.cancelQueries({ queryKey: ["/api/surebet-sets"] });
 
       const previousData = queryClient.getQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"]);
@@ -262,7 +263,7 @@ export default function Dashboard() {
       queryClient.setQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"], (old) => {
         if (!old) return old;
         return old.map(set => 
-          set.id === surebetSetId ? { ...set, status } : set
+          set.id === surebetSetId ? { ...set, isChecked } : set
         );
       });
 
@@ -284,8 +285,8 @@ export default function Dashboard() {
     updateBetMutation.mutate({ betId, result });
   };
 
-  const handleStatusChange = (surebetSetId: string, status: "checked" | "pending") => {
-    updateStatusMutation.mutate({ surebetSetId, status });
+  const handleStatusChange = (surebetSetId: string, isChecked: boolean) => {
+    updateStatusMutation.mutate({ surebetSetId, isChecked });
   };
 
   const handleFiltersChange = (newFilters: FilterValues) => {
