@@ -114,9 +114,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Account Holders routes
-  app.get("/api/account-holders", async (req, res) => {
+  app.get("/api/account-holders", requireAuth, async (req, res) => {
     try {
-      const accountHolders = await storage.getAccountHolders();
+      const accountHolders = await storage.getAccountHolders(req.user!.id);
       res.json(accountHolders);
     } catch (error) {
       console.error("Error fetching account holders:", error);
@@ -124,10 +124,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/account-holders", async (req, res) => {
+  app.post("/api/account-holders", requireAuth, async (req, res) => {
     try {
       const data = insertAccountHolderSchema.parse(req.body);
-      const accountHolder = await storage.createAccountHolder(data);
+      const accountHolder = await storage.createAccountHolder({ ...data, userId: req.user!.id });
       res.json(accountHolder);
     } catch (error) {
       console.error("Error creating account holder:", error);
@@ -139,7 +139,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/account-holders/:id", async (req, res) => {
+  app.put("/api/account-holders/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const data = insertAccountHolderSchema.partial().parse(req.body);
@@ -157,7 +157,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/account-holders/:id", async (req, res) => {
+  app.delete("/api/account-holders/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       await storage.deleteAccountHolder(id);
@@ -169,7 +169,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Betting Houses routes
-  app.get("/api/betting-houses", async (req, res) => {
+  app.get("/api/betting-houses", requireAuth, async (req, res) => {
     try {
       const { accountHolderId } = req.query;
       let bettingHouses;
@@ -177,7 +177,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (accountHolderId) {
         bettingHouses = await storage.getBettingHousesByHolder(accountHolderId as string);
       } else {
-        bettingHouses = await storage.getBettingHouses();
+        bettingHouses = await storage.getBettingHouses(req.user!.id);
       }
       
       res.json(bettingHouses);
@@ -187,10 +187,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/betting-houses", async (req, res) => {
+  app.post("/api/betting-houses", requireAuth, async (req, res) => {
     try {
       const data = insertBettingHouseSchema.parse(req.body);
-      const bettingHouse = await storage.createBettingHouse(data);
+      const bettingHouse = await storage.createBettingHouse({ ...data, userId: req.user!.id });
       res.json(bettingHouse);
     } catch (error) {
       console.error("Error creating betting house:", error);
@@ -202,7 +202,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/betting-houses/:id", async (req, res) => {
+  app.put("/api/betting-houses/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const data = insertBettingHouseSchema.partial().parse(req.body);
@@ -220,7 +220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/betting-houses/:id", async (req, res) => {
+  app.delete("/api/betting-houses/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       await storage.deleteBettingHouse(id);
@@ -232,9 +232,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Surebet Sets routes
-  app.get("/api/surebet-sets", async (req, res) => {
+  app.get("/api/surebet-sets", requireAuth, async (req, res) => {
     try {
-      const surebetSets = await storage.getSurebetSets();
+      const surebetSets = await storage.getSurebetSets(req.user!.id);
       res.json(surebetSets);
     } catch (error) {
       console.error("Error fetching surebet sets:", error);
@@ -242,7 +242,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/surebet-sets/:id", async (req, res) => {
+  app.get("/api/surebet-sets/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const surebetSet = await storage.getSurebetSetById(id);
@@ -257,7 +257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/surebet-sets", async (req, res) => {
+  app.post("/api/surebet-sets", requireAuth, async (req, res) => {
     try {
       const { surebetSet, bets: setBets } = req.body;
       
@@ -265,7 +265,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const surebetData = insertSurebetSetSchema.parse(surebetSet);
       
       // Create the surebet set first
-      const createdSet = await storage.createSurebetSet(surebetData);
+      const createdSet = await storage.createSurebetSet({ ...surebetData, userId: req.user!.id });
       
       // Validate and create the associated bets
       const createdBets = [];
@@ -292,7 +292,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/surebet-sets/:id", async (req, res) => {
+  app.put("/api/surebet-sets/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const data = insertSurebetSetSchema.partial().parse(req.body);
@@ -310,7 +310,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/surebet-sets/:id", async (req, res) => {
+  app.delete("/api/surebet-sets/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       await storage.deleteSurebetSet(id);
@@ -322,7 +322,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Individual Bet operations
-  app.put("/api/bets/:id", async (req, res) => {
+  app.put("/api/bets/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const updateData = insertBetSchema.partial().parse(req.body);
@@ -401,7 +401,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update surebet set status or checked flag
-  app.patch("/api/surebet-sets/:id/status", async (req, res) => {
+  app.patch("/api/surebet-sets/:id/status", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const body = z.object({ 
@@ -418,7 +418,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Reset surebet set results
-  app.post("/api/surebet-sets/:id/reset", async (req, res) => {
+  app.post("/api/surebet-sets/:id/reset", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       
@@ -444,7 +444,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // OCR processing route - accepts file and optional custom prompt
-  app.post("/api/ocr/process", upload.single('file'), async (req, res) => {
+  app.post("/api/ocr/process", requireAuth, upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
         res.status(400).json({ error: "No file provided" });

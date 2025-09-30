@@ -21,7 +21,8 @@ import {
   BarChart3,
   Settings,
   LogOut,
-  User
+  User,
+  UserCircle
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -134,6 +135,18 @@ export function AppSidebar() {
               </div>
             </div>
             <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex-1"
+                asChild
+                data-testid="button-profile"
+              >
+                <Link href="/profile">
+                  <UserCircle className="h-4 w-4 mr-1" />
+                  Perfil
+                </Link>
+              </Button>
               {user.role === 'admin' && (
                 <Button 
                   variant="outline" 
@@ -144,7 +157,7 @@ export function AppSidebar() {
                 >
                   <Link href="/users">
                     <Settings className="h-4 w-4 mr-1" />
-                    Configurações
+                    Usuários
                   </Link>
                 </Button>
               )}

@@ -34,20 +34,20 @@ export interface IStorage {
 
   // Account Holders
   createAccountHolder(data: InsertAccountHolder): Promise<AccountHolder>;
-  getAccountHolders(): Promise<AccountHolder[]>;
+  getAccountHolders(userId?: string): Promise<AccountHolder[]>;
   updateAccountHolder(id: string, data: Partial<InsertAccountHolder>): Promise<AccountHolder>;
   deleteAccountHolder(id: string): Promise<void>;
 
   // Betting Houses  
   createBettingHouse(data: InsertBettingHouse): Promise<BettingHouse>;
-  getBettingHouses(): Promise<any[]>;
+  getBettingHouses(userId?: string): Promise<any[]>;
   getBettingHousesByHolder(accountHolderId: string): Promise<BettingHouse[]>;
   updateBettingHouse(id: string, data: Partial<InsertBettingHouse>): Promise<BettingHouse>;
   deleteBettingHouse(id: string): Promise<void>;
 
   // Surebet Sets
   createSurebetSet(data: InsertSurebetSet): Promise<SurebetSet>;
-  getSurebetSets(): Promise<SurebetSetWithBets[]>;
+  getSurebetSets(userId?: string): Promise<SurebetSetWithBets[]>;
   getSurebetSetById(id: string): Promise<SurebetSetWithBets | null>;
   updateSurebetSet(id: string, data: Partial<InsertSurebetSet>): Promise<SurebetSet>;
   deleteSurebetSet(id: string): Promise<void>;
@@ -106,7 +106,10 @@ class DatabaseStorage implements IStorage {
     return accountHolder;
   }
 
-  async getAccountHolders(): Promise<AccountHolder[]> {
+  async getAccountHolders(userId?: string): Promise<AccountHolder[]> {
+    if (userId) {
+      return await db.select().from(accountHolders).where(eq(accountHolders.userId, userId)).orderBy(desc(accountHolders.createdAt));
+    }
     return await db.select().from(accountHolders).orderBy(desc(accountHolders.createdAt));
   }
 
@@ -131,12 +134,17 @@ class DatabaseStorage implements IStorage {
     return bettingHouse;
   }
 
-  async getBettingHouses(): Promise<any[]> {
-    const houses = await db
+  async getBettingHouses(userId?: string): Promise<any[]> {
+    let query = db
       .select()
       .from(bettingHouses)
-      .leftJoin(accountHolders, eq(bettingHouses.accountHolderId, accountHolders.id))
-      .orderBy(desc(bettingHouses.createdAt));
+      .leftJoin(accountHolders, eq(bettingHouses.accountHolderId, accountHolders.id));
+    
+    if (userId) {
+      query = query.where(eq(bettingHouses.userId, userId)) as any;
+    }
+    
+    const houses = await query.orderBy(desc(bettingHouses.createdAt));
     
     return houses.map(row => ({
       ...row.betting_houses,
@@ -173,11 +181,14 @@ class DatabaseStorage implements IStorage {
     return surebetSet;
   }
 
-  async getSurebetSets(): Promise<SurebetSetWithBets[]> {
-    const sets = await db
-      .select()
-      .from(surebetSets)
-      .orderBy(desc(surebetSets.createdAt));
+  async getSurebetSets(userId?: string): Promise<SurebetSetWithBets[]> {
+    let query = db.select().from(surebetSets);
+    
+    if (userId) {
+      query = query.where(eq(surebetSets.userId, userId)) as any;
+    }
+    
+    const sets = await query.orderBy(desc(surebetSets.createdAt));
     
     const result: SurebetSetWithBets[] = [];
     

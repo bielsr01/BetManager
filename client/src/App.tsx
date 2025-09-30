@@ -18,52 +18,59 @@ import AccountHoldersPage from "@/pages/account-holders";
 import ManagementPage from "@/pages/management";
 import AuthPage from "@/pages/auth-page";
 import UsersPage from "@/pages/users-page";
+import ProfilePage from "@/pages/profile-page";
 import NotFound from "@/pages/not-found";
+
+function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
+  const style = {
+    "--sidebar-width": "20rem",
+    "--sidebar-width-icon": "4rem",
+  };
+
+  return (
+    <SidebarProvider style={style as React.CSSProperties}>
+      <div className="flex h-screen w-full">
+        <AppSidebar />
+        <div className="flex flex-col flex-1">
+          <header className="flex items-center justify-between p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <SidebarTrigger data-testid="button-sidebar-toggle" />
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+            </div>
+          </header>
+          <main className="flex-1 overflow-auto">
+            {children}
+          </main>
+        </div>
+      </div>
+    </SidebarProvider>
+  );
+}
 
 function Router() {
   return (
     <Switch>
       <Route path="/auth" component={AuthPage} />
-      <ProtectedRoute path="/" component={Dashboard} />
-      <ProtectedRoute path="/upload" component={UploadPage} />
-      <ProtectedRoute path="/test-ocr" component={OCRTestPage} />
-      <ProtectedRoute path="/account-holders" component={AccountHoldersPage} />
-      <ProtectedRoute path="/gerenciamento" component={ManagementPage} />
-      <ProtectedRoute path="/dashboard" component={Dashboard} />
-      <ProtectedRoute path="/users" component={UsersPage} />
+      <ProtectedRoute path="/" component={() => <AuthenticatedLayout><Dashboard /></AuthenticatedLayout>} />
+      <ProtectedRoute path="/upload" component={() => <AuthenticatedLayout><UploadPage /></AuthenticatedLayout>} />
+      <ProtectedRoute path="/test-ocr" component={() => <AuthenticatedLayout><OCRTestPage /></AuthenticatedLayout>} />
+      <ProtectedRoute path="/account-holders" component={() => <AuthenticatedLayout><AccountHoldersPage /></AuthenticatedLayout>} />
+      <ProtectedRoute path="/gerenciamento" component={() => <AuthenticatedLayout><ManagementPage /></AuthenticatedLayout>} />
+      <ProtectedRoute path="/dashboard" component={() => <AuthenticatedLayout><Dashboard /></AuthenticatedLayout>} />
+      <ProtectedRoute path="/users" component={() => <AuthenticatedLayout><UsersPage /></AuthenticatedLayout>} />
+      <ProtectedRoute path="/profile" component={() => <AuthenticatedLayout><ProfilePage /></AuthenticatedLayout>} />
       <Route component={NotFound} />
     </Switch>
   );
 }
 
 export default function App() {
-  // Custom sidebar width for surebet application
-  const style = {
-    "--sidebar-width": "20rem",       // 320px for better navigation
-    "--sidebar-width-icon": "4rem",   // default icon width
-  };
-
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <ThemeProvider defaultTheme="light" storageKey="surebet-theme">
           <AuthProvider>
-            <SidebarProvider style={style as React.CSSProperties}>
-              <div className="flex h-screen w-full">
-                <AppSidebar />
-                <div className="flex flex-col flex-1">
-                  <header className="flex items-center justify-between p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                    <SidebarTrigger data-testid="button-sidebar-toggle" />
-                    <div className="flex items-center gap-2">
-                      <ThemeToggle />
-                    </div>
-                  </header>
-                  <main className="flex-1 overflow-auto">
-                    <Router />
-                  </main>
-                </div>
-              </div>
-            </SidebarProvider>
+            <Router />
             <Toaster />
           </AuthProvider>
         </ThemeProvider>
