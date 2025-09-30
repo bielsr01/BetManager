@@ -32,6 +32,7 @@ export const surebetSets = pgTable("surebet_sets", {
   teamB: text("team_b"),
   profitPercentage: decimal("profit_percentage", { precision: 5, scale: 2 }),
   status: text("status").default("pending"), // pending, resolved
+  isChecked: boolean("is_checked").default(false), // user verification flag
   createdAt: timestamp("created_at").defaultNow(),
 });
 
