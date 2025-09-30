@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 const profileSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
   email: z.string().email("Email inválido"),
+  password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres").optional().or(z.literal("")),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -41,12 +42,18 @@ export default function ProfilePage() {
     defaultValues: {
       name: user?.name || "",
       email: user?.email || "",
+      password: "",
     },
   });
 
   const updateProfile = useMutation({
     mutationFn: async (data: ProfileFormData) => {
-      return await apiRequest(`/api/users/${user?.id}`, "PUT", data);
+      const payload = {
+        name: data.name,
+        email: data.email,
+        ...(data.password && data.password.length > 0 ? { password: data.password } : {}),
+      };
+      return await apiRequest("PUT", `/api/users/${user?.id}`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
@@ -135,6 +142,25 @@ export default function ProfilePage() {
                           type="email"
                           placeholder="seu@email.com"
                           data-testid="input-email"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nova Senha (opcional)</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type="password"
+                          placeholder="Deixe em branco para não alterar"
+                          data-testid="input-password"
                         />
                       </FormControl>
                       <FormMessage />
