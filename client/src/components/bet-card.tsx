@@ -167,7 +167,7 @@ export function BetCard({
                 Resolvido
               </Badge>
             )}
-            {isPending && !isResolved && !isChecked && <StatusBadge status="pending" />}
+            {isPending && !isResolved && <StatusBadge status="pending" />}
             <Badge variant="outline" className="bg-primary text-primary-foreground">
               <TrendingUp className="w-3 h-3 mr-1" />
               {profitPercentage}%
