@@ -54,3 +54,5 @@ Preferred communication style: Simple, everyday language.
 **Financial Precision**: All monetary calculations use decimal data types with specific precision (10,2 for amounts, 8,2 for odds) to prevent floating-point arithmetic errors in financial calculations.
 
 **Responsive Design**: Mobile-first approach with collapsible sidebar navigation and touch-friendly interfaces for bet management on various devices.
+
+**Timezone Handling**: Event dates preserve the exact date/time entered by users without UTC conversion. The system uses `datetime-local` inputs and sends date strings directly to the backend, where Drizzle ORM handles conversion to PostgreSQL timestamps correctly. Fixed October 2025: removed `.toISOString()` conversions from edit mutations that were causing 3-hour timezone offset issues.
