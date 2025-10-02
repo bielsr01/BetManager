@@ -425,18 +425,18 @@ export default function Management() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="status-filter">Status</Label>
+              <Label htmlFor="status-filter" className="text-sm">Status</Label>
               <Select 
                 value={tempFilters.status || ""} 
                 onValueChange={(value) => handleTempFilterChange("status", value || undefined)}
               >
-                <SelectTrigger id="status-filter" data-testid="select-status-filter">
-                  <SelectValue placeholder="Todos os status" />
+                <SelectTrigger id="status-filter" data-testid="select-status-filter" className="w-full">
+                  <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos os status</SelectItem>
+                  <SelectItem value="all">Todos</SelectItem>
                   <SelectItem value="pending">Pendentes</SelectItem>
                   <SelectItem value="resolved">Resolvidas</SelectItem>
                 </SelectContent>
@@ -444,12 +444,12 @@ export default function Management() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="checked-filter">Conferência</Label>
+              <Label htmlFor="checked-filter" className="text-sm">Conferência</Label>
               <Select 
                 value={tempFilters.checked || ""} 
                 onValueChange={(value) => handleTempFilterChange("checked", value || undefined)}
               >
-                <SelectTrigger id="checked-filter" data-testid="select-checked-filter">
+                <SelectTrigger id="checked-filter" data-testid="select-checked-filter" className="w-full">
                   <SelectValue placeholder="Todas" />
                 </SelectTrigger>
                 <SelectContent>
@@ -461,16 +461,16 @@ export default function Management() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="house-filter">Casa de Apostas</Label>
+              <Label htmlFor="house-filter" className="text-sm">Casa de Apostas</Label>
               <Select 
                 value={tempFilters.house || ""} 
                 onValueChange={(value) => handleTempFilterChange("house", value || undefined)}
               >
-                <SelectTrigger id="house-filter" data-testid="select-house-filter">
-                  <SelectValue placeholder="Todas as casas" />
+                <SelectTrigger id="house-filter" data-testid="select-house-filter" className="w-full">
+                  <SelectValue placeholder="Todas" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todas as casas</SelectItem>
+                  <SelectItem value="all">Todas</SelectItem>
                   {uniqueHouseNames.map((house) => (
                     <SelectItem key={house} value={house}>
                       {house}
@@ -480,22 +480,22 @@ export default function Management() {
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label>Data do Jogo</Label>
+            <div className="space-y-2 sm:col-span-2 lg:col-span-1">
+              <Label className="text-sm">Data do Jogo</Label>
               <DatePickerWithRange
                 selected={tempFilters.eventDateRange}
                 onSelect={(range) => setTempFilters({ ...tempFilters, eventDateRange: range })}
-                placeholder="Selecione o período"
+                placeholder="Período"
                 data-testid="event-date-range-filter"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label>Data de Inserção</Label>
+            <div className="space-y-2 sm:col-span-2 lg:col-span-1">
+              <Label className="text-sm">Data de Inserção</Label>
               <DatePickerWithRange
                 selected={tempFilters.createdDateRange}
                 onSelect={(range) => setTempFilters({ ...tempFilters, createdDateRange: range })}
-                placeholder="Selecione o período"
+                placeholder="Período"
                 data-testid="created-date-range-filter"
               />
             </div>
