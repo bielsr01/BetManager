@@ -88,6 +88,35 @@ export default function Management() {
       const response = await apiRequest("POST", `/api/surebet-sets/${surebetSetId}/reset`);
       return response.json();
     },
+    onMutate: async (surebetSetId) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/surebet-sets"] });
+      const previousData = queryClient.getQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"]);
+
+      queryClient.setQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"], (old) => {
+        if (!old) return old;
+        return old.map(set => {
+          if (set.id === surebetSetId) {
+            return {
+              ...set,
+              status: "pending",
+              bets: set.bets.map(bet => ({
+                ...bet,
+                result: null,
+                actualProfit: null
+              }))
+            };
+          }
+          return set;
+        });
+      });
+
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(["/api/surebet-sets"], context.previousData);
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
     },
