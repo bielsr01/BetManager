@@ -311,6 +311,35 @@ export default function Dashboard() {
       const response = await apiRequest("POST", `/api/surebet-sets/${surebetSetId}/reset`);
       return response.json();
     },
+    onMutate: async (surebetSetId) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/surebet-sets"] });
+      const previousData = queryClient.getQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"]);
+
+      queryClient.setQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"], (old) => {
+        if (!old) return old;
+        return old.map(set => {
+          if (set.id === surebetSetId) {
+            return {
+              ...set,
+              status: "pending",
+              bets: set.bets.map(bet => ({
+                ...bet,
+                result: null,
+                actualProfit: null
+              }))
+            };
+          }
+          return set;
+        });
+      });
+
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(["/api/surebet-sets"], context.previousData);
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
       setLastUpdate(new Date());
@@ -416,6 +445,56 @@ export default function Dashboard() {
         odd: String(data.bet2.odd),
         stake: String(data.bet2.stake),
       });
+      
+      return data;
+    },
+    onMutate: async (data) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/surebet-sets"] });
+      const previousData = queryClient.getQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"]);
+
+      queryClient.setQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"], (old) => {
+        if (!old) return old;
+        return old.map(set => {
+          if (set.id === data.id) {
+            return {
+              ...set,
+              eventDate: data.eventDate,
+              sport: data.sport,
+              league: data.league,
+              teamA: data.teamA,
+              teamB: data.teamB,
+              profitPercentage: String(data.profitPercentage),
+              bets: set.bets.map((bet, index) => {
+                if (index === 0) {
+                  return {
+                    ...bet,
+                    bettingHouseId: data.bet1.bettingHouseId,
+                    betType: data.bet1.betType,
+                    odd: String(data.bet1.odd),
+                    stake: String(data.bet1.stake),
+                  };
+                } else {
+                  return {
+                    ...bet,
+                    bettingHouseId: data.bet2.bettingHouseId,
+                    betType: data.bet2.betType,
+                    odd: String(data.bet2.odd),
+                    stake: String(data.bet2.stake),
+                  };
+                }
+              })
+            };
+          }
+          return set;
+        });
+      });
+
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(["/api/surebet-sets"], context.previousData);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
