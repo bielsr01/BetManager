@@ -454,6 +454,7 @@ export default function Management() {
 
   const totalProfitResolved = resolvedBets.reduce((sum, bet) => sum + calculateRealProfit(bet), 0);
   const totalProfitPending = pendingBets.reduce((sum, bet) => sum + bet.bet1.potentialProfit, 0);
+  const totalProfitTotal = totalProfitResolved + totalProfitPending;
 
   const handleTempFilterChange = (key: keyof FilterValues, value: any) => {
     setTempFilters({ ...tempFilters, [key]: value === 'all' ? undefined : value });
@@ -578,6 +579,21 @@ export default function Management() {
 
       {/* Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card data-testid="card-profit-total">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Lucro Total do Período</CardTitle>
+            <TrendingUp className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${totalProfitTotal >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              R$ {totalProfitTotal.toFixed(2)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Resolvido + Pendente
+            </p>
+          </CardContent>
+        </Card>
+
         <Card data-testid="card-profit-resolved">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Lucro Resolvido</CardTitle>
@@ -617,19 +633,6 @@ export default function Management() {
             <div className="text-2xl font-bold">R$ {totalStakePending.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">
               Em andamento
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card data-testid="card-stake-total">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Geral</CardTitle>
-            <TrendingUp className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">R$ {totalStake.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">
-              Valor total apostado
             </p>
           </CardContent>
         </Card>
