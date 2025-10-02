@@ -27,6 +27,10 @@ interface FilterValues {
   house?: string;
 }
 
+const removeAccents = (str: string): string => {
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+};
+
 export default function Dashboard() {
   const [filters, setFilters] = useState<FilterValues>({});
   const [editingBet, setEditingBet] = useState<any>(null);
@@ -175,8 +179,8 @@ export default function Dashboard() {
     .filter((bet) => {
       // Apply search query filter
       if (searchQuery) {
-        const query = searchQuery.toLowerCase().trim();
-        const searchableText = `${bet.teamA} ${bet.teamB} ${bet.sport} ${bet.league}`.toLowerCase();
+        const query = removeAccents(searchQuery.toLowerCase().trim());
+        const searchableText = removeAccents(`${bet.teamA} ${bet.teamB} ${bet.sport} ${bet.league}`.toLowerCase());
         if (!searchableText.includes(query)) {
           return false;
         }
