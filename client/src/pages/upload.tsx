@@ -16,6 +16,7 @@ export default function UploadPage() {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedData, setExtractedData] = useState<any>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Check for imported OCR data on component mount
   useEffect(() => {
@@ -89,6 +90,7 @@ export default function UploadPage() {
   };
 
   const handleFormSubmit = async (data: any) => {
+    setIsSaving(true);
     try {
       console.log("Submitting form data:", data);
       
@@ -100,6 +102,7 @@ export default function UploadPage() {
           variant: "destructive",
           duration: 3000,
         });
+        setIsSaving(false);
         return;
       }
       
@@ -145,8 +148,8 @@ export default function UploadPage() {
         const result = await response.json();
         console.log("Bet saved successfully!", result);
         
-        // Invalidate queries to force refresh in all pages - using refetchType: 'all' to bypass staleTime
-        await queryClient.invalidateQueries({ 
+        // Invalidate queries asynchronously (no await needed for faster UX)
+        queryClient.invalidateQueries({ 
           queryKey: ["/api/surebet-sets"],
           refetchType: 'all' // Force refetch even if data is stale
         });
@@ -156,6 +159,8 @@ export default function UploadPage() {
           description: "Surebet salvo com sucesso!",
           duration: 3000,
         });
+        
+        setIsSaving(false);
         // Clear form and stay on upload page
         handleImageRemove(); // This will reset to upload step and clear all data
       } else {
@@ -167,6 +172,7 @@ export default function UploadPage() {
           variant: "destructive",
           duration: 3000,
         });
+        setIsSaving(false);
       }
     } catch (error) {
       console.error("Error saving bet:", error);
@@ -176,6 +182,7 @@ export default function UploadPage() {
         variant: "destructive",
         duration: 3000,
       });
+      setIsSaving(false);
     }
   };
 
@@ -191,6 +198,7 @@ export default function UploadPage() {
           initialData={extractedData}
           onSubmit={handleFormSubmit}
           onCancel={handleCancel}
+          isLoading={isSaving}
         />
       </div>
     );
