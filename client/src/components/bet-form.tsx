@@ -9,7 +9,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CalendarIcon, Save, ArrowLeft } from "lucide-react";
+import { CalendarIcon, Save, ArrowLeft, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AccountHolder, BettingHouse } from "@shared/schema";
 
@@ -570,7 +570,11 @@ export function BetForm({
               disabled={isLoading}
               data-testid="button-save-bet"
             >
-              <Save className="w-4 h-4 mr-2" />
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4 mr-2" />
+              )}
               {isLoading ? "Salvando..." : "Salvar Aposta"}
             </Button>
           </div>
