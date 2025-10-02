@@ -14,6 +14,7 @@ import type { DateRange } from "react-day-picker";
 
 interface FilterValues {
   status?: string;
+  checked?: string;
   house?: string;
   eventDateRange?: DateRange;
   createdDateRange?: DateRange;
@@ -178,11 +179,11 @@ export default function Management() {
 
   // Apply filters
   const filteredBets = transformedBets.filter((bet) => {
-    if (filters.status) {
-      if (filters.status === "pending" && bet.status !== "pending") return false;
-      if (filters.status === "resolved" && bet.status !== "resolved") return false;
-      if (filters.status === "checked" && !bet.isChecked) return false;
-      if (filters.status === "unchecked" && bet.isChecked) return false;
+    if (filters.status && bet.status !== filters.status) return false;
+    
+    if (filters.checked) {
+      if (filters.checked === "checked" && !bet.isChecked) return false;
+      if (filters.checked === "unchecked" && bet.isChecked) return false;
     }
     
     if (filters.house) {
@@ -404,7 +405,7 @@ export default function Management() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="space-y-2">
               <Label htmlFor="status-filter">Status</Label>
               <Select 
@@ -418,6 +419,21 @@ export default function Management() {
                   <SelectItem value="all">Todos os status</SelectItem>
                   <SelectItem value="pending">Pendentes</SelectItem>
                   <SelectItem value="resolved">Resolvidas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="checked-filter">Conferência</Label>
+              <Select 
+                value={tempFilters.checked || ""} 
+                onValueChange={(value) => handleTempFilterChange("checked", value || undefined)}
+              >
+                <SelectTrigger id="checked-filter" data-testid="select-checked-filter">
+                  <SelectValue placeholder="Todas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
                   <SelectItem value="checked">Conferido</SelectItem>
                   <SelectItem value="unchecked">Não Conferido</SelectItem>
                 </SelectContent>
