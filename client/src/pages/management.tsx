@@ -6,10 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
-import { TrendingUp, DollarSign, Clock, CheckCircle, XCircle, X, ArrowUpDown, Plus, RotateCcw } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { TrendingUp, DollarSign, Clock, CheckCircle, XCircle, X, ArrowUpDown, Plus, RotateCcw, Loader2 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { SurebetSetWithBets, BettingHouse } from "@shared/schema";
+import type { SurebetSetWithBets, BettingHouse, BettingHouseWithAccountHolder } from "@shared/schema";
 import type { DateRange } from "react-day-picker";
 
 interface FilterValues {
@@ -25,6 +27,14 @@ export default function Management() {
   const [tempFilters, setTempFilters] = useState<FilterValues>({});
   const [chronologicalSort, setChronologicalSort] = useState(false);
   const [, setLocation] = useLocation();
+  const [editingBet, setEditingBet] = useState<any>(null);
+  const [editingNumericFields, setEditingNumericFields] = useState<{
+    profitPercentage: string;
+    bet1Odd: string;
+    bet1Stake: string;
+    bet2Odd: string;
+    bet2Stake: string;
+  }>({ profitPercentage: '', bet1Odd: '', bet1Stake: '', bet2Odd: '', bet2Stake: '' });
 
   // Load surebet sets from the API
   const { data: surebetSets = [], isLoading } = useQuery<SurebetSetWithBets[]>({
@@ -33,7 +43,7 @@ export default function Management() {
   });
 
   // Load betting houses from API
-  const { data: bettingHouses = [] } = useQuery<BettingHouse[]>({
+  const { data: bettingHouses = [] } = useQuery<BettingHouseWithAccountHolder[]>({
     queryKey: ["/api/betting-houses"],
   });
 
@@ -154,6 +164,89 @@ export default function Management() {
     },
   });
 
+  // Mutation for updating surebet set and bets
+  const updateSurebetMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const eventDateISO = new Date(data.eventDate).toISOString();
+      await apiRequest("PUT", `/api/surebet-sets/${data.id}`, {
+        eventDate: eventDateISO,
+        sport: data.sport,
+        league: data.league,
+        teamA: data.teamA,
+        teamB: data.teamB,
+        profitPercentage: String(data.profitPercentage),
+      });
+
+      await apiRequest("PUT", `/api/bets/${data.bet1.id}`, {
+        bettingHouseId: data.bet1.bettingHouseId,
+        betType: data.bet1.betType,
+        odd: String(data.bet1.odd),
+        stake: String(data.bet1.stake),
+      });
+
+      await apiRequest("PUT", `/api/bets/${data.bet2.id}`, {
+        bettingHouseId: data.bet2.bettingHouseId,
+        betType: data.bet2.betType,
+        odd: String(data.bet2.odd),
+        stake: String(data.bet2.stake),
+      });
+      
+      return data;
+    },
+    onMutate: async (data) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/surebet-sets"] });
+      const previousData = queryClient.getQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"]);
+
+      queryClient.setQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"], (old) => {
+        if (!old) return old;
+        return old.map(set => {
+          if (set.id === data.id) {
+            return {
+              ...set,
+              eventDate: data.eventDate,
+              sport: data.sport,
+              league: data.league,
+              teamA: data.teamA,
+              teamB: data.teamB,
+              profitPercentage: String(data.profitPercentage),
+              bets: set.bets.map((bet, index) => {
+                if (index === 0) {
+                  return {
+                    ...bet,
+                    bettingHouseId: data.bet1.bettingHouseId,
+                    betType: data.bet1.betType,
+                    odd: String(data.bet1.odd),
+                    stake: String(data.bet1.stake),
+                  };
+                } else {
+                  return {
+                    ...bet,
+                    bettingHouseId: data.bet2.bettingHouseId,
+                    betType: data.bet2.betType,
+                    odd: String(data.bet2.odd),
+                    stake: String(data.bet2.stake),
+                  };
+                }
+              })
+            };
+          }
+          return set;
+        });
+      });
+
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(["/api/surebet-sets"], context.previousData);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
+      setEditingBet(null);
+    },
+  });
+
   // Transform data
   const transformedBets = (surebetSets || [])
     .map((set) => {
@@ -174,6 +267,7 @@ export default function Management() {
         isChecked: set.isChecked || false,
         bet1: {
           id: sortedBets[0]?.id || "",
+          bettingHouseId: sortedBets[0]?.bettingHouseId || "",
           house: sortedBets[0]?.bettingHouse?.name || "Casa 1",
           accountHolder: sortedBets[0]?.bettingHouse?.accountHolder?.name || "",
           betType: sortedBets[0]?.betType || "N/A",
@@ -184,6 +278,7 @@ export default function Management() {
         },
         bet2: {
           id: sortedBets[1]?.id || "",
+          bettingHouseId: sortedBets[1]?.bettingHouseId || "",
           house: sortedBets[1]?.bettingHouse?.name || "Casa 2",
           accountHolder: sortedBets[1]?.bettingHouse?.accountHolder?.name || "",
           betType: sortedBets[1]?.betType || "N/A",
@@ -312,7 +407,69 @@ export default function Management() {
   const uniqueHouseNames = Array.from(new Set(bettingHouses.map(house => house.name)));
 
   const handleEdit = (surebetSetId: string) => {
-    setLocation(`/upload?edit=${surebetSetId}`);
+    const bet = transformedBets.find(b => b.id === surebetSetId);
+    if (bet) {
+      const eventDate = new Date(bet.eventDate);
+      const year = eventDate.getFullYear();
+      const month = String(eventDate.getMonth() + 1).padStart(2, '0');
+      const day = String(eventDate.getDate()).padStart(2, '0');
+      const hours = String(eventDate.getHours()).padStart(2, '0');
+      const minutes = String(eventDate.getMinutes()).padStart(2, '0');
+      const dateTimeLocal = `${year}-${month}-${day}T${hours}:${minutes}`;
+
+      setEditingBet({
+        id: bet.id,
+        eventDate: dateTimeLocal,
+        sport: bet.sport,
+        league: bet.league,
+        teamA: bet.teamA,
+        teamB: bet.teamB,
+        profitPercentage: bet.profitPercentage,
+        bet1: {
+          id: bet.bet1.id,
+          bettingHouseId: bet.bet1.bettingHouseId,
+          house: bet.bet1.house,
+          accountHolder: bet.bet1.accountHolder,
+          betType: bet.bet1.betType,
+          odd: bet.bet1.odd,
+          stake: bet.bet1.stake,
+        },
+        bet2: {
+          id: bet.bet2.id,
+          bettingHouseId: bet.bet2.bettingHouseId,
+          house: bet.bet2.house,
+          accountHolder: bet.bet2.accountHolder,
+          betType: bet.bet2.betType,
+          odd: bet.bet2.odd,
+          stake: bet.bet2.stake,
+        },
+      });
+
+      setEditingNumericFields({
+        profitPercentage: bet.profitPercentage.toString().replace('.', ','),
+        bet1Odd: bet.bet1.odd.toString().replace('.', ','),
+        bet1Stake: bet.bet1.stake.toString().replace('.', ','),
+        bet2Odd: bet.bet2.odd.toString().replace('.', ','),
+        bet2Stake: bet.bet2.stake.toString().replace('.', ','),
+      });
+    }
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingBet) return;
+
+    const profitPercentage = parseFloat(editingNumericFields.profitPercentage.replace(',', '.'));
+    const bet1Odd = parseFloat(editingNumericFields.bet1Odd.replace(',', '.'));
+    const bet1Stake = parseFloat(editingNumericFields.bet1Stake.replace(',', '.'));
+    const bet2Odd = parseFloat(editingNumericFields.bet2Odd.replace(',', '.'));
+    const bet2Stake = parseFloat(editingNumericFields.bet2Stake.replace(',', '.'));
+
+    updateSurebetMutation.mutate({
+      ...editingBet,
+      profitPercentage,
+      bet1: { ...editingBet.bet1, odd: bet1Odd, stake: bet1Stake },
+      bet2: { ...editingBet.bet2, odd: bet2Odd, stake: bet2Stake },
+    });
   };
 
   return (
@@ -547,6 +704,251 @@ export default function Management() {
           ))
         )}
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editingBet} onOpenChange={(open) => !open && setEditingBet(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Aposta Surebet</DialogTitle>
+          </DialogHeader>
+
+          {editingBet && (
+            <div className="space-y-6">
+              {/* Event Details */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg">Detalhes do Evento</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Data e Hora do Evento</Label>
+                    <Input
+                      type="datetime-local"
+                      value={editingBet.eventDate}
+                      onChange={(e) => setEditingBet({ ...editingBet, eventDate: e.target.value })}
+                      data-testid="input-event-date"
+                    />
+                  </div>
+                  <div>
+                    <Label>Esporte</Label>
+                    <Input
+                      value={editingBet.sport}
+                      onChange={(e) => setEditingBet({ ...editingBet, sport: e.target.value })}
+                      data-testid="input-sport"
+                    />
+                  </div>
+                  <div>
+                    <Label>Liga</Label>
+                    <Input
+                      value={editingBet.league}
+                      onChange={(e) => setEditingBet({ ...editingBet, league: e.target.value })}
+                      data-testid="input-league"
+                    />
+                  </div>
+                  <div>
+                    <Label>Lucro (%)</Label>
+                    <Input
+                      type="text"
+                      value={editingNumericFields.profitPercentage}
+                      onChange={(e) => {
+                        setEditingNumericFields({ 
+                          ...editingNumericFields, 
+                          profitPercentage: e.target.value 
+                        });
+                      }}
+                      data-testid="input-profit-percentage"
+                    />
+                  </div>
+                  <div>
+                    <Label>Time A</Label>
+                    <Input
+                      value={editingBet.teamA}
+                      onChange={(e) => setEditingBet({ ...editingBet, teamA: e.target.value })}
+                      data-testid="input-team-a"
+                    />
+                  </div>
+                  <div>
+                    <Label>Time B</Label>
+                    <Input
+                      value={editingBet.teamB}
+                      onChange={(e) => setEditingBet({ ...editingBet, teamB: e.target.value })}
+                      data-testid="input-team-b"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Bet 1 */}
+              <div className="space-y-4 p-4 border rounded-lg">
+                <h3 className="font-semibold text-lg">Aposta 1</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Casa de Aposta</Label>
+                    <Select
+                      value={editingBet.bet1.bettingHouseId}
+                      onValueChange={(value) => {
+                        const selectedHouse = bettingHouses.find(h => h.id === value);
+                        setEditingBet({ 
+                          ...editingBet, 
+                          bet1: { 
+                            ...editingBet.bet1, 
+                            bettingHouseId: value,
+                            house: selectedHouse?.name || editingBet.bet1.house,
+                            accountHolder: selectedHouse?.accountHolder?.name || editingBet.bet1.accountHolder
+                          }
+                        });
+                      }}
+                    >
+                      <SelectTrigger data-testid="select-bet1-house">
+                        <SelectValue placeholder="Selecione a casa" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {bettingHouses.map(house => (
+                          <SelectItem key={house.id} value={house.id}>
+                            {house.name} {house.accountHolder?.name ? `(${house.accountHolder.name})` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Tipo de Aposta</Label>
+                    <Input
+                      value={editingBet.bet1.betType}
+                      onChange={(e) => setEditingBet({ 
+                        ...editingBet, 
+                        bet1: { ...editingBet.bet1, betType: e.target.value }
+                      })}
+                      data-testid="input-bet1-type"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Odd</Label>
+                    <Input
+                      type="text"
+                      value={editingNumericFields.bet1Odd}
+                      onChange={(e) => {
+                        setEditingNumericFields({ 
+                          ...editingNumericFields, 
+                          bet1Odd: e.target.value 
+                        });
+                      }}
+                      data-testid="input-bet1-odd"
+                    />
+                  </div>
+                  <div>
+                    <Label>Stake (R$)</Label>
+                    <Input
+                      type="text"
+                      value={editingNumericFields.bet1Stake}
+                      onChange={(e) => {
+                        setEditingNumericFields({ 
+                          ...editingNumericFields, 
+                          bet1Stake: e.target.value 
+                        });
+                      }}
+                      data-testid="input-bet1-stake"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Bet 2 */}
+              <div className="space-y-4 p-4 border rounded-lg">
+                <h3 className="font-semibold text-lg">Aposta 2</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Casa de Aposta</Label>
+                    <Select
+                      value={editingBet.bet2.bettingHouseId}
+                      onValueChange={(value) => {
+                        const selectedHouse = bettingHouses.find(h => h.id === value);
+                        setEditingBet({ 
+                          ...editingBet, 
+                          bet2: { 
+                            ...editingBet.bet2, 
+                            bettingHouseId: value,
+                            house: selectedHouse?.name || editingBet.bet2.house,
+                            accountHolder: selectedHouse?.accountHolder?.name || editingBet.bet2.accountHolder
+                          }
+                        });
+                      }}
+                    >
+                      <SelectTrigger data-testid="select-bet2-house">
+                        <SelectValue placeholder="Selecione a casa" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {bettingHouses.map(house => (
+                          <SelectItem key={house.id} value={house.id}>
+                            {house.name} {house.accountHolder?.name ? `(${house.accountHolder.name})` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Tipo de Aposta</Label>
+                    <Input
+                      value={editingBet.bet2.betType}
+                      onChange={(e) => setEditingBet({ 
+                        ...editingBet, 
+                        bet2: { ...editingBet.bet2, betType: e.target.value }
+                      })}
+                      data-testid="input-bet2-type"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Odd</Label>
+                    <Input
+                      type="text"
+                      value={editingNumericFields.bet2Odd}
+                      onChange={(e) => {
+                        setEditingNumericFields({ 
+                          ...editingNumericFields, 
+                          bet2Odd: e.target.value 
+                        });
+                      }}
+                      data-testid="input-bet2-odd"
+                    />
+                  </div>
+                  <div>
+                    <Label>Stake (R$)</Label>
+                    <Input
+                      type="text"
+                      value={editingNumericFields.bet2Stake}
+                      onChange={(e) => {
+                        setEditingNumericFields({ 
+                          ...editingNumericFields, 
+                          bet2Stake: e.target.value 
+                        });
+                      }}
+                      data-testid="input-bet2-stake"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingBet(null)} data-testid="button-cancel-edit">
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={updateSurebetMutation.isPending} data-testid="button-save-edit">
+              {updateSurebetMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                "Salvar Alterações"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
