@@ -329,9 +329,17 @@
 
 /* Sidebar gradient */
 [data-sidebar="sidebar"] {
-  background: linear-gradient(to bottom right, hsl(210, 100%, 97%), hsl(210, 20%, 98%), hsl(var(--background))) !important;
+  background: linear-gradient(to bottom right, 
+    hsl(210, 100%, 94%) 0%, 
+    hsl(210, 80%, 95%) 50%,
+    hsl(210, 30%, 97%) 70%, 
+    hsl(var(--background)) 100%) !important;
 }
 
 .dark [data-sidebar="sidebar"] {
-  background: linear-gradient(to bottom right, hsl(210, 100%, 12%), hsl(210, 20%, 15%), hsl(var(--background))) !important;
+  background: linear-gradient(to bottom right, 
+    hsl(210, 100%, 10%) 0%, 
+    hsl(210, 80%, 12%) 50%,
+    hsl(210, 30%, 14%) 70%, 
+    hsl(var(--background)) 100%) !important;
 }
