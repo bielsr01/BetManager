@@ -9,7 +9,7 @@ import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
-import { TrendingUp, DollarSign, Clock, CheckCircle, XCircle, X, ArrowUpDown, Plus, RotateCcw, Loader2, RefreshCw, TrendingDown } from "lucide-react";
+import { TrendingUp, DollarSign, Clock, CheckCircle, XCircle, X, ArrowUpDown, Plus, RotateCcw, Loader2, RefreshCw, TrendingDown, ListChecks } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { SurebetSetWithBets, BettingHouse, BettingHouseWithAccountHolder } from "@shared/schema";
@@ -578,7 +578,22 @@ export default function Management() {
       </div>
 
       {/* Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card data-testid="card-total-bets">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Apostas</CardTitle>
+            <ListChecks className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-primary">
+              {filteredBets.length}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {pendingBets.length} pendentes • {resolvedBets.length} resolvidas
+            </p>
+          </CardContent>
+        </Card>
+
         <Card data-testid="card-profit-total">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Lucro Total do Período</CardTitle>
