@@ -63,7 +63,7 @@ export function AppSidebar() {
   const { user, logoutMutation } = useAuth();
 
   return (
-    <Sidebar>
+    <Sidebar className="bg-gradient-to-br from-blue-50 via-gray-50 to-background dark:from-blue-950/30 dark:via-gray-950/30 dark:to-background border-r">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2">
           <div className="p-2 bg-primary rounded-lg">
