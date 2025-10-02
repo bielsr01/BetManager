@@ -70,15 +70,24 @@ export function BetForm({
   const isDataLoading = holdersLoading || housesLoading;
 
   // Create combined options for dropdowns: "Titular - Casa"
-  const houseOptions = allHouses.map(house => {
-    const holder = holders.find(h => h.id === house.accountHolderId);
-    return {
-      id: house.id,
-      name: house.name,
-      holderName: holder?.name || "Titular não encontrado",
-      displayLabel: `${holder?.name || "Titular não encontrado"} - ${house.name}`,
-    };
-  });
+  // First, group houses by holder and sort alphabetically
+  const houseOptions = allHouses
+    .map(house => {
+      const holder = holders.find(h => h.id === house.accountHolderId);
+      return {
+        id: house.id,
+        name: house.name,
+        holderName: holder?.name || "Titular não encontrado",
+        displayLabel: `${holder?.name || "Titular não encontrado"} - ${house.name}`,
+      };
+    })
+    .sort((a, b) => {
+      // First sort by holder name alphabetically
+      const holderCompare = a.holderName.localeCompare(b.holderName);
+      if (holderCompare !== 0) return holderCompare;
+      // Then sort by house name alphabetically within the same holder
+      return a.name.localeCompare(b.name);
+    });
 
   const form = useForm<BetFormData>({
     resolver: zodResolver(betFormSchema),
