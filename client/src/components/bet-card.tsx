@@ -95,7 +95,7 @@ export function BetCard({
   }
 
   return (
-    <Card className={cn("hover-elevate", className)} data-testid={`card-surebet-${id}`}>
+    <Card className={cn("hover-elevate", status === "resolved" && "bg-[#d3f5e0] dark:bg-[#1a3d2a]", className)} data-testid={`card-surebet-${id}`}>
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
