@@ -143,7 +143,7 @@ export default function Dashboard() {
 
       return {
         id: set.id,
-        eventDate: set.eventDate ? (typeof set.eventDate === 'string' ? set.eventDate : set.eventDate.toISOString()) : new Date().toISOString(),
+        eventDate: set.eventDate || new Date().toISOString().substring(0, 16),
         sport: set.sport || "Futebol",
         league: set.league || "Liga não especificada",
         teamA: set.teamA || "Time A",
@@ -196,23 +196,21 @@ export default function Dashboard() {
         return false;
       }
 
-      // Apply date range filter
+      // Apply date range filter (string comparison, no timezone conversion)
       if (filters.dateRange) {
-        const betDate = new Date(bet.eventDate);
+        const betDateStr = bet.eventDate.substring(0, 10); // "2025-10-03"
         const { from, to } = filters.dateRange;
         
         if (from) {
-          const startDate = new Date(from);
-          startDate.setHours(0, 0, 0, 0);
-          if (betDate < startDate) {
+          const fromStr = from.toISOString().substring(0, 10);
+          if (betDateStr < fromStr) {
             return false;
           }
         }
         
         if (to) {
-          const endDate = new Date(to);
-          endDate.setHours(23, 59, 59, 999);
-          if (betDate > endDate) {
+          const toStr = to.toISOString().substring(0, 10);
+          if (betDateStr > toStr) {
             return false;
           }
         }
@@ -222,8 +220,9 @@ export default function Dashboard() {
     })
     .sort((a, b) => {
       if (chronologicalSort) {
-        // Ordenar por data do evento (mais antiga primeiro)
-        return new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime();
+        // Ordenar por data do evento (mais antiga primeiro) usando comparação de strings
+        // Formato: "2025-10-03T04:00" - comparação lexicográfica funciona para ISO strings
+        return a.eventDate.localeCompare(b.eventDate);
       }
       // Ordenação padrão (por ordem de criação, já vem do backend)
       return 0;
