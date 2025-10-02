@@ -425,7 +425,7 @@ export default function Management() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="status-filter" className="text-sm">Status</Label>
               <Select 
@@ -479,23 +479,25 @@ export default function Management() {
                 </SelectContent>
               </Select>
             </div>
+          </div>
 
-            <div className="space-y-2 sm:col-span-2 lg:col-span-1">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
               <Label className="text-sm">Data do Jogo</Label>
               <DatePickerWithRange
                 selected={tempFilters.eventDateRange}
                 onSelect={(range) => setTempFilters({ ...tempFilters, eventDateRange: range })}
-                placeholder="Período"
+                placeholder="Selecione o período"
                 data-testid="event-date-range-filter"
               />
             </div>
 
-            <div className="space-y-2 sm:col-span-2 lg:col-span-1">
+            <div className="space-y-2">
               <Label className="text-sm">Data de Inserção</Label>
               <DatePickerWithRange
                 selected={tempFilters.createdDateRange}
                 onSelect={(range) => setTempFilters({ ...tempFilters, createdDateRange: range })}
-                placeholder="Período"
+                placeholder="Selecione o período"
                 data-testid="created-date-range-filter"
               />
             </div>
