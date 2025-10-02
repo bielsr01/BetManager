@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, TrendingUp, TrendingDown, Clock, DollarSign, Loader2, ArrowUpDown } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, Clock, DollarSign, Loader2, ArrowUpDown, RefreshCw } from "lucide-react";
 import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { SurebetSetWithBets, BettingHouseWithAccountHolder } from "@shared/schema";
@@ -63,15 +63,17 @@ export default function Dashboard() {
     return () => clearInterval(intervalId);
   }, [lastUpdate]);
 
-  // Load surebet sets from the API
-  const { data: surebetSets = [], isLoading, error } = useQuery<SurebetSetWithBets[]>({
+  // Load surebet sets from the API - optimized with staleTime
+  const { data: surebetSets = [], isLoading, error, refetch } = useQuery<SurebetSetWithBets[]>({
     queryKey: ["/api/surebet-sets"],
+    staleTime: 30000, // Cache for 30 seconds to optimize performance
     refetchInterval: 60000, // Refetch every minute
   });
 
-  // Load betting houses for editing
+  // Load betting houses for editing - optimized with staleTime
   const { data: bettingHouses = [] } = useQuery<BettingHouseWithAccountHolder[]>({
     queryKey: ["/api/betting-houses"],
+    staleTime: 300000, // Cache for 5 minutes (betting houses don't change often)
   });
 
   // Mutation for updating bet results with optimistic updates
@@ -540,20 +542,19 @@ export default function Dashboard() {
     },
   });
 
-  // Automatic update mutation (triggered on new bet insert or edit)
-  const updateAutomatic = useMutation({
-    mutationFn: async () => {
-      // This mutation doesn't need to do anything specific other than trigger a refetch.
-      // The API endpoint is just a placeholder to signal a change that should trigger
-      // automatic updates in the backend (which then causes the frontend refetch).
-      await apiRequest("POST", "/api/trigger-auto-update");
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
+  // Manual refresh handler
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refetch();
       setLastUpdate(new Date());
       setTimeDisplay('Agora mesmo');
-    },
-  });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   return (
     <div className="space-y-6 p-6">
@@ -644,14 +645,17 @@ export default function Dashboard() {
             <span className="text-sm text-muted-foreground">
               Atualizado {timeDisplay}
             </span>
-            <Button variant="outline" size="sm" onClick={() => updateAutomatic.mutate()} disabled={updateAutomatic.isPending}>
-              {updateAutomatic.isPending ? (
+            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
+              {isRefreshing ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Atualizando...
                 </>
               ) : (
-                "Atualizar"
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Atualizar
+                </>
               )}
             </Button>
           </div>
