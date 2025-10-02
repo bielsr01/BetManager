@@ -13,7 +13,7 @@ import type {
   User,
   InsertUser
 } from "@shared/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, inArray } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
@@ -182,6 +182,7 @@ class DatabaseStorage implements IStorage {
   }
 
   async getSurebetSets(userId?: string): Promise<SurebetSetWithBets[]> {
+    // Query 1: Get all surebet sets
     let query = db.select().from(surebetSets);
     
     if (userId) {
@@ -190,29 +191,44 @@ class DatabaseStorage implements IStorage {
     
     const sets = await query.orderBy(desc(surebetSets.createdAt));
     
-    const result: SurebetSetWithBets[] = [];
+    if (sets.length === 0) {
+      return [];
+    }
     
-    for (const set of sets) {
-      const setBets = await db
-        .select()
-        .from(bets)
-        .innerJoin(bettingHouses, eq(bets.bettingHouseId, bettingHouses.id))
-        .innerJoin(accountHolders, eq(bettingHouses.accountHolderId, accountHolders.id))
-        .where(eq(bets.surebetSetId, set.id));
-
-      const formattedBets = setBets.map(row => ({
+    // Query 2: Get ALL bets for ALL sets in a single batched query
+    const setIds = sets.map(set => set.id);
+    const allBets = await db
+      .select()
+      .from(bets)
+      .innerJoin(bettingHouses, eq(bets.bettingHouseId, bettingHouses.id))
+      .innerJoin(accountHolders, eq(bettingHouses.accountHolderId, accountHolders.id))
+      .where(inArray(bets.surebetSetId, setIds));
+    
+    // Group bets by set ID in memory
+    const betsBySetId = new Map<string, any[]>();
+    
+    for (const row of allBets) {
+      const setId = row.bets.surebetSetId;
+      if (!setId) continue; // Skip if no set ID (shouldn't happen)
+      
+      if (!betsBySetId.has(setId)) {
+        betsBySetId.set(setId, []);
+      }
+      
+      betsBySetId.get(setId)!.push({
         ...row.bets,
         bettingHouse: {
           ...row.betting_houses,
           accountHolder: row.account_holders
         }
-      }));
-      
-      result.push({
-        ...set,
-        bets: formattedBets
       });
     }
+    
+    // Assemble final result
+    const result: SurebetSetWithBets[] = sets.map(set => ({
+      ...set,
+      bets: betsBySetId.get(set.id) || []
+    }));
     
     return result;
   }
