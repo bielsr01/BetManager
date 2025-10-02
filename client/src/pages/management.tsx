@@ -200,6 +200,8 @@ export default function Management() {
     if (filters.status && bet.status !== filters.status) return false;
     
     if (filters.checked) {
+      // Filtro de conferência só mostra apostas pendentes
+      if (bet.status !== "pending") return false;
       if (filters.checked === "checked" && !bet.isChecked) return false;
       if (filters.checked === "unchecked" && bet.isChecked) return false;
     }
