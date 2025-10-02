@@ -40,6 +40,7 @@ export default function Dashboard() {
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [timeDisplay, setTimeDisplay] = useState('Agora mesmo');
   const [chronologicalSort, setChronologicalSort] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const intervalId = setInterval(() => {
@@ -172,6 +173,15 @@ export default function Dashboard() {
     })
     .filter((bet): bet is NonNullable<typeof bet> & { bet1: NonNullable<typeof bet.bet1>; bet2: NonNullable<typeof bet.bet2> } => bet.bet1 !== null && bet.bet2 !== null)
     .filter((bet) => {
+      // Apply search query filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase().trim();
+        const searchableText = `${bet.teamA} ${bet.teamB} ${bet.sport} ${bet.league}`.toLowerCase();
+        if (!searchableText.includes(query)) {
+          return false;
+        }
+      }
+
       // Apply status filter
       if (filters.status && bet.status !== filters.status) {
         return false;
@@ -634,10 +644,20 @@ export default function Dashboard() {
 
       {/* Bets List */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">
-            Apostas Ativas ({transformedBets.length} {transformedBets.length === 1 ? 'aposta' : 'apostas'})
-          </h2>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 flex-1">
+            <h2 className="text-xl font-semibold whitespace-nowrap">
+              Apostas Ativas ({transformedBets.length} {transformedBets.length === 1 ? 'aposta' : 'apostas'})
+            </h2>
+            <Input
+              type="text"
+              placeholder="Buscar por time, esporte ou liga..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="max-w-xs"
+              data-testid="input-search-bets"
+            />
+          </div>
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">
