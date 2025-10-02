@@ -366,14 +366,9 @@ export default function Dashboard() {
   const handleEdit = (surebetSetId: string) => {
     const bet = transformedBets.find(b => b.id === surebetSetId);
     if (bet) {
-      // Converte a data ISO para formato datetime-local sem alterar o fuso
-      const eventDate = new Date(bet.eventDate);
-      const year = eventDate.getFullYear();
-      const month = String(eventDate.getMonth() + 1).padStart(2, '0');
-      const day = String(eventDate.getDate()).padStart(2, '0');
-      const hours = String(eventDate.getHours()).padStart(2, '0');
-      const minutes = String(eventDate.getMinutes()).padStart(2, '0');
-      const dateTimeLocal = `${year}-${month}-${day}T${hours}:${minutes}`;
+      // Extrai data/hora diretamente da string ISO sem conversão de timezone
+      // Formato esperado: "2025-10-02T22:00:00.000Z" -> "2025-10-02T22:00"
+      const dateTimeLocal = bet.eventDate.substring(0, 16);
 
       setEditingBet({
         id: bet.id,
