@@ -40,6 +40,7 @@ export default function Management() {
   const [timeDisplay, setTimeDisplay] = useState('Agora mesmo');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [deletingBetId, setDeletingBetId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const intervalId = setInterval(() => {
@@ -363,6 +364,15 @@ export default function Management() {
 
   // Apply filters
   const filteredBets = transformedBets.filter((bet) => {
+    // Apply search query filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase().trim();
+      const searchableText = `${bet.teamA} ${bet.teamB} ${bet.sport} ${bet.league}`.toLowerCase();
+      if (!searchableText.includes(query)) {
+        return false;
+      }
+    }
+
     if (filters.status && bet.status !== filters.status) return false;
     
     if (filters.checked) {
@@ -763,10 +773,20 @@ export default function Management() {
 
       {/* Bet Cards */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">
-            Apostas Ativas ({filteredBets.length} {filteredBets.length === 1 ? 'aposta' : 'apostas'})
-          </h2>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 flex-1">
+            <h2 className="text-xl font-semibold whitespace-nowrap">
+              Apostas Ativas ({filteredBets.length} {filteredBets.length === 1 ? 'aposta' : 'apostas'})
+            </h2>
+            <Input
+              type="text"
+              placeholder="Buscar por time, esporte ou liga..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="max-w-xs"
+              data-testid="input-search-bets-management"
+            />
+          </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground" data-testid="text-last-update">
               Atualizado: {timeDisplay}
