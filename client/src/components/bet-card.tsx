@@ -71,11 +71,11 @@ export function BetCard({
       // Win/Loss: (winning_stake × odd) - losing_stake - winning_stake
       actualProfit = (bet2.stake * bet2.odd) - bet1.stake - bet2.stake;
     } else if (bet1.result === "won" && bet2.result === "returned") {
-      // Win/Return: (winning_stake × odd) - winning_stake - returned_stake
-      actualProfit = (bet1.stake * bet1.odd) - bet1.stake - bet2.stake;
+      // Win/Return: (winning_stake × odd) - winning_stake
+      actualProfit = (bet1.stake * bet1.odd) - bet1.stake;
     } else if (bet2.result === "won" && bet1.result === "returned") {
-      // Win/Return: (winning_stake × odd) - winning_stake - returned_stake
-      actualProfit = (bet2.stake * bet2.odd) - bet2.stake - bet1.stake;
+      // Win/Return: (winning_stake × odd) - winning_stake
+      actualProfit = (bet2.stake * bet2.odd) - bet2.stake;
     } else if (bet1.result === "lost" && bet2.result === "returned") {
       // Loss/Return: -lost_stake + returned_stake
       actualProfit = -bet1.stake + bet2.stake;
