@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { BetCard } from "@/components/bet-card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { TrendingUp, DollarSign, Clock, CheckCircle, XCircle, X, ArrowUpDown, Plus, RotateCcw, Loader2 } from "lucide-react";
+import { TrendingUp, DollarSign, Clock, CheckCircle, XCircle, X, ArrowUpDown, Plus, RotateCcw, Loader2, RefreshCw } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { SurebetSetWithBets, BettingHouse, BettingHouseWithAccountHolder } from "@shared/schema";
@@ -35,12 +35,42 @@ export default function Management() {
     bet2Odd: string;
     bet2Stake: string;
   }>({ profitPercentage: '', bet1Odd: '', bet1Stake: '', bet2Odd: '', bet2Stake: '' });
+  const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [timeDisplay, setTimeDisplay] = useState('Agora mesmo');
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      const now = new Date();
+      const diffInSeconds = Math.floor((now.getTime() - lastUpdate.getTime()) / 1000);
+
+      if (diffInSeconds < 60) {
+        setTimeDisplay(`Há ${diffInSeconds}s`);
+      } else if (diffInSeconds < 3600) {
+        const diffInMinutes = Math.floor(diffInSeconds / 60);
+        setTimeDisplay(`Há ${diffInMinutes}m`);
+      } else if (diffInSeconds < 86400) {
+        const diffInHours = Math.floor(diffInSeconds / 3600);
+        setTimeDisplay(`Há ${diffInHours}h`);
+      } else {
+        const diffInDays = Math.floor(diffInSeconds / 86400);
+        setTimeDisplay(`Há ${diffInDays}d`);
+      }
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [lastUpdate]);
 
   // Load surebet sets from the API
-  const { data: surebetSets = [], isLoading } = useQuery<SurebetSetWithBets[]>({
+  const { data: surebetSets = [], isLoading, refetch } = useQuery<SurebetSetWithBets[]>({
     queryKey: ["/api/surebet-sets"],
     refetchInterval: 60000,
   });
+
+  const handleRefresh = async () => {
+    await refetch();
+    setLastUpdate(new Date());
+    setTimeDisplay('Agora mesmo');
+  };
 
   // Load betting houses from API
   const { data: bettingHouses = [] } = useQuery<BettingHouseWithAccountHolder[]>({
@@ -81,6 +111,8 @@ export default function Management() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
+      setLastUpdate(new Date());
+      setTimeDisplay('Agora mesmo');
     },
   });
 
@@ -110,6 +142,8 @@ export default function Management() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
+      setLastUpdate(new Date());
+      setTimeDisplay('Agora mesmo');
     },
   });
 
@@ -150,6 +184,8 @@ export default function Management() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
+      setLastUpdate(new Date());
+      setTimeDisplay('Agora mesmo');
     },
   });
 
@@ -161,6 +197,8 @@ export default function Management() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
+      setLastUpdate(new Date());
+      setTimeDisplay('Agora mesmo');
     },
   });
 
@@ -244,6 +282,8 @@ export default function Management() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
       setEditingBet(null);
+      setLastUpdate(new Date());
+      setTimeDisplay('Agora mesmo');
     },
   });
 
@@ -674,9 +714,25 @@ export default function Management() {
 
       {/* Bet Cards */}
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold">
-          Apostas Ativas ({filteredBets.length} {filteredBets.length === 1 ? 'aposta' : 'apostas'})
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold">
+            Apostas Ativas ({filteredBets.length} {filteredBets.length === 1 ? 'aposta' : 'apostas'})
+          </h2>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground" data-testid="text-last-update">
+              Atualizado: {timeDisplay}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              data-testid="button-refresh-management"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Atualizar
+            </Button>
+          </div>
+        </div>
         {isLoading ? (
           <div className="text-center py-8">
             <p className="text-muted-foreground">Carregando apostas...</p>

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Upload, Wand2 } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
 
 type UploadStep = "upload" | "edit";
 
@@ -143,6 +144,10 @@ export default function UploadPage() {
       if (response.ok) {
         const result = await response.json();
         console.log("Bet saved successfully!", result);
+        
+        // Invalidate queries to force refresh in all pages
+        queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
+        
         toast({
           title: "✅ Aposta salva!",
           description: "Surebet salvo com sucesso!",
