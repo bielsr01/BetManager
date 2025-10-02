@@ -145,8 +145,11 @@ export default function UploadPage() {
         const result = await response.json();
         console.log("Bet saved successfully!", result);
         
-        // Invalidate queries to force refresh in all pages
-        queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
+        // Invalidate queries to force refresh in all pages - using refetchType: 'all' to bypass staleTime
+        await queryClient.invalidateQueries({ 
+          queryKey: ["/api/surebet-sets"],
+          refetchType: 'all' // Force refetch even if data is stale
+        });
         
         toast({
           title: "✅ Aposta salva!",

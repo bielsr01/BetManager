@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
-import { TrendingUp, DollarSign, Clock, CheckCircle, XCircle, X, ArrowUpDown, Plus, RotateCcw, Loader2, RefreshCw } from "lucide-react";
+import { TrendingUp, DollarSign, Clock, CheckCircle, XCircle, X, ArrowUpDown, Plus, RotateCcw, Loader2, RefreshCw, TrendingDown } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { SurebetSetWithBets, BettingHouse, BettingHouseWithAccountHolder } from "@shared/schema";
@@ -37,6 +38,8 @@ export default function Management() {
   }>({ profitPercentage: '', bet1Odd: '', bet1Stake: '', bet2Odd: '', bet2Stake: '' });
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [timeDisplay, setTimeDisplay] = useState('Agora mesmo');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [deletingBetId, setDeletingBetId] = useState<string | null>(null);
 
   useEffect(() => {
     const intervalId = setInterval(() => {
@@ -60,21 +63,28 @@ export default function Management() {
     return () => clearInterval(intervalId);
   }, [lastUpdate]);
 
-  // Load surebet sets from the API
-  const { data: surebetSets = [], isLoading, refetch } = useQuery<SurebetSetWithBets[]>({
+  // Load surebet sets from the API - optimized with staleTime
+  const { data: surebetSets = [], isLoading, refetch, error } = useQuery<SurebetSetWithBets[]>({
     queryKey: ["/api/surebet-sets"],
+    staleTime: 30000, // Cache for 30 seconds to optimize performance
     refetchInterval: 60000,
   });
 
   const handleRefresh = async () => {
-    await refetch();
-    setLastUpdate(new Date());
-    setTimeDisplay('Agora mesmo');
+    setIsRefreshing(true);
+    try {
+      await refetch();
+      setLastUpdate(new Date());
+      setTimeDisplay('Agora mesmo');
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
-  // Load betting houses from API
+  // Load betting houses from API - optimized with staleTime
   const { data: bettingHouses = [] } = useQuery<BettingHouseWithAccountHolder[]>({
     queryKey: ["/api/betting-houses"],
+    staleTime: 300000, // Cache for 5 minutes (betting houses don't change often)
   });
 
   // Mutation for updating bet results
@@ -189,16 +199,38 @@ export default function Management() {
     },
   });
 
-  // Mutation for delete
+  // Mutation for delete with optimistic update
   const deleteMutation = useMutation({
     mutationFn: async (surebetSetId: string) => {
       const response = await apiRequest("DELETE", `/api/surebet-sets/${surebetSetId}`);
       return response.json();
     },
+    onMutate: async (surebetSetId) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/surebet-sets"] });
+
+      // Snapshot previous value
+      const previousData = queryClient.getQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"]);
+
+      // Optimistically remove the bet from the list
+      queryClient.setQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"], (old) => {
+        if (!old) return old;
+        return old.filter(set => set.id !== surebetSetId);
+      });
+
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousData) {
+        queryClient.setQueryData(["/api/surebet-sets"], context.previousData);
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
       setLastUpdate(new Date());
       setTimeDisplay('Agora mesmo');
+      setDeletingBetId(null);
     },
   });
 
@@ -726,23 +758,62 @@ export default function Management() {
               variant="outline"
               size="sm"
               onClick={handleRefresh}
+              disabled={isRefreshing}
               data-testid="button-refresh-management"
             >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Atualizar
+              {isRefreshing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Atualizando...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Atualizar
+                </>
+              )}
             </Button>
           </div>
         </div>
         {isLoading ? (
-          <div className="text-center py-8">
-            <p className="text-muted-foreground">Carregando apostas...</p>
-          </div>
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Loader2 className="h-12 w-12 animate-spin text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Carregando apostas...</h3>
+              <p className="text-muted-foreground text-center">
+                Buscando suas surebets no banco de dados
+              </p>
+            </CardContent>
+          </Card>
+        ) : error ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <TrendingDown className="h-12 w-12 text-destructive mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Erro ao carregar apostas</h3>
+              <p className="text-muted-foreground text-center mb-4">
+                Não foi possível carregar as apostas. Tente novamente.
+              </p>
+              <Button onClick={handleRefresh}>
+                Tentar novamente
+              </Button>
+            </CardContent>
+          </Card>
         ) : filteredBets.length === 0 ? (
           <Card>
-            <CardContent className="py-8">
-              <p className="text-center text-muted-foreground">
-                {hasActiveFilters ? "Nenhuma aposta encontrada com os filtros aplicados" : "Nenhuma aposta cadastrada"}
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <TrendingUp className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Nenhuma aposta encontrada</h3>
+              <p className="text-muted-foreground text-center mb-4">
+                {hasActiveFilters ? "Nenhuma aposta encontrada com os filtros aplicados" : "Comece adicionando sua primeira aposta surebet"}
               </p>
+              {!hasActiveFilters && (
+                <Link href="/upload">
+                  <Button>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Adicionar Aposta
+                  </Button>
+                </Link>
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -754,7 +825,7 @@ export default function Management() {
               onStatusChange={(surebetSetId, isChecked) => updateStatusMutation.mutate({ surebetSetId, isChecked })}
               onReset={(surebetSetId) => resetMutation.mutate(surebetSetId)}
               onEdit={handleEdit}
-              onDelete={(surebetSetId) => deleteMutation.mutate(surebetSetId)}
+              onDelete={(surebetSetId) => setDeletingBetId(surebetSetId)}
               isResetting={resetMutation.isPending}
             />
           ))
@@ -1005,6 +1076,38 @@ export default function Management() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation AlertDialog */}
+      <AlertDialog open={!!deletingBetId} onOpenChange={(open) => !open && setDeletingBetId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta aposta? Esta ação não pode ser desfeita e todos os dados relacionados serão permanentemente removidos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletingBetId && deleteMutation.mutate(deletingBetId)}
+              disabled={deleteMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete"
+            >
+              {deleteMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                "Excluir"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
