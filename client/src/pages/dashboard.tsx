@@ -421,10 +421,8 @@ export default function Dashboard() {
   // Update surebet mutation
   const updateSurebetMutation = useMutation({
     mutationFn: async (data: any) => {
-      // Update surebet set - converte datetime-local para ISO
-      const eventDateISO = new Date(data.eventDate).toISOString();
       await apiRequest("PUT", `/api/surebet-sets/${data.id}`, {
-        eventDate: eventDateISO,
+        eventDate: data.eventDate,
         sport: data.sport,
         league: data.league,
         teamA: data.teamA,

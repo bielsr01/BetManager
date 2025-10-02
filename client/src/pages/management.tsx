@@ -237,9 +237,8 @@ export default function Management() {
   // Mutation for updating surebet set and bets
   const updateSurebetMutation = useMutation({
     mutationFn: async (data: any) => {
-      const eventDateISO = new Date(data.eventDate).toISOString();
       await apiRequest("PUT", `/api/surebet-sets/${data.id}`, {
-        eventDate: eventDateISO,
+        eventDate: data.eventDate,
         sport: data.sport,
         league: data.league,
         teamA: data.teamA,
