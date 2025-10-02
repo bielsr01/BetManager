@@ -332,7 +332,7 @@ export default function Management() {
 
       return {
         id: set.id,
-        eventDate: set.eventDate ? (typeof set.eventDate === 'string' ? set.eventDate : set.eventDate.toISOString()) : new Date().toISOString(),
+        eventDate: set.eventDate || new Date().toISOString().substring(0, 16),
         createdAt: set.createdAt ? (typeof set.createdAt === 'string' ? set.createdAt : set.createdAt.toISOString()) : new Date().toISOString(),
         sport: set.sport || "N/A",
         league: set.league || "N/A",
@@ -392,16 +392,14 @@ export default function Management() {
     }
 
     if (filters.eventDateRange?.from || filters.eventDateRange?.to) {
-      const eventDate = new Date(bet.eventDate);
+      const eventDateStr = bet.eventDate.substring(0, 10); // "2025-10-03"
       if (filters.eventDateRange.from) {
-        const fromDate = new Date(filters.eventDateRange.from);
-        fromDate.setHours(0, 0, 0, 0);
-        if (eventDate < fromDate) return false;
+        const fromStr = filters.eventDateRange.from.toISOString().substring(0, 10);
+        if (eventDateStr < fromStr) return false;
       }
       if (filters.eventDateRange.to) {
-        const toDate = new Date(filters.eventDateRange.to);
-        toDate.setHours(23, 59, 59, 999);
-        if (eventDate > toDate) return false;
+        const toStr = filters.eventDateRange.to.toISOString().substring(0, 10);
+        if (eventDateStr > toStr) return false;
       }
     }
 
@@ -423,8 +421,9 @@ export default function Management() {
   })
   .sort((a, b) => {
     if (chronologicalSort) {
-      // Ordenar por data do evento (mais antiga primeiro)
-      return new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime();
+      // Ordenar por data do evento (mais antiga primeiro) usando comparação de strings
+      // Formato: "2025-10-03T04:00" - comparação lexicográfica funciona para ISO strings
+      return a.eventDate.localeCompare(b.eventDate);
     }
     // Ordenação padrão (por ordem de criação)
     return 0;

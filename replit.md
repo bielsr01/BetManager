@@ -55,7 +55,12 @@ Preferred communication style: Simple, everyday language.
 
 **Responsive Design**: Mobile-first approach with collapsible sidebar navigation and touch-friendly interfaces for bet management on various devices.
 
-**Timezone Handling**: Event dates preserve the exact date/time entered by users without UTC conversion. The system uses `datetime-local` inputs and sends date strings directly to the backend, where Drizzle ORM handles conversion to PostgreSQL timestamps correctly. Fixed October 2025: removed `.toISOString()` conversions from edit mutations that were causing 3-hour timezone offset issues.
+**Timezone Handling (GMT-3)**: The system operates entirely in GMT-3 timezone to match betting house schedules and prevent financial losses from timing errors. Event dates are stored as TEXT (not timestamp) to avoid automatic UTC conversion. The system preserves exact date/time values throughout the entire pipeline:
+- **Database**: Changed `eventDate` from `timestamp` to `text` column (October 2025)
+- **Schema Validation**: Changed from `z.coerce.date()` to `z.string().nullable()` to prevent Date object conversions
+- **Display**: Removed all `new Date()` calls in rendering - dates are extracted directly from strings using substring methods
+- **Edit Functions**: Fixed handleEdit functions in Dashboard and Management to use substring extraction instead of Date constructors
+- **Result**: PDF shows 04:00 → System displays 04:00 (no 3-hour offset). Dates flow as text: OCR → Form → Database → Display without any timezone conversions.
 
 **Performance Optimization (October 2025)**: Resolved critical N+1 query pattern in bet loading. Originally, the system made 1 query for bet sets + 1 query per set for bets (resulting in 6.5s load times). Now uses batch queries with `inArray` to fetch all bets in 2 total queries, reducing load time from 6.5s to 0.7s (89% improvement). Added strategic database indexes on `surebet_sets.user_id`, `surebet_sets.created_at`, `bets.surebet_set_id`, and `betting_houses.account_holder_id` for further optimization.
 
