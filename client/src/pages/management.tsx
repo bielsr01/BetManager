@@ -6,13 +6,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
-import { TrendingUp, DollarSign, Clock, CheckCircle, XCircle, X, ArrowUpDown } from "lucide-react";
+import { TrendingUp, DollarSign, Clock, CheckCircle, XCircle, X, ArrowUpDown, Plus, RotateCcw } from "lucide-react";
+import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { SurebetSetWithBets, BettingHouse } from "@shared/schema";
 import type { DateRange } from "react-day-picker";
 
 interface FilterValues {
   status?: string;
+  checked?: string;
   house?: string;
   eventDateRange?: DateRange;
   createdDateRange?: DateRange;
@@ -178,6 +180,11 @@ export default function Management() {
   const filteredBets = transformedBets.filter((bet) => {
     if (filters.status && bet.status !== filters.status) return false;
     
+    if (filters.checked) {
+      if (filters.checked === "checked" && !bet.isChecked) return false;
+      if (filters.checked === "unchecked" && bet.isChecked) return false;
+    }
+    
     if (filters.house) {
       const hasHouse = bet.bet1.house === filters.house || bet.bet2.house === filters.house;
       if (!hasHouse) return false;
@@ -297,14 +304,22 @@ export default function Management() {
             )}
           </p>
         </div>
-        <Button
-          variant={chronologicalSort ? "default" : "outline"}
-          onClick={() => setChronologicalSort(!chronologicalSort)}
-          data-testid="button-chronological-sort-management"
-        >
-          <ArrowUpDown className="w-4 h-4 mr-2" />
-          {chronologicalSort ? "Ordenado por Data" : "Ordenar por Data"}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant={chronologicalSort ? "default" : "outline"}
+            onClick={() => setChronologicalSort(!chronologicalSort)}
+            data-testid="button-chronological-sort-management"
+          >
+            <ArrowUpDown className="w-4 h-4 mr-2" />
+            {chronologicalSort ? "Ordenado por Data" : "Ordenar por Data"}
+          </Button>
+          <Link href="/upload">
+            <Button data-testid="button-new-bet-management">
+              <Plus className="w-4 h-4 mr-2" />
+              Nova Aposta
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Metrics Cards */}
@@ -385,7 +400,7 @@ export default function Management() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="space-y-2">
               <Label htmlFor="status-filter">Status</Label>
               <Select 
@@ -398,8 +413,24 @@ export default function Management() {
                 <SelectContent>
                   <SelectItem value="all">Todos os status</SelectItem>
                   <SelectItem value="pending">Pendentes</SelectItem>
-                  <SelectItem value="checked">Conferidas</SelectItem>
                   <SelectItem value="resolved">Resolvidas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="checked-filter">Conferência</Label>
+              <Select 
+                value={tempFilters.checked || ""} 
+                onValueChange={(value) => handleTempFilterChange("checked", value || undefined)}
+              >
+                <SelectTrigger id="checked-filter" data-testid="select-checked-filter">
+                  <SelectValue placeholder="Todas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  <SelectItem value="checked">Conferidas</SelectItem>
+                  <SelectItem value="unchecked">Não Conferidas</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -459,6 +490,9 @@ export default function Management() {
 
       {/* Bet Cards */}
       <div className="space-y-4">
+        <h2 className="text-xl font-semibold">
+          Apostas Ativas ({filteredBets.length} {filteredBets.length === 1 ? 'aposta' : 'apostas'})
+        </h2>
         {isLoading ? (
           <div className="text-center py-8">
             <p className="text-muted-foreground">Carregando apostas...</p>
