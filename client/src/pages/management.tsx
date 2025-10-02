@@ -80,7 +80,25 @@ export default function Management() {
       const response = await apiRequest("PATCH", `/api/surebet-sets/${surebetSetId}/status`, { isChecked });
       return response.json();
     },
-    onSuccess: () => {
+    onMutate: async ({ surebetSetId, isChecked }) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/surebet-sets"] });
+      const previousData = queryClient.getQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"]);
+
+      queryClient.setQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"], (old) => {
+        if (!old) return old;
+        return old.map(set => 
+          set.id === surebetSetId ? { ...set, isChecked } : set
+        );
+      });
+
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(["/api/surebet-sets"], context.previousData);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
     },
   });
