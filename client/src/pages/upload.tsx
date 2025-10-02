@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Upload, Wand2 } from "lucide-react";
 import { Link } from "wouter";
+import { useToast } from "@/hooks/use-toast";
 
 type UploadStep = "upload" | "edit";
 
 export default function UploadPage() {
+  const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState<UploadStep>("upload");
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -91,7 +93,12 @@ export default function UploadPage() {
       
       // Validate required fields
       if (!data.bet1HouseId || !data.bet2HouseId) {
-        alert("Por favor, selecione os titulares de conta para ambas as apostas.");
+        toast({
+          title: "Campos obrigatórios",
+          description: "Por favor, selecione os titulares de conta para ambas as apostas.",
+          variant: "destructive",
+          duration: 3000,
+        });
         return;
       }
       
@@ -136,17 +143,31 @@ export default function UploadPage() {
       if (response.ok) {
         const result = await response.json();
         console.log("Bet saved successfully!", result);
-        alert("Surebet salvo com sucesso!");
+        toast({
+          title: "✅ Aposta salva!",
+          description: "Surebet salvo com sucesso!",
+          duration: 3000,
+        });
         // Clear form and stay on upload page
         handleImageRemove(); // This will reset to upload step and clear all data
       } else {
         const errorText = await response.text();
         console.error("Failed to save bet:", errorText);
-        alert("Erro ao salvar surebet. Verifique os dados e tente novamente.");
+        toast({
+          title: "❌ Erro ao salvar",
+          description: "Erro ao salvar surebet. Verifique os dados e tente novamente.",
+          variant: "destructive",
+          duration: 3000,
+        });
       }
     } catch (error) {
       console.error("Error saving bet:", error);
-      alert("Erro ao salvar surebet. Verifique sua conexão e tente novamente.");
+      toast({
+        title: "❌ Erro de conexão",
+        description: "Erro ao salvar surebet. Verifique sua conexão e tente novamente.",
+        variant: "destructive",
+        duration: 3000,
+      });
     }
   };
 
