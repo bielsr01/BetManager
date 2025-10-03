@@ -143,7 +143,7 @@ export default function Dashboard() {
 
       return {
         id: set.id,
-        eventDate: set.eventDate ? (typeof set.eventDate === 'string' ? set.eventDate : set.eventDate.toISOString()) : new Date().toISOString(),
+        eventDate: typeof set.eventDate === 'string' ? set.eventDate : (set.eventDate instanceof Date ? set.eventDate.toISOString() : new Date().toISOString()),
         sport: set.sport || "Futebol",
         league: set.league || "Liga não especificada",
         teamA: set.teamA || "Time A",
@@ -368,7 +368,8 @@ export default function Dashboard() {
     if (bet) {
       // Extrai data/hora diretamente da string ISO sem conversão de timezone
       // Formato esperado: "2025-10-02T22:00:00.000Z" -> "2025-10-02T22:00"
-      const dateTimeLocal = bet.eventDate.substring(0, 16);
+      const eventDateStr = String(bet.eventDate);
+      const dateTimeLocal = eventDateStr.substring(0, 16);
 
       setEditingBet({
         id: bet.id,
