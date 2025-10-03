@@ -225,9 +225,30 @@ class DatabaseStorage implements IStorage {
     }
     
     // Assemble final result
+    // Converte Date para string ISO mantendo os valores UTC (que são os valores do banco sem timezone)
+    const formatDateToISO = (date: Date | string | null): string | null => {
+      if (!date) return null;
+      if (typeof date === 'string') return date;
+      
+      // Extrai componentes UTC do Date (que representam os valores do banco)
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      const hours = String(date.getUTCHours()).padStart(2, '0');
+      const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+      const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+      
+      return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.000Z`;
+    };
+    
     const result: SurebetSetWithBets[] = sets.map(set => ({
       ...set,
-      bets: betsBySetId.get(set.id) || []
+      eventDate: formatDateToISO(set.eventDate) as any,
+      createdAt: formatDateToISO(set.createdAt) as any,
+      bets: (betsBySetId.get(set.id) || []).map(bet => ({
+        ...bet,
+        createdAt: formatDateToISO(bet.createdAt) as any
+      }))
     }));
     
     return result;
@@ -248,18 +269,37 @@ class DatabaseStorage implements IStorage {
       .innerJoin(accountHolders, eq(bettingHouses.accountHolderId, accountHolders.id))
       .where(eq(bets.surebetSetId, set.id));
 
+    // Helper para converter Date para ISO string sem conversão de timezone
+    const formatDateToISO = (date: Date | string | null): string | null => {
+      if (!date) return null;
+      if (typeof date === 'string') return date;
+      
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      const hours = String(date.getUTCHours()).padStart(2, '0');
+      const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+      const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+      
+      return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.000Z`;
+    };
+
     const formattedBets = setBets.map(row => ({
       ...row.bets,
+      createdAt: formatDateToISO(row.bets.createdAt),
       bettingHouse: {
         ...row.betting_houses,
+        createdAt: formatDateToISO(row.betting_houses.createdAt),
         accountHolder: row.account_holders
       }
     }));
     
     return {
       ...set,
+      eventDate: formatDateToISO(set.eventDate) as any,
+      createdAt: formatDateToISO(set.createdAt) as any,
       bets: formattedBets
-    };
+    } as SurebetSetWithBets;
   }
 
   async updateSurebetSet(id: string, data: Partial<InsertSurebetSet>): Promise<SurebetSet> {

@@ -5,6 +5,19 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, TrendingUp, Users, Check, Edit, Trash2, RotateCcw, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Função para formatar data sem conversão de timezone
+function formatEventDate(isoString: string): { date: string; time: string } {
+  // Extrai data/hora diretamente da string ISO: "2025-10-03T11:00:00.000Z" -> "2025-10-03T11:00"
+  const dateTimeLocal = isoString.substring(0, 16);
+  const [datePart, timePart] = dateTimeLocal.split('T');
+  const [year, month, day] = datePart.split('-');
+  
+  return {
+    date: `${day}/${month}/${year}`,
+    time: timePart
+  };
+}
+
 interface BetData {
   id: string;
   house: string;
@@ -178,7 +191,7 @@ export function BetCard({
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-1">
             <Calendar className="w-4 h-4" />
-            <span>{new Date(eventDate).toLocaleDateString('pt-BR')} às {new Date(eventDate).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+            <span>{formatEventDate(eventDate).date} às {formatEventDate(eventDate).time}</span>
           </div>
           <span>{sport} • {league}</span>
         </div>
