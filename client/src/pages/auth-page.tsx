@@ -51,6 +51,9 @@ export default function AuthPage() {
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary/10 via-primary/5 to-background p-12 flex-col justify-center">
         <div className="max-w-xl">
           <div className="flex items-center gap-3 mb-8">
+            <div className="p-3 bg-primary rounded-lg">
+              <TrendingUp className="w-8 h-8 text-primary-foreground" />
+            </div>
             <h1 className="text-3xl font-bold">BetTracker Pro</h1>
           </div>
           <p className="text-xl text-muted-foreground mb-12">
@@ -58,8 +61,12 @@ export default function AuthPage() {
           </p>
           <div className="space-y-6">
             {features.map((feature, index) => {
+              const Icon = feature.icon;
               return (
                 <div key={index} className="flex gap-4">
+                  <div className="flex-shrink-0 p-2 rounded-lg bg-card border">
+                    <Icon className="w-5 h-5 text-primary" />
+                  </div>
                   <div>
                     <h3 className="font-semibold mb-1">{feature.title}</h3>
                     <p className="text-sm text-muted-foreground">{feature.description}</p>
@@ -75,6 +82,9 @@ export default function AuthPage() {
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <div className="flex items-center gap-3 mb-8 lg:hidden">
+            <div className="p-2 bg-primary rounded-lg">
+              <TrendingUp className="w-6 h-6 text-primary-foreground" />
+            </div>
             <h1 className="text-2xl font-bold">BetTracker Pro</h1>
           </div>
           
