@@ -452,9 +452,9 @@ export default function Management() {
     } else if (bet2.result === "won" && bet1.result === "returned") {
       return (bet2.stake * bet2.odd) - bet2.stake + bet1.stake;
     } else if (bet1.result === "lost" && bet2.result === "returned") {
-      return -bet1.stake + bet2.stake;
+      return -bet1.stake;
     } else if (bet2.result === "lost" && bet1.result === "returned") {
-      return -bet2.stake + bet1.stake;
+      return -bet2.stake;
     } else if (bet1.result === "won" && bet2.result === "won") {
       return (bet1.stake * bet1.odd + bet2.stake * bet2.odd) - (bet1.stake + bet2.stake);
     } else if (bet1.result === "lost" && bet2.result === "lost") {
