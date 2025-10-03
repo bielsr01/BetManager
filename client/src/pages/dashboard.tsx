@@ -186,7 +186,10 @@ export default function Dashboard() {
         }
 
         const insertionDate = set.createdAt ? new Date(set.createdAt) : new Date();
-        const dateKey = insertionDate.toISOString().split('T')[0];
+        const year = insertionDate.getFullYear();
+        const month = String(insertionDate.getMonth() + 1).padStart(2, '0');
+        const day = String(insertionDate.getDate()).padStart(2, '0');
+        const dateKey = `${year}-${month}-${day}`;
 
         return {
           date: dateKey,
@@ -208,8 +211,9 @@ export default function Dashboard() {
     return sortedDates.map(date => {
       const dayProfit = dailyProfits.get(date) || 0;
       accumulated += dayProfit;
+      const [year, month, day] = date.split('-');
       return {
-        date: new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+        date: `${day}/${month}`,
         lucroAcumulado: parseFloat(accumulated.toFixed(2)),
         lucroDoDia: parseFloat(dayProfit.toFixed(2))
       };
