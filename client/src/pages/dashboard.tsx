@@ -100,12 +100,26 @@ export default function Dashboard() {
   }, [surebetSets, statusFilter, insertionDateRange, eventDateRange, houseFilter]);
 
   const totalBets = filteredBets.length;
+  const pendingBets = filteredBets.filter(set => set.status === "pending").length;
+  const resolvedBets = filteredBets.filter(set => set.status === "resolved").length;
 
   const totalInvested = filteredBets.reduce((acc, set) => {
     return acc + set.bets.reduce((sum, bet) => sum + parseFloat(bet.stake), 0);
   }, 0);
 
-  const totalProfit = filteredBets
+  const totalInvestedPending = filteredBets
+    .filter(set => set.status === "pending")
+    .reduce((acc, set) => {
+      return acc + set.bets.reduce((sum, bet) => sum + parseFloat(bet.stake), 0);
+    }, 0);
+
+  const totalInvestedResolved = filteredBets
+    .filter(set => set.status === "resolved")
+    .reduce((acc, set) => {
+      return acc + set.bets.reduce((sum, bet) => sum + parseFloat(bet.stake), 0);
+    }, 0);
+
+  const totalProfitResolved = filteredBets
     .filter(set => set.bets.every(bet => bet.result))
     .reduce((acc, set) => {
       const sortedBets = [...set.bets].sort((a, b) => 
@@ -144,6 +158,19 @@ export default function Dashboard() {
 
       return acc + profit;
     }, 0);
+
+  const totalProfitPending = filteredBets
+    .filter(set => set.status === "pending")
+    .reduce((acc, set) => {
+      const sortedBets = [...set.bets].sort((a, b) => 
+        new Date(a.createdAt!).getTime() - new Date(b.createdAt!).getTime()
+      );
+      const bet1 = sortedBets[0];
+      if (!bet1) return acc;
+      return acc + parseFloat(bet1.potentialProfit);
+    }, 0);
+
+  const totalProfitTotal = totalProfitResolved + totalProfitPending;
 
   const chartData = useMemo(() => {
     const resolvedBets = filteredBets
@@ -389,7 +416,7 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total de Apostas</CardTitle>
@@ -398,14 +425,14 @@ export default function Dashboard() {
           <CardContent>
             <div className="text-2xl font-bold" data-testid="stat-total-bets">{totalBets}</div>
             <p className="text-xs text-muted-foreground">
-              Apostas filtradas
+              {pendingBets} pendentes • {resolvedBets} resolvidas
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Investido</CardTitle>
+            <CardTitle className="text-sm font-medium">Investido Total</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -413,22 +440,55 @@ export default function Dashboard() {
               R$ {totalInvested.toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Soma de todas as apostas
+              Pendente: R$ {totalInvestedPending.toFixed(2)}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Resolvido: R$ {totalInvestedResolved.toFixed(2)}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Lucro</CardTitle>
+            <CardTitle className="text-sm font-medium">Lucro Resolvido</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`} data-testid="stat-profit">
-              R$ {totalProfit.toFixed(2)}
+            <div className={`text-2xl font-bold ${totalProfitResolved >= 0 ? 'text-green-600' : 'text-red-600'}`} data-testid="stat-profit-resolved">
+              R$ {totalProfitResolved.toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Lucro total realizado
+              Apostas já finalizadas
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Lucro Pendente</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${totalProfitPending >= 0 ? 'text-blue-600' : 'text-orange-600'}`} data-testid="stat-profit-pending">
+              R$ {totalProfitPending.toFixed(2)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Lucro potencial estimado
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Lucro Total</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${totalProfitTotal >= 0 ? 'text-green-600' : 'text-red-600'}`} data-testid="stat-profit-total">
+              R$ {totalProfitTotal.toFixed(2)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Resolvido + Pendente
             </p>
           </CardContent>
         </Card>
