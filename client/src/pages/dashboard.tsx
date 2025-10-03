@@ -1,268 +1,113 @@
-import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { BetCard } from "@/components/bet-card";
-import { BetFilters } from "@/components/bet-filters";
-import { Button } from "@/components/ui/button";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, TrendingUp, TrendingDown, Clock, DollarSign, Loader2, ArrowUpDown, RefreshCw } from "lucide-react";
-import { Link } from "wouter";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { TrendingUp, DollarSign, BarChart3 } from "lucide-react";
 import type { SurebetSetWithBets, BettingHouseWithAccountHolder } from "@shared/schema";
-import type { DateRange } from "react-day-picker";
-
-interface FilterValues {
-  status?: string;
-  minStake?: number;
-  maxStake?: number;
-  minProfit?: number;
-  maxProfit?: number;
-  dateRange?: DateRange;
-  sport?: string;
-  league?: string;
-  house?: string;
-}
-
-const removeAccents = (str: string): string => {
-  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-};
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export default function Dashboard() {
-  const [filters, setFilters] = useState<FilterValues>({});
-  const [editingBet, setEditingBet] = useState<any>(null);
-  const [editingNumericFields, setEditingNumericFields] = useState<{
-    profitPercentage: string;
-    bet1Odd: string;
-    bet1Stake: string;
-    bet2Odd: string;
-    bet2Stake: string;
-  }>({ profitPercentage: '', bet1Odd: '', bet1Stake: '', bet2Odd: '', bet2Stake: '' });
-  const [lastUpdate, setLastUpdate] = useState(new Date());
-  const [timeDisplay, setTimeDisplay] = useState('Agora mesmo');
-  const [chronologicalSort, setChronologicalSort] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [insertionDateFrom, setInsertionDateFrom] = useState<string>("");
+  const [insertionDateTo, setInsertionDateTo] = useState<string>("");
+  const [eventDateFrom, setEventDateFrom] = useState<string>("");
+  const [eventDateTo, setEventDateTo] = useState<string>("");
+  const [houseFilter, setHouseFilter] = useState<string>("all");
 
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      const now = new Date();
-      const diffInSeconds = Math.floor((now.getTime() - lastUpdate.getTime()) / 1000);
-
-      if (diffInSeconds < 60) {
-        setTimeDisplay(`Há ${diffInSeconds}s`);
-      } else if (diffInSeconds < 3600) {
-        const diffInMinutes = Math.floor(diffInSeconds / 60);
-        setTimeDisplay(`Há ${diffInMinutes}m`);
-      } else if (diffInSeconds < 86400) {
-        const diffInHours = Math.floor(diffInSeconds / 3600);
-        setTimeDisplay(`Há ${diffInHours}h`);
-      } else {
-        const diffInDays = Math.floor(diffInSeconds / 86400);
-        setTimeDisplay(`Há ${diffInDays}d`);
-      }
-    }, 1000);
-
-    return () => clearInterval(intervalId);
-  }, [lastUpdate]);
-
-  // Load surebet sets from the API - optimized with staleTime
-  const { data: surebetSets = [], isLoading, error, refetch } = useQuery<SurebetSetWithBets[]>({
+  const { data: surebetSets = [], isLoading } = useQuery<SurebetSetWithBets[]>({
     queryKey: ["/api/surebet-sets"],
-    staleTime: 30000, // Cache for 30 seconds to optimize performance
-    refetchInterval: 60000, // Refetch every minute
+    staleTime: 30000,
+    refetchInterval: 60000,
   });
 
-  // Load betting houses for editing - optimized with staleTime
   const { data: bettingHouses = [] } = useQuery<BettingHouseWithAccountHolder[]>({
     queryKey: ["/api/betting-houses"],
-    staleTime: 300000, // Cache for 5 minutes (betting houses don't change often)
+    staleTime: 300000,
   });
 
-  // Mutation for updating bet results with optimistic updates
-  const updateBetMutation = useMutation({
-    mutationFn: async ({ betId, result }: { betId: string; result: "won" | "lost" | "returned" }) => {
-      const response = await apiRequest("PUT", `/api/bets/${betId}`, {
-        result,
-      });
-      return response.json();
-    },
-    onMutate: async ({ betId, result }) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["/api/surebet-sets"] });
+  const filteredBets = useMemo(() => {
+    return surebetSets.filter((set) => {
+      if (statusFilter === "pending" && set.status !== "pending") return false;
+      if (statusFilter === "resolved" && set.status !== "resolved") return false;
 
-      // Snapshot previous value
-      const previousData = queryClient.getQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"]);
-
-      // Optimistically update
-      queryClient.setQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"], (old) => {
-        if (!old) return old;
-
-        return old.map(set => {
-          const updatedBets = set.bets.map(bet => 
-            bet.id === betId ? { ...bet, result } : bet
-          );
-
-          // Check if both bets have results (check for truthy values, not just !== null)
-          const allHaveResults = updatedBets.every(b => b.result != null);
-
-          return {
-            ...set,
-            bets: updatedBets,
-            status: allHaveResults ? "resolved" : set.status
-          };
-        });
-      });
-
-      return { previousData };
-    },
-    onError: (err, variables, context) => {
-      // Rollback on error
-      if (context?.previousData) {
-        queryClient.setQueryData(["/api/surebet-sets"], context.previousData);
-      }
-    },
-    onSettled: () => {
-      // Refetch to ensure sync
-      queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
-      setLastUpdate(new Date());
-      setTimeDisplay('Agora mesmo');
-    },
-  });
-
-  // Transform and filter the data to match the BetCard component format
-  // Sort bets within each set to ensure bet1 comes before bet2 (maintain order)
-  const transformedBets = (surebetSets || [])
-    .map((set) => {
-      // Sort bets by createdAt to maintain consistent order
-      const sortedBets = [...set.bets].sort((a, b) => 
-        new Date(a.createdAt!).getTime() - new Date(b.createdAt!).getTime()
-      );
-
-      return {
-        id: set.id,
-        eventDate: typeof set.eventDate === 'string' ? set.eventDate : (set.eventDate instanceof Date ? set.eventDate.toISOString() : new Date().toISOString()),
-        sport: set.sport || "Futebol",
-        league: set.league || "Liga não especificada",
-        teamA: set.teamA || "Time A",
-        teamB: set.teamB || "Time B",
-        profitPercentage: parseFloat(set.profitPercentage || "0"),
-        status: (set.status || "pending") as "pending" | "resolved",
-        isChecked: set.isChecked || false,
-        bet1: sortedBets[0] ? {
-          id: sortedBets[0].id,
-          bettingHouseId: sortedBets[0].bettingHouseId,
-          house: sortedBets[0].bettingHouse.name,
-          accountHolder: sortedBets[0].bettingHouse.accountHolder.name,
-          betType: sortedBets[0].betType,
-          odd: parseFloat(sortedBets[0].odd),
-          stake: parseFloat(sortedBets[0].stake),
-          potentialProfit: parseFloat(sortedBets[0].potentialProfit),
-          result: sortedBets[0].result as "won" | "lost" | "returned" | undefined,
-        } : null,
-        bet2: sortedBets[1] ? {
-          id: sortedBets[1].id,
-          bettingHouseId: sortedBets[1].bettingHouseId,
-          house: sortedBets[1].bettingHouse.name,
-          accountHolder: sortedBets[1].bettingHouse.accountHolder.name,
-          betType: sortedBets[1].betType,
-          odd: parseFloat(sortedBets[1].odd),
-          stake: parseFloat(sortedBets[1].stake),
-          potentialProfit: parseFloat(sortedBets[1].potentialProfit),
-          result: sortedBets[1].result as "won" | "lost" | "returned" | undefined,
-        } : null,
-      };
-    })
-    .filter((bet): bet is NonNullable<typeof bet> & { bet1: NonNullable<typeof bet.bet1>; bet2: NonNullable<typeof bet.bet2> } => bet.bet1 !== null && bet.bet2 !== null)
-    .filter((bet) => {
-      // Apply search query filter
-      if (searchQuery) {
-        const query = removeAccents(searchQuery.toLowerCase().trim());
-        const searchableText = removeAccents(`${bet.teamA} ${bet.teamB} ${bet.sport} ${bet.league}`.toLowerCase());
-        if (!searchableText.includes(query)) {
-          return false;
-        }
+      if (insertionDateFrom && set.createdAt) {
+        const insertDate = new Date(set.createdAt);
+        const fromDate = new Date(insertionDateFrom);
+        fromDate.setHours(0, 0, 0, 0);
+        if (insertDate < fromDate) return false;
       }
 
-      // Apply status filter
-      if (filters.status && bet.status !== filters.status) {
-        return false;
+      if (insertionDateTo && set.createdAt) {
+        const insertDate = new Date(set.createdAt);
+        const toDate = new Date(insertionDateTo);
+        toDate.setHours(23, 59, 59, 999);
+        if (insertDate > toDate) return false;
       }
 
-      // Apply house filter (check both bets)
-      if (filters.house && bet.bet1.house !== filters.house && bet.bet2.house !== filters.house) {
-        return false;
+      if (eventDateFrom && set.eventDate) {
+        const evtDate = new Date(set.eventDate);
+        const fromDate = new Date(eventDateFrom);
+        fromDate.setHours(0, 0, 0, 0);
+        if (evtDate < fromDate) return false;
       }
 
-      // Apply date range filter
-      if (filters.dateRange) {
-        const betDate = new Date(bet.eventDate);
-        const { from, to } = filters.dateRange;
-        
-        if (from) {
-          const startDate = new Date(from);
-          startDate.setHours(0, 0, 0, 0);
-          if (betDate < startDate) {
-            return false;
-          }
-        }
-        
-        if (to) {
-          const endDate = new Date(to);
-          endDate.setHours(23, 59, 59, 999);
-          if (betDate > endDate) {
-            return false;
-          }
-        }
+      if (eventDateTo && set.eventDate) {
+        const evtDate = new Date(set.eventDate);
+        const toDate = new Date(eventDateTo);
+        toDate.setHours(23, 59, 59, 999);
+        if (evtDate > toDate) return false;
+      }
+
+      if (houseFilter !== "all") {
+        const hasHouse = set.bets.some(bet => bet.bettingHouse.name === houseFilter);
+        if (!hasHouse) return false;
       }
 
       return true;
-    })
-    .sort((a, b) => {
-      if (chronologicalSort) {
-        // Ordenar por data do evento (mais antiga primeiro)
-        return new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime();
-      }
-      // Ordenação padrão (por ordem de criação, já vem do backend)
-      return 0;
     });
+  }, [surebetSets, statusFilter, insertionDateFrom, insertionDateTo, eventDateFrom, eventDateTo, houseFilter]);
 
-  // Calculate stats
-  const totalBets = transformedBets.length;
-  const pendingBets = transformedBets.filter(bet => bet.status === "pending").length;
-  const resolvedBets = transformedBets.filter(bet => bet.status === "resolved").length;
+  const totalBets = filteredBets.length;
 
-  const totalInvested = transformedBets.reduce((acc, bet) => 
-    acc + (bet.bet1?.stake || 0) + (bet.bet2?.stake || 0), 0
-  );
+  const totalInvested = filteredBets.reduce((acc, set) => {
+    return acc + set.bets.reduce((sum, bet) => sum + parseFloat(bet.stake), 0);
+  }, 0);
 
-  const totalProfit = transformedBets
-    .filter(bet => bet.bet1.result && bet.bet2.result)
-    .reduce((acc, bet) => {
-      const bet1 = bet.bet1;
-      const bet2 = bet.bet2;
+  const totalProfit = filteredBets
+    .filter(set => set.bets.every(bet => bet.result))
+    .reduce((acc, set) => {
+      const sortedBets = [...set.bets].sort((a, b) => 
+        new Date(a.createdAt!).getTime() - new Date(b.createdAt!).getTime()
+      );
+      const bet1 = sortedBets[0];
+      const bet2 = sortedBets[1];
+      
       if (!bet1 || !bet2 || !bet1.result || !bet2.result) return acc;
 
       let profit = 0;
+      const stake1 = parseFloat(bet1.stake);
+      const stake2 = parseFloat(bet2.stake);
+      const odd1 = parseFloat(bet1.odd);
+      const odd2 = parseFloat(bet2.odd);
 
       if (bet1.result === "won" && bet2.result === "lost") {
-        profit = (bet1.stake * bet1.odd) - bet2.stake - bet1.stake;
+        profit = (stake1 * odd1) - stake2 - stake1;
       } else if (bet2.result === "won" && bet1.result === "lost") {
-        profit = (bet2.stake * bet2.odd) - bet1.stake - bet2.stake;
+        profit = (stake2 * odd2) - stake1 - stake2;
       } else if (bet1.result === "won" && bet2.result === "returned") {
-        profit = (bet1.stake * bet1.odd) - bet1.stake + bet2.stake;
+        profit = (stake1 * odd1) - stake1 + stake2;
       } else if (bet2.result === "won" && bet1.result === "returned") {
-        profit = (bet2.stake * bet2.odd) - bet2.stake + bet1.stake;
+        profit = (stake2 * odd2) - stake2 + stake1;
       } else if (bet1.result === "lost" && bet2.result === "returned") {
-        profit = -bet1.stake + bet2.stake;
+        profit = -stake1 + stake2;
       } else if (bet2.result === "lost" && bet1.result === "returned") {
-        profit = -bet2.stake + bet1.stake
+        profit = -stake2 + stake1;
       } else if (bet1.result === "won" && bet2.result === "won") {
-        profit = (bet1.stake * bet1.odd + bet2.stake * bet2.odd) - (bet1.stake + bet2.stake);
+        profit = (stake1 * odd1 + stake2 * odd2) - (stake1 + stake2);
       } else if (bet1.result === "lost" && bet2.result === "lost") {
-        profit = -(bet1.stake + bet2.stake);
+        profit = -(stake1 + stake2);
       } else if (bet1.result === "returned" && bet2.result === "returned") {
         profit = 0;
       }
@@ -270,341 +115,190 @@ export default function Dashboard() {
       return acc + profit;
     }, 0);
 
-  // Mutation for updating surebet set checked status
-  const updateStatusMutation = useMutation({
-    mutationFn: async ({ surebetSetId, isChecked }: { surebetSetId: string; isChecked: boolean }) => {
-      const response = await apiRequest("PATCH", `/api/surebet-sets/${surebetSetId}/status`, {
-        isChecked,
-      });
-      return response.json();
-    },
-    onMutate: async ({ surebetSetId, isChecked }) => {
-      await queryClient.cancelQueries({ queryKey: ["/api/surebet-sets"] });
-
-      const previousData = queryClient.getQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"]);
-
-      queryClient.setQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"], (old) => {
-        if (!old) return old;
-        return old.map(set => 
-          set.id === surebetSetId ? { ...set, isChecked } : set
-        );
-      });
-
-      return { previousData };
-    },
-    onError: (err, variables, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(["/api/surebet-sets"], context.previousData);
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
-      setLastUpdate(new Date());
-      setTimeDisplay('Agora mesmo');
-    },
-  });
-
-  const handleResolve = (betId: string, result: "won" | "lost" | "returned") => {
-    updateBetMutation.mutate({ betId, result });
-  };
-
-  const handleStatusChange = (surebetSetId: string, isChecked: boolean) => {
-    updateStatusMutation.mutate({ surebetSetId, isChecked });
-  };
-
-  const handleFiltersChange = (newFilters: FilterValues) => {
-    setFilters(newFilters);
-    console.log("Filters applied:", newFilters);
-  };
-
-  const handleReset = async (surebetSetId: string) => {
-    resetMutation.mutate(surebetSetId);
-  };
-
-  // Reset mutation
-  const resetMutation = useMutation({
-    mutationFn: async (surebetSetId: string) => {
-      const response = await apiRequest("POST", `/api/surebet-sets/${surebetSetId}/reset`);
-      return response.json();
-    },
-    onMutate: async (surebetSetId) => {
-      await queryClient.cancelQueries({ queryKey: ["/api/surebet-sets"] });
-      const previousData = queryClient.getQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"]);
-
-      queryClient.setQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"], (old) => {
-        if (!old) return old;
-        return old.map(set => {
-          if (set.id === surebetSetId) {
-            return {
-              ...set,
-              status: "pending",
-              bets: set.bets.map(bet => ({
-                ...bet,
-                result: null,
-                actualProfit: null
-              }))
-            };
-          }
-          return set;
+  const chartData = useMemo(() => {
+    const resolvedBets = filteredBets
+      .filter(set => set.bets.every(bet => bet.result))
+      .map(set => {
+        const sortedBets = [...set.bets].sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateA - dateB;
         });
-      });
+        const bet1 = sortedBets[0];
+        const bet2 = sortedBets[1];
+        
+        let profit = 0;
+        if (bet1 && bet2 && bet1.result && bet2.result) {
+          const stake1 = parseFloat(bet1.stake);
+          const stake2 = parseFloat(bet2.stake);
+          const odd1 = parseFloat(bet1.odd);
+          const odd2 = parseFloat(bet2.odd);
 
-      return { previousData };
-    },
-    onError: (err, variables, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(["/api/surebet-sets"], context.previousData);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
-      setLastUpdate(new Date());
-      setTimeDisplay('Agora mesmo');
-    },
-  });
+          if (bet1.result === "won" && bet2.result === "lost") {
+            profit = (stake1 * odd1) - stake2 - stake1;
+          } else if (bet2.result === "won" && bet1.result === "lost") {
+            profit = (stake2 * odd2) - stake1 - stake2;
+          } else if (bet1.result === "won" && bet2.result === "returned") {
+            profit = (stake1 * odd1) - stake1 + stake2;
+          } else if (bet2.result === "won" && bet1.result === "returned") {
+            profit = (stake2 * odd2) - stake2 + stake1;
+          } else if (bet1.result === "lost" && bet2.result === "returned") {
+            profit = -stake1 + stake2;
+          } else if (bet2.result === "lost" && bet1.result === "returned") {
+            profit = -stake2 + stake1;
+          } else if (bet1.result === "won" && bet2.result === "won") {
+            profit = (stake1 * odd1 + stake2 * odd2) - (stake1 + stake2);
+          } else if (bet1.result === "lost" && bet2.result === "lost") {
+            profit = -(stake1 + stake2);
+          } else if (bet1.result === "returned" && bet2.result === "returned") {
+            profit = 0;
+          }
+        }
 
-  const handleEdit = (surebetSetId: string) => {
-    const bet = transformedBets.find(b => b.id === surebetSetId);
-    if (bet) {
-      // Extrai data/hora diretamente da string ISO sem conversão de timezone
-      // Formato esperado: "2025-10-02T22:00:00.000Z" -> "2025-10-02T22:00"
-      const eventDateStr = String(bet.eventDate);
-      const dateTimeLocal = eventDateStr.substring(0, 16);
+        const eventDate = set.eventDate ? new Date(set.eventDate) : new Date();
+        const dateKey = eventDate.toISOString().split('T')[0];
 
-      setEditingBet({
-        id: bet.id,
-        eventDate: dateTimeLocal,
-        sport: bet.sport,
-        league: bet.league,
-        teamA: bet.teamA,
-        teamB: bet.teamB,
-        profitPercentage: bet.profitPercentage,
-        bet1: {
-          id: bet.bet1.id,
-          bettingHouseId: bet.bet1.bettingHouseId,
-          house: bet.bet1.house,
-          accountHolder: bet.bet1.accountHolder,
-          betType: bet.bet1.betType,
-          odd: bet.bet1.odd,
-          stake: bet.bet1.stake,
-        },
-        bet2: {
-          id: bet.bet2.id,
-          bettingHouseId: bet.bet2.bettingHouseId,
-          house: bet.bet2.house,
-          accountHolder: bet.bet2.accountHolder,
-          betType: bet.bet2.betType,
-          odd: bet.bet2.odd,
-          stake: bet.bet2.stake,
-        },
-      });
+        return {
+          date: dateKey,
+          profit: profit,
+          eventDate: eventDate.getTime()
+        };
+      })
+      .sort((a, b) => a.eventDate - b.eventDate);
 
-      // Initialize string fields for numeric inputs
-      setEditingNumericFields({
-        profitPercentage: bet.profitPercentage.toString().replace('.', ','),
-        bet1Odd: bet.bet1.odd.toString().replace('.', ','),
-        bet1Stake: bet.bet1.stake.toString().replace('.', ','),
-        bet2Odd: bet.bet2.odd.toString().replace('.', ','),
-        bet2Stake: bet.bet2.stake.toString().replace('.', ','),
-      });
-    }
-  };
-
-  const handleSaveEdit = () => {
-    if (!editingBet) return;
-
-    // Convert string fields back to numbers
-    const profitPercentage = parseFloat(editingNumericFields.profitPercentage.replace(',', '.')) || 0;
-    const bet1Odd = parseFloat(editingNumericFields.bet1Odd.replace(',', '.')) || 0;
-    const bet1Stake = parseFloat(editingNumericFields.bet1Stake.replace(',', '.')) || 0;
-    const bet2Odd = parseFloat(editingNumericFields.bet2Odd.replace(',', '.')) || 0;
-    const bet2Stake = parseFloat(editingNumericFields.bet2Stake.replace(',', '.')) || 0;
-
-    updateSurebetMutation.mutate({
-      ...editingBet,
-      profitPercentage,
-      bet1: { ...editingBet.bet1, odd: bet1Odd, stake: bet1Stake },
-      bet2: { ...editingBet.bet2, odd: bet2Odd, stake: bet2Stake },
+    const dailyProfits = new Map<string, number>();
+    resolvedBets.forEach(bet => {
+      const current = dailyProfits.get(bet.date) || 0;
+      dailyProfits.set(bet.date, current + bet.profit);
     });
-  };
 
-  // Update surebet mutation
-  const updateSurebetMutation = useMutation({
-    mutationFn: async (data: any) => {
-      await apiRequest("PUT", `/api/surebet-sets/${data.id}`, {
-        eventDate: data.eventDate,
-        sport: data.sport,
-        league: data.league,
-        teamA: data.teamA,
-        teamB: data.teamB,
-        profitPercentage: String(data.profitPercentage),
-      });
+    const sortedDates = Array.from(dailyProfits.keys()).sort();
+    
+    let accumulated = 0;
+    return sortedDates.map(date => {
+      accumulated += dailyProfits.get(date) || 0;
+      return {
+        date: new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+        lucroAcumulado: parseFloat(accumulated.toFixed(2))
+      };
+    });
+  }, [filteredBets]);
 
-      // Update bet 1
-      await apiRequest("PUT", `/api/bets/${data.bet1.id}`, {
-        bettingHouseId: data.bet1.bettingHouseId,
-        betType: data.bet1.betType,
-        odd: String(data.bet1.odd),
-        stake: String(data.bet1.stake),
-      });
+  const uniqueHouses = Array.from(new Set(bettingHouses.map(h => h.name))).sort();
 
-      // Update bet 2
-      await apiRequest("PUT", `/api/bets/${data.bet2.id}`, {
-        bettingHouseId: data.bet2.bettingHouseId,
-        betType: data.bet2.betType,
-        odd: String(data.bet2.odd),
-        stake: String(data.bet2.stake),
-      });
-      
-      return data;
-    },
-    onMutate: async (data) => {
-      await queryClient.cancelQueries({ queryKey: ["/api/surebet-sets"] });
-      const previousData = queryClient.getQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"]);
-
-      queryClient.setQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"], (old) => {
-        if (!old) return old;
-        return old.map(set => {
-          if (set.id === data.id) {
-            return {
-              ...set,
-              eventDate: data.eventDate,
-              sport: data.sport,
-              league: data.league,
-              teamA: data.teamA,
-              teamB: data.teamB,
-              profitPercentage: String(data.profitPercentage),
-              bets: set.bets.map((bet, index) => {
-                if (index === 0) {
-                  return {
-                    ...bet,
-                    bettingHouseId: data.bet1.bettingHouseId,
-                    betType: data.bet1.betType,
-                    odd: String(data.bet1.odd),
-                    stake: String(data.bet1.stake),
-                  };
-                } else {
-                  return {
-                    ...bet,
-                    bettingHouseId: data.bet2.bettingHouseId,
-                    betType: data.bet2.betType,
-                    odd: String(data.bet2.odd),
-                    stake: String(data.bet2.stake),
-                  };
-                }
-              })
-            };
-          }
-          return set;
-        });
-      });
-
-      return { previousData };
-    },
-    onError: (err, variables, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(["/api/surebet-sets"], context.previousData);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
-      setEditingBet(null);
-      setLastUpdate(new Date());
-      setTimeDisplay('Agora mesmo');
-    },
-  });
-
-  const handleDelete = (surebetSetId: string) => {
-    if (confirm("Tem certeza que deseja deletar esta aposta?")) {
-      deleteSurebetMutation.mutate(surebetSetId);
-    }
-  };
-
-  // Delete mutation
-  const deleteSurebetMutation = useMutation({
-    mutationFn: async (surebetSetId: string) => {
-      const response = await apiRequest("DELETE", `/api/surebet-sets/${surebetSetId}`);
-      return response.json();
-    },
-    onMutate: async (surebetSetId) => {
-      await queryClient.cancelQueries({ queryKey: ["/api/surebet-sets"] });
-
-      const previousData = queryClient.getQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"]);
-
-      queryClient.setQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"], (old) => {
-        if (!old) return old;
-        return old.filter(set => set.id !== surebetSetId);
-      });
-
-      return { previousData };
-    },
-    onError: (err, variables, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(["/api/surebet-sets"], context.previousData);
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] });
-      setLastUpdate(new Date());
-      setTimeDisplay('Agora mesmo');
-    },
-  });
-
-  // Manual refresh handler
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      await refetch();
-      setLastUpdate(new Date());
-      setTimeDisplay('Agora mesmo');
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Carregando dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Gerencie suas apostas surebet e acompanhe o desempenho
-          </p>
-        </div>
-
-        <div className="flex gap-2">
-          <Button
-            variant={chronologicalSort ? "default" : "outline"}
-            onClick={() => setChronologicalSort(!chronologicalSort)}
-            data-testid="button-chronological-sort"
-          >
-            <ArrowUpDown className="w-4 h-4 mr-2" />
-            {chronologicalSort ? "Ordenado por Data" : "Ordenar por Data"}
-          </Button>
-          <Link href="/upload">
-            <Button data-testid="button-new-bet">
-              <Plus className="w-4 h-4 mr-2" />
-              Nova Aposta
-            </Button>
-          </Link>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <p className="text-muted-foreground">
+          Visualize o desempenho das suas apostas
+        </p>
       </div>
 
-      {/* Stats Cards */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Filtros</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="status-filter">Status</Label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger id="status-filter" data-testid="select-status-filter">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="pending">Pendente</SelectItem>
+                  <SelectItem value="resolved">Resolvida</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="insertion-date-from">Data de Inserção (De)</Label>
+              <Input
+                id="insertion-date-from"
+                type="date"
+                value={insertionDateFrom}
+                onChange={(e) => setInsertionDateFrom(e.target.value)}
+                data-testid="input-insertion-date-from"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="insertion-date-to">Data de Inserção (Até)</Label>
+              <Input
+                id="insertion-date-to"
+                type="date"
+                value={insertionDateTo}
+                onChange={(e) => setInsertionDateTo(e.target.value)}
+                data-testid="input-insertion-date-to"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="event-date-from">Data do Jogo (De)</Label>
+              <Input
+                id="event-date-from"
+                type="date"
+                value={eventDateFrom}
+                onChange={(e) => setEventDateFrom(e.target.value)}
+                data-testid="input-event-date-from"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="event-date-to">Data do Jogo (Até)</Label>
+              <Input
+                id="event-date-to"
+                type="date"
+                value={eventDateTo}
+                onChange={(e) => setEventDateTo(e.target.value)}
+                data-testid="input-event-date-to"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="house-filter">Casa de Aposta</Label>
+              <Select value={houseFilter} onValueChange={setHouseFilter}>
+                <SelectTrigger id="house-filter" data-testid="select-house-filter">
+                  <SelectValue placeholder="Todas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {uniqueHouses.map(house => (
+                    <SelectItem key={house} value={house}>{house}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total de Apostas</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="stat-total-bets">{totalBets}</div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Badge variant="secondary">{pendingBets} pendentes</Badge>
-              <Badge variant="outline">{resolvedBets} resolvidas</Badge>
-            </div>
+            <p className="text-xs text-muted-foreground">
+              Apostas filtradas
+            </p>
           </CardContent>
         </Card>
 
@@ -618,361 +312,66 @@ export default function Dashboard() {
               R$ {totalInvested.toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Valor total em apostas ativas
+              Soma de todas as apostas
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Lucro Realizado</CardTitle>
-            <TrendingUp className="h-4 w-4 text-betting-profit" />
+            <CardTitle className="text-sm font-medium">Lucro</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${totalProfit >= 0 ? 'text-betting-profit' : 'text-betting-loss'}`} data-testid="stat-total-profit">
+            <div className={`text-2xl font-bold ${totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`} data-testid="stat-profit">
               R$ {totalProfit.toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Lucro de apostas resolvidas
+              Lucro total realizado
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters */}
-      <BetFilters onFiltersChange={handleFiltersChange} />
-
-      {/* Bets List */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 flex-1">
-            <h2 className="text-xl font-semibold whitespace-nowrap">
-              Apostas Ativas ({transformedBets.length} {transformedBets.length === 1 ? 'aposta' : 'apostas'})
-            </h2>
-            <Input
-              type="text"
-              placeholder="Buscar por time, esporte ou liga..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="max-w-xs"
-              data-testid="input-search-bets"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">
-              Atualizado {timeDisplay}
-            </span>
-            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
-              {isRefreshing ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Atualizando...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Atualizar
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-
-        {isLoading ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="h-12 w-12 animate-spin text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Carregando apostas...</h3>
-              <p className="text-muted-foreground text-center">
-                Buscando suas surebets no banco de dados
-              </p>
-            </CardContent>
-          </Card>
-        ) : error ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <TrendingDown className="h-12 w-12 text-destructive mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Erro ao carregar apostas</h3>
-              <p className="text-muted-foreground text-center mb-4">
-                Não foi possível carregar as apostas. Tente novamente.
-              </p>
-              <Button onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/surebet-sets"] })}>
-                Tentar novamente
-              </Button>
-            </CardContent>
-          </Card>
-        ) : transformedBets.length > 0 ? (
-          <div className="space-y-4">
-            {transformedBets.map((bet) => (
-              <BetCard
-                key={bet.id}
-                {...bet}
-                onResolve={handleResolve}
-                onStatusChange={handleStatusChange}
-                onReset={handleReset}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                isResetting={resetMutation.isPending && resetMutation.variables === bet.id}
-              />
-            ))}
-          </div>
-        ) : (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <TrendingUp className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Nenhuma aposta encontrada</h3>
-              <p className="text-muted-foreground text-center mb-4">
-                Comece adicionando sua primeira aposta surebet
-              </p>
-              <Link href="/upload">
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Adicionar Aposta
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* Edit Dialog */}
-      <Dialog open={!!editingBet} onOpenChange={(open) => !open && setEditingBet(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Editar Aposta Surebet</DialogTitle>
-          </DialogHeader>
-
-          {editingBet && (
-            <div className="space-y-6">
-              {/* Event Details */}
-              <div className="space-y-4">
-                <h3 className="font-semibold text-lg">Detalhes do Evento</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Data e Hora do Evento</Label>
-                    <Input
-                      type="datetime-local"
-                      value={editingBet.eventDate}
-                      onChange={(e) => setEditingBet({ ...editingBet, eventDate: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Esporte</Label>
-                    <Input
-                      value={editingBet.sport}
-                      onChange={(e) => setEditingBet({ ...editingBet, sport: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Liga</Label>
-                    <Input
-                      value={editingBet.league}
-                      onChange={(e) => setEditingBet({ ...editingBet, league: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Lucro (%)</Label>
-                    <Input
-                      type="text"
-                      value={editingNumericFields.profitPercentage}
-                      onChange={(e) => {
-                        setEditingNumericFields({ 
-                          ...editingNumericFields, 
-                          profitPercentage: e.target.value 
-                        });
-                      }}
-                      data-testid="input-profit-percentage"
-                    />
-                  </div>
-                  <div>
-                    <Label>Time A</Label>
-                    <Input
-                      value={editingBet.teamA}
-                      onChange={(e) => setEditingBet({ ...editingBet, teamA: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Time B</Label>
-                    <Input
-                      value={editingBet.teamB}
-                      onChange={(e) => setEditingBet({ ...editingBet, teamB: e.target.value })}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Bet 1 */}
-              <div className="space-y-4 p-4 border rounded-lg">
-                <h3 className="font-semibold text-lg">Aposta 1</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Casa de Aposta</Label>
-                    <Select
-                      value={editingBet.bet1.bettingHouseId}
-                      onValueChange={(value) => {
-                        const selectedHouse = bettingHouses.find(h => h.id === value);
-                        setEditingBet({ 
-                          ...editingBet, 
-                          bet1: { 
-                            ...editingBet.bet1, 
-                            bettingHouseId: value,
-                            house: selectedHouse?.name || editingBet.bet1.house,
-                            accountHolder: selectedHouse?.accountHolder?.name || editingBet.bet1.accountHolder
-                          }
-                        });
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione a casa" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {bettingHouses.map(house => (
-                          <SelectItem key={house.id} value={house.id}>
-                            {house.name} {house.accountHolder?.name ? `(${house.accountHolder.name})` : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Tipo de Aposta</Label>
-                    <Input
-                      value={editingBet.bet1.betType}
-                      onChange={(e) => setEditingBet({ 
-                        ...editingBet, 
-                        bet1: { ...editingBet.bet1, betType: e.target.value }
-                      })}
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Odd</Label>
-                    <Input
-                      type="text"
-                      value={editingNumericFields.bet1Odd}
-                      onChange={(e) => {
-                        setEditingNumericFields({ 
-                          ...editingNumericFields, 
-                          bet1Odd: e.target.value 
-                        });
-                      }}
-                      data-testid="input-bet1-odd"
-                    />
-                  </div>
-                  <div>
-                    <Label>Stake (R$)</Label>
-                    <Input
-                      type="text"
-                      value={editingNumericFields.bet1Stake}
-                      onChange={(e) => {
-                        setEditingNumericFields({ 
-                          ...editingNumericFields, 
-                          bet1Stake: e.target.value 
-                        });
-                      }}
-                      data-testid="input-bet1-stake"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Bet 2 */}
-              <div className="space-y-4 p-4 border rounded-lg">
-                <h3 className="font-semibold text-lg">Aposta 2</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Casa de Aposta</Label>
-                    <Select
-                      value={editingBet.bet2.bettingHouseId}
-                      onValueChange={(value) => {
-                        const selectedHouse = bettingHouses.find(h => h.id === value);
-                        setEditingBet({ 
-                          ...editingBet, 
-                          bet2: { 
-                            ...editingBet.bet2, 
-                            bettingHouseId: value,
-                            house: selectedHouse?.name || editingBet.bet2.house,
-                            accountHolder: selectedHouse?.accountHolder?.name || editingBet.bet2.accountHolder
-                          }
-                        });
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione a casa" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {bettingHouses.map(house => (
-                          <SelectItem key={house.id} value={house.id}>
-                            {house.name} {house.accountHolder?.name ? `(${house.accountHolder.name})` : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Tipo de Aposta</Label>
-                    <Input
-                      value={editingBet.bet2.betType}
-                      onChange={(e) => setEditingBet({ 
-                        ...editingBet, 
-                        bet2: { ...editingBet.bet2, betType: e.target.value }
-                      })}
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Odd</Label>
-                    <Input
-                      type="text"
-                      value={editingNumericFields.bet2Odd}
-                      onChange={(e) => {
-                        setEditingNumericFields({ 
-                          ...editingNumericFields, 
-                          bet2Odd: e.target.value 
-                        });
-                      }}
-                      data-testid="input-bet2-odd"
-                    />
-                  </div>
-                  <div>
-                    <Label>Stake (R$)</Label>
-                    <Input
-                      type="text"
-                      value={editingNumericFields.bet2Stake}
-                      onChange={(e) => {
-                        setEditingNumericFields({ 
-                          ...editingNumericFields, 
-                          bet2Stake: e.target.value 
-                        });
-                      }}
-                      data-testid="input-bet2-stake"
-                    />
-                  </div>
-                </div>
-              </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Lucro Acumulado ao Longo do Tempo</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {chartData.length === 0 ? (
+            <div className="h-[400px] flex items-center justify-center text-muted-foreground">
+              Nenhuma aposta resolvida para exibir no gráfico
             </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={400}>
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="date" 
+                  label={{ value: 'Data', position: 'insideBottom', offset: -5 }}
+                />
+                <YAxis 
+                  label={{ value: 'Lucro (R$)', angle: -90, position: 'insideLeft' }}
+                />
+                <Tooltip 
+                  formatter={(value: number) => [`R$ ${value.toFixed(2)}`, 'Lucro Acumulado']}
+                  labelFormatter={(label) => `Data: ${label}`}
+                />
+                <Legend />
+                <Line 
+                  type="monotone" 
+                  dataKey="lucroAcumulado" 
+                  stroke="#2563eb" 
+                  strokeWidth={2}
+                  name="Lucro Acumulado"
+                  dot={{ fill: '#2563eb', r: 4 }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
           )}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingBet(null)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSaveEdit} disabled={updateSurebetMutation.isPending}>
-              {updateSurebetMutation.isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Salvando...
-                </>
-              ) : (
-                "Salvar Alterações"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </CardContent>
+      </Card>
     </div>
   );
 }
