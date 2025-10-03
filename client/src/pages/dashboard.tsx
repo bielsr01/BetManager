@@ -4,11 +4,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { TrendingUp, DollarSign, BarChart3 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { TrendingUp, DollarSign, BarChart3, Filter, X } from "lucide-react";
 import type { SurebetSetWithBets, BettingHouseWithAccountHolder } from "@shared/schema";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, TooltipProps } from 'recharts';
 
 export default function Dashboard() {
+  // Temporary filter states (not applied until "Filtrar" is clicked)
+  const [tempStatusFilter, setTempStatusFilter] = useState<string>("all");
+  const [tempInsertionDateFrom, setTempInsertionDateFrom] = useState<string>("");
+  const [tempInsertionDateTo, setTempInsertionDateTo] = useState<string>("");
+  const [tempEventDateFrom, setTempEventDateFrom] = useState<string>("");
+  const [tempEventDateTo, setTempEventDateTo] = useState<string>("");
+  const [tempHouseFilter, setTempHouseFilter] = useState<string>("all");
+
+  // Applied filter states
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [insertionDateFrom, setInsertionDateFrom] = useState<string>("");
   const [insertionDateTo, setInsertionDateTo] = useState<string>("");
@@ -26,6 +36,31 @@ export default function Dashboard() {
     queryKey: ["/api/betting-houses"],
     staleTime: 300000,
   });
+
+  const applyFilters = () => {
+    setStatusFilter(tempStatusFilter);
+    setInsertionDateFrom(tempInsertionDateFrom);
+    setInsertionDateTo(tempInsertionDateTo);
+    setEventDateFrom(tempEventDateFrom);
+    setEventDateTo(tempEventDateTo);
+    setHouseFilter(tempHouseFilter);
+  };
+
+  const clearFilters = () => {
+    setTempStatusFilter("all");
+    setTempInsertionDateFrom("");
+    setTempInsertionDateTo("");
+    setTempEventDateFrom("");
+    setTempEventDateTo("");
+    setTempHouseFilter("all");
+    
+    setStatusFilter("all");
+    setInsertionDateFrom("");
+    setInsertionDateTo("");
+    setEventDateFrom("");
+    setEventDateTo("");
+    setHouseFilter("all");
+  };
 
   const filteredBets = useMemo(() => {
     return surebetSets.filter((set) => {
@@ -176,15 +211,35 @@ export default function Dashboard() {
     
     let accumulated = 0;
     return sortedDates.map(date => {
-      accumulated += dailyProfits.get(date) || 0;
+      const dayProfit = dailyProfits.get(date) || 0;
+      accumulated += dayProfit;
       return {
         date: new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-        lucroAcumulado: parseFloat(accumulated.toFixed(2))
+        lucroAcumulado: parseFloat(accumulated.toFixed(2)),
+        lucroDoDia: parseFloat(dayProfit.toFixed(2))
       };
     });
   }, [filteredBets]);
 
   const uniqueHouses = Array.from(new Set(bettingHouses.map(h => h.name))).sort();
+
+  const CustomTooltip = ({ active, payload }: TooltipProps<number, string>) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-background border rounded-lg p-3 shadow-lg">
+          <p className="font-semibold mb-2">{data.date}</p>
+          <p className="text-sm text-primary font-medium">
+            Lucro Acumulado: R$ {data.lucroAcumulado.toFixed(2)}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Lucro do Dia: R$ {data.lucroDoDia.toFixed(2)}
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
 
   if (isLoading) {
     return (
@@ -211,78 +266,87 @@ export default function Dashboard() {
           <CardTitle>Filtros</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="status-filter">Status</Label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger id="status-filter" data-testid="select-status-filter">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="pending">Pendente</SelectItem>
-                  <SelectItem value="resolved">Resolvida</SelectItem>
-                </SelectContent>
-              </Select>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="status-filter">Status</Label>
+                <Select value={tempStatusFilter} onValueChange={setTempStatusFilter}>
+                  <SelectTrigger id="status-filter" data-testid="select-status-filter">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="pending">Pendente</SelectItem>
+                    <SelectItem value="resolved">Resolvida</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Data de Inserção</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="date"
+                    placeholder="De"
+                    value={tempInsertionDateFrom}
+                    onChange={(e) => setTempInsertionDateFrom(e.target.value)}
+                    data-testid="input-insertion-date-from"
+                  />
+                  <Input
+                    type="date"
+                    placeholder="Até"
+                    value={tempInsertionDateTo}
+                    onChange={(e) => setTempInsertionDateTo(e.target.value)}
+                    data-testid="input-insertion-date-to"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Data do Jogo</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="date"
+                    placeholder="De"
+                    value={tempEventDateFrom}
+                    onChange={(e) => setTempEventDateFrom(e.target.value)}
+                    data-testid="input-event-date-from"
+                  />
+                  <Input
+                    type="date"
+                    placeholder="Até"
+                    value={tempEventDateTo}
+                    onChange={(e) => setTempEventDateTo(e.target.value)}
+                    data-testid="input-event-date-to"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="house-filter">Casa de Aposta</Label>
+                <Select value={tempHouseFilter} onValueChange={setTempHouseFilter}>
+                  <SelectTrigger id="house-filter" data-testid="select-house-filter">
+                    <SelectValue placeholder="Todas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {uniqueHouses.map(house => (
+                      <SelectItem key={house} value={house}>{house}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="insertion-date-from">Data de Inserção (De)</Label>
-              <Input
-                id="insertion-date-from"
-                type="date"
-                value={insertionDateFrom}
-                onChange={(e) => setInsertionDateFrom(e.target.value)}
-                data-testid="input-insertion-date-from"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="insertion-date-to">Data de Inserção (Até)</Label>
-              <Input
-                id="insertion-date-to"
-                type="date"
-                value={insertionDateTo}
-                onChange={(e) => setInsertionDateTo(e.target.value)}
-                data-testid="input-insertion-date-to"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="event-date-from">Data do Jogo (De)</Label>
-              <Input
-                id="event-date-from"
-                type="date"
-                value={eventDateFrom}
-                onChange={(e) => setEventDateFrom(e.target.value)}
-                data-testid="input-event-date-from"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="event-date-to">Data do Jogo (Até)</Label>
-              <Input
-                id="event-date-to"
-                type="date"
-                value={eventDateTo}
-                onChange={(e) => setEventDateTo(e.target.value)}
-                data-testid="input-event-date-to"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="house-filter">Casa de Aposta</Label>
-              <Select value={houseFilter} onValueChange={setHouseFilter}>
-                <SelectTrigger id="house-filter" data-testid="select-house-filter">
-                  <SelectValue placeholder="Todas" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  {uniqueHouses.map(house => (
-                    <SelectItem key={house} value={house}>{house}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="flex gap-2">
+              <Button onClick={applyFilters} data-testid="button-apply-filters">
+                <Filter className="w-4 h-4 mr-2" />
+                Filtrar
+              </Button>
+              <Button variant="outline" onClick={clearFilters} data-testid="button-clear-filters">
+                <X className="w-4 h-4 mr-2" />
+                Limpar Filtros
+              </Button>
             </div>
           </div>
         </CardContent>
@@ -353,10 +417,7 @@ export default function Dashboard() {
                 <YAxis 
                   label={{ value: 'Lucro (R$)', angle: -90, position: 'insideLeft' }}
                 />
-                <Tooltip 
-                  formatter={(value: number) => [`R$ ${value.toFixed(2)}`, 'Lucro Acumulado']}
-                  labelFormatter={(label) => `Data: ${label}`}
-                />
+                <Tooltip content={<CustomTooltip />} />
                 <Legend />
                 <Line 
                   type="monotone" 
