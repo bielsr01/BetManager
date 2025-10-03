@@ -178,14 +178,7 @@ export function BetCard({
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-1">
             <Calendar className="w-4 h-4" />
-            <span>{(() => {
-              // Extrai data/hora diretamente da string sem conversão de timezone
-              // Formato esperado: "2025-10-03T04:00" ou "2025-10-03T04:00:00.000Z"
-              const dateStr = eventDate.substring(0, 10); // "2025-10-03"
-              const timeStr = eventDate.substring(11, 16); // "04:00"
-              const [year, month, day] = dateStr.split('-');
-              return `${day}/${month}/${year} às ${timeStr}`;
-            })()}</span>
+            <span>{new Date(eventDate).toLocaleDateString('pt-BR')} às {new Date(eventDate).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
           </div>
           <span>{sport} • {league}</span>
         </div>

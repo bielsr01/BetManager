@@ -37,7 +37,7 @@ export const bettingHouses = pgTable("betting_houses", {
 export const surebetSets = pgTable("surebet_sets", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id),
-  eventDate: text("event_date"), // Stores datetime as text in GMT-3 format (no timezone conversion)
+  eventDate: timestamp("event_date"),
   sport: text("sport"),
   league: text("league"),
   teamA: text("team_a"),
@@ -82,7 +82,12 @@ export const insertSurebetSetSchema = createInsertSchema(surebetSets).omit({
   id: true,
   createdAt: true,
 }).extend({
-  eventDate: z.string().nullable(), // Keep as string - no timezone conversion
+  eventDate: z.union([z.date(), z.string().nullable()]).transform((val) => {
+    if (typeof val === 'string') {
+      return new Date(val);
+    }
+    return val;
+  }).nullable(),
 });
 
 export const insertBetSchema = createInsertSchema(bets).omit({
