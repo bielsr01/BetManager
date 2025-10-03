@@ -131,9 +131,9 @@ export default function Dashboard() {
       } else if (bet2.result === "won" && bet1.result === "returned") {
         profit = (stake2 * odd2) - stake2 + stake1;
       } else if (bet1.result === "lost" && bet2.result === "returned") {
-        profit = -stake1 + stake2;
+        profit = -stake1;
       } else if (bet2.result === "lost" && bet1.result === "returned") {
-        profit = -stake2 + stake1;
+        profit = -stake2;
       } else if (bet1.result === "won" && bet2.result === "won") {
         profit = (stake1 * odd1 + stake2 * odd2) - (stake1 + stake2);
       } else if (bet1.result === "lost" && bet2.result === "lost") {
@@ -173,9 +173,9 @@ export default function Dashboard() {
           } else if (bet2.result === "won" && bet1.result === "returned") {
             profit = (stake2 * odd2) - stake2 + stake1;
           } else if (bet1.result === "lost" && bet2.result === "returned") {
-            profit = -stake1 + stake2;
+            profit = -stake1;
           } else if (bet2.result === "lost" && bet1.result === "returned") {
-            profit = -stake2 + stake1;
+            profit = -stake2;
           } else if (bet1.result === "won" && bet2.result === "won") {
             profit = (stake1 * odd1 + stake2 * odd2) - (stake1 + stake2);
           } else if (bet1.result === "lost" && bet2.result === "lost") {

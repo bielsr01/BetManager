@@ -90,11 +90,11 @@ export function BetCard({
       // Win/Return: (winning_stake × odd) - winning_stake
       actualProfit = (bet2.stake * bet2.odd) - bet2.stake;
     } else if (bet1.result === "lost" && bet2.result === "returned") {
-      // Loss/Return: -lost_stake + returned_stake
-      actualProfit = -bet1.stake + bet2.stake;
+      // Loss/Return: -lost_stake (returned stake doesn't count, just comes back)
+      actualProfit = -bet1.stake;
     } else if (bet2.result === "lost" && bet1.result === "returned") {
-      // Loss/Return: -lost_stake + returned_stake
-      actualProfit = -bet2.stake + bet1.stake;
+      // Loss/Return: -lost_stake (returned stake doesn't count, just comes back)
+      actualProfit = -bet2.stake;
     } else if (bet1.result === "won" && bet2.result === "won") {
       // Both won: (return1 + return2) - (stake1 + stake2)
       actualProfit = (bet1.stake * bet1.odd + bet2.stake * bet2.odd) - (bet1.stake + bet2.stake);
