@@ -3,27 +3,28 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, DollarSign, BarChart3, Filter, X } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { TrendingUp, DollarSign, BarChart3, Filter, X, CalendarIcon } from "lucide-react";
 import type { SurebetSetWithBets, BettingHouseWithAccountHolder } from "@shared/schema";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, TooltipProps } from 'recharts';
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import type { DateRange } from "react-day-picker";
+import { cn } from "@/lib/utils";
 
 export default function Dashboard() {
   // Temporary filter states (not applied until "Filtrar" is clicked)
   const [tempStatusFilter, setTempStatusFilter] = useState<string>("all");
-  const [tempInsertionDateFrom, setTempInsertionDateFrom] = useState<string>("");
-  const [tempInsertionDateTo, setTempInsertionDateTo] = useState<string>("");
-  const [tempEventDateFrom, setTempEventDateFrom] = useState<string>("");
-  const [tempEventDateTo, setTempEventDateTo] = useState<string>("");
+  const [tempInsertionDateRange, setTempInsertionDateRange] = useState<DateRange | undefined>();
+  const [tempEventDateRange, setTempEventDateRange] = useState<DateRange | undefined>();
   const [tempHouseFilter, setTempHouseFilter] = useState<string>("all");
 
   // Applied filter states
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [insertionDateFrom, setInsertionDateFrom] = useState<string>("");
-  const [insertionDateTo, setInsertionDateTo] = useState<string>("");
-  const [eventDateFrom, setEventDateFrom] = useState<string>("");
-  const [eventDateTo, setEventDateTo] = useState<string>("");
+  const [insertionDateRange, setInsertionDateRange] = useState<DateRange | undefined>();
+  const [eventDateRange, setEventDateRange] = useState<DateRange | undefined>();
   const [houseFilter, setHouseFilter] = useState<string>("all");
 
   const { data: surebetSets = [], isLoading } = useQuery<SurebetSetWithBets[]>({
@@ -39,26 +40,20 @@ export default function Dashboard() {
 
   const applyFilters = () => {
     setStatusFilter(tempStatusFilter);
-    setInsertionDateFrom(tempInsertionDateFrom);
-    setInsertionDateTo(tempInsertionDateTo);
-    setEventDateFrom(tempEventDateFrom);
-    setEventDateTo(tempEventDateTo);
+    setInsertionDateRange(tempInsertionDateRange);
+    setEventDateRange(tempEventDateRange);
     setHouseFilter(tempHouseFilter);
   };
 
   const clearFilters = () => {
     setTempStatusFilter("all");
-    setTempInsertionDateFrom("");
-    setTempInsertionDateTo("");
-    setTempEventDateFrom("");
-    setTempEventDateTo("");
+    setTempInsertionDateRange(undefined);
+    setTempEventDateRange(undefined);
     setTempHouseFilter("all");
     
     setStatusFilter("all");
-    setInsertionDateFrom("");
-    setInsertionDateTo("");
-    setEventDateFrom("");
-    setEventDateTo("");
+    setInsertionDateRange(undefined);
+    setEventDateRange(undefined);
     setHouseFilter("all");
   };
 
@@ -67,30 +62,30 @@ export default function Dashboard() {
       if (statusFilter === "pending" && set.status !== "pending") return false;
       if (statusFilter === "resolved" && set.status !== "resolved") return false;
 
-      if (insertionDateFrom && set.createdAt) {
+      if (insertionDateRange?.from && set.createdAt) {
         const insertDate = new Date(set.createdAt);
-        const fromDate = new Date(insertionDateFrom);
+        const fromDate = new Date(insertionDateRange.from);
         fromDate.setHours(0, 0, 0, 0);
         if (insertDate < fromDate) return false;
       }
 
-      if (insertionDateTo && set.createdAt) {
+      if (insertionDateRange?.to && set.createdAt) {
         const insertDate = new Date(set.createdAt);
-        const toDate = new Date(insertionDateTo);
+        const toDate = new Date(insertionDateRange.to);
         toDate.setHours(23, 59, 59, 999);
         if (insertDate > toDate) return false;
       }
 
-      if (eventDateFrom && set.eventDate) {
+      if (eventDateRange?.from && set.eventDate) {
         const evtDate = new Date(set.eventDate);
-        const fromDate = new Date(eventDateFrom);
+        const fromDate = new Date(eventDateRange.from);
         fromDate.setHours(0, 0, 0, 0);
         if (evtDate < fromDate) return false;
       }
 
-      if (eventDateTo && set.eventDate) {
+      if (eventDateRange?.to && set.eventDate) {
         const evtDate = new Date(set.eventDate);
-        const toDate = new Date(eventDateTo);
+        const toDate = new Date(eventDateRange.to);
         toDate.setHours(23, 59, 59, 999);
         if (evtDate > toDate) return false;
       }
@@ -102,7 +97,7 @@ export default function Dashboard() {
 
       return true;
     });
-  }, [surebetSets, statusFilter, insertionDateFrom, insertionDateTo, eventDateFrom, eventDateTo, houseFilter]);
+  }, [surebetSets, statusFilter, insertionDateRange, eventDateRange, houseFilter]);
 
   const totalBets = filteredBets.length;
 
@@ -267,7 +262,7 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="status-filter">Status</Label>
                 <Select value={tempStatusFilter} onValueChange={setTempStatusFilter}>
@@ -284,42 +279,80 @@ export default function Dashboard() {
 
               <div className="space-y-2">
                 <Label>Data de Inserção</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="date"
-                    placeholder="De"
-                    value={tempInsertionDateFrom}
-                    onChange={(e) => setTempInsertionDateFrom(e.target.value)}
-                    data-testid="input-insertion-date-from"
-                  />
-                  <Input
-                    type="date"
-                    placeholder="Até"
-                    value={tempInsertionDateTo}
-                    onChange={(e) => setTempInsertionDateTo(e.target.value)}
-                    data-testid="input-insertion-date-to"
-                  />
-                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !tempInsertionDateRange && "text-muted-foreground"
+                      )}
+                      data-testid="button-insertion-date-range"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {tempInsertionDateRange?.from ? (
+                        tempInsertionDateRange.to ? (
+                          <>
+                            {format(tempInsertionDateRange.from, "dd/MM/yyyy", { locale: ptBR })} -{" "}
+                            {format(tempInsertionDateRange.to, "dd/MM/yyyy", { locale: ptBR })}
+                          </>
+                        ) : (
+                          format(tempInsertionDateRange.from, "dd/MM/yyyy", { locale: ptBR })
+                        )
+                      ) : (
+                        <span>Selecione o período</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="range"
+                      selected={tempInsertionDateRange}
+                      onSelect={setTempInsertionDateRange}
+                      numberOfMonths={2}
+                      locale={ptBR}
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="space-y-2">
                 <Label>Data do Jogo</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="date"
-                    placeholder="De"
-                    value={tempEventDateFrom}
-                    onChange={(e) => setTempEventDateFrom(e.target.value)}
-                    data-testid="input-event-date-from"
-                  />
-                  <Input
-                    type="date"
-                    placeholder="Até"
-                    value={tempEventDateTo}
-                    onChange={(e) => setTempEventDateTo(e.target.value)}
-                    data-testid="input-event-date-to"
-                  />
-                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !tempEventDateRange && "text-muted-foreground"
+                      )}
+                      data-testid="button-event-date-range"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {tempEventDateRange?.from ? (
+                        tempEventDateRange.to ? (
+                          <>
+                            {format(tempEventDateRange.from, "dd/MM/yyyy", { locale: ptBR })} -{" "}
+                            {format(tempEventDateRange.to, "dd/MM/yyyy", { locale: ptBR })}
+                          </>
+                        ) : (
+                          format(tempEventDateRange.from, "dd/MM/yyyy", { locale: ptBR })
+                        )
+                      ) : (
+                        <span>Selecione o período</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="range"
+                      selected={tempEventDateRange}
+                      onSelect={setTempEventDateRange}
+                      numberOfMonths={2}
+                      locale={ptBR}
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="space-y-2">
