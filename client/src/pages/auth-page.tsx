@@ -63,10 +63,8 @@ export default function AuthPage() {
             {features.map((feature, index) => {
               const Icon = feature.icon;
               return (
-                <div key={index} className="flex gap-4">
-                  <div className="flex-shrink-0 p-2 rounded-lg bg-card border">
-                    <Icon className="w-5 h-5 text-primary" />
-                  </div>
+                <div key={index} className="flex gap-4 items-start">
+                  <Icon className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
                   <div>
                     <h3 className="font-semibold mb-1">{feature.title}</h3>
                     <p className="text-sm text-muted-foreground">{feature.description}</p>
