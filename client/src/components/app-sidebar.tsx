@@ -66,12 +66,8 @@ export function AppSidebar() {
     <Sidebar className="border-r">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2">
-          <div className="p-2 bg-primary rounded-lg">
-            <TrendingUp className="h-6 w-6 text-primary-foreground" />
-          </div>
           <div>
-            <h1 className="font-bold text-lg">SureBet</h1>
-            <p className="text-sm text-muted-foreground">Manager</p>
+            <h1 className="font-bold text-xl">BetTracker Pro</h1>
           </div>
         </div>
       </SidebarHeader>
