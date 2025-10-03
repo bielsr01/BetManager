@@ -185,16 +185,16 @@ export default function Dashboard() {
           }
         }
 
-        const eventDate = set.eventDate ? new Date(set.eventDate) : new Date();
-        const dateKey = eventDate.toISOString().split('T')[0];
+        const insertionDate = set.createdAt ? new Date(set.createdAt) : new Date();
+        const dateKey = insertionDate.toISOString().split('T')[0];
 
         return {
           date: dateKey,
           profit: profit,
-          eventDate: eventDate.getTime()
+          insertionDate: insertionDate.getTime()
         };
       })
-      .sort((a, b) => a.eventDate - b.eventDate);
+      .sort((a, b) => a.insertionDate - b.insertionDate);
 
     const dailyProfits = new Map<string, number>();
     resolvedBets.forEach(bet => {
