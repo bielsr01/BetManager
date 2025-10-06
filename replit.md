@@ -63,7 +63,14 @@ Preferred communication style: Simple, everyday language.
 
 **Dashboard Visual Redesign (October 2025)**: Completely restructured the Dashboard page to focus on visual analytics rather than bet management. The new Dashboard is purely visual with:
 - Simplified filters: Status (Pendente/Resolvida/Todos), Data de Inserção (De/Até), Data do Jogo (De/Até), and Casa de Aposta
-- Summary cards showing: Total de Apostas, Total Investido, and Lucro
+- Summary cards showing: Total de Apostas (with pending/resolved breakdown), Investido Total (with pending/resolved split), Lucro Resolvido, Lucro Pendente, and Lucro Total
 - Interactive cumulative profit line chart using Recharts that plots daily accumulated profits over time, supporting both positive and negative values
 - Dynamic chart that responds to all filter selections
 - Removed all bet detail cards and management features from Dashboard (now exclusively in Management page)
+
+**QR Code Reader Feature (October 2025)**: Added dedicated QR code reader page with fast, client-side processing:
+- New "Leitor QR" menu item in sidebar (below "Teste de OCR")
+- Supports image upload (JPG/PNG) and paste from clipboard (Ctrl+V)
+- Client-side processing using jsQR library for instant results
+- Clean interface with image preview, extracted text display, and copy-to-clipboard functionality
+- No server processing required, ensuring fast and efficient QR code reading
