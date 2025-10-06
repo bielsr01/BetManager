@@ -22,7 +22,8 @@ import {
   Settings,
   LogOut,
   User,
-  UserCircle
+  UserCircle,
+  QrCode
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,11 @@ const menuItems = [
     title: "Teste de OCR",
     url: "/test-ocr",
     icon: TestTube,
+  },
+  {
+    title: "Leitor QR",
+    url: "/qr-reader",
+    icon: QrCode,
   },
 ];
 
