@@ -130,6 +130,16 @@ export default function QRReader() {
     };
   }, [handlePaste]);
 
+  const handleReset = () => {
+    setQrText("");
+    setStatus("idle");
+    setPreviewUrl("");
+    setIsProcessing(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const handleCopy = () => {
     if (qrText) {
       navigator.clipboard.writeText(qrText);
@@ -174,13 +184,13 @@ export default function QRReader() {
                     data-testid="img-qr-preview"
                   />
                   <Button
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={handleReset}
                     variant="outline"
                     disabled={isProcessing}
-                    data-testid="button-change-image"
+                    data-testid="button-new-qr"
                   >
                     <Upload className="w-4 h-4 mr-2" />
-                    Trocar Imagem
+                    Enviar um Novo QR
                   </Button>
                 </div>
               ) : (
