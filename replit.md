@@ -98,8 +98,11 @@ Preferred communication style: Simple, everyday language.
   - Example: Bet1 half_won (2835) + Bet2 half_returned (719.76) - Total invested (3539.52) = R$ 15.24
 - New status badges: "Meio Green - Ganho" (sky blue) and "Meio Green - Devolvido" (light sky blue)
 - Supports all combinations with won/lost/returned/half_won/half_returned bets
-- **Bug Fix (October 2025)**: Corrected actualProfit calculation for half_won + half_returned combinations
-  - Frontend was recalculating profit incorrectly, showing R$ 735 instead of R$ 15.24
-  - Solution: Frontend now uses backend-calculated actualProfit value (already correct)
-  - Added fallback calculation in frontend matching backend logic for backward compatibility
+- **Bug Fix (October 2025)**: Corrected actualProfit calculation and display across the entire application
+  - **BetCard Component**: Frontend was recalculating profit incorrectly, showing R$ 735 instead of R$ 15.24 for half_won + half_returned
+  - **Dashboard Page**: Was recalculating profit locally instead of using actualProfit from database
+  - **Management Page**: Was recalculating profit locally instead of using actualProfit from database
+  - **Solution**: All components now prioritize actualProfit from backend (already calculated correctly)
+  - Added fallback calculation in BetCard matching backend logic for backward compatibility
+  - **Auto-update**: All profit metrics (Total, Resolved, Pending) now update automatically when bets are resolved
   - Both backend and frontend now use consistent formula: (return1 + return2) - (stake1 + stake2)
