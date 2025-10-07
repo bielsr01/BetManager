@@ -120,7 +120,7 @@ export default function Dashboard() {
     }, 0);
 
   const totalProfitResolved = filteredBets
-    .filter(set => set.bets.every(bet => bet.result))
+    .filter(set => set.status === "resolved")
     .reduce((acc, set) => {
       // Use actualProfit from database (both bets have same value)
       const firstBet = set.bets[0];
