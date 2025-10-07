@@ -438,30 +438,19 @@ export default function Management() {
   const totalStakeResolved = resolvedBets.reduce((sum, bet) => sum + bet.bet1.stake + bet.bet2.stake, 0);
   const totalStake = totalStakePending + totalStakeResolved;
 
-  // Calculate real profit for resolved bets
+  // Calculate real profit for resolved bets using actualProfit from database
   const calculateRealProfit = (bet: typeof filteredBets[0]) => {
     const { bet1, bet2 } = bet;
     if (!bet1.result || !bet2.result) return 0;
 
-    if (bet1.result === "won" && bet2.result === "lost") {
-      return (bet1.stake * bet1.odd) - bet2.stake - bet1.stake;
-    } else if (bet2.result === "won" && bet1.result === "lost") {
-      return (bet2.stake * bet2.odd) - bet1.stake - bet2.stake;
-    } else if (bet1.result === "won" && bet2.result === "returned") {
-      return (bet1.stake * bet1.odd) - bet1.stake + bet2.stake;
-    } else if (bet2.result === "won" && bet1.result === "returned") {
-      return (bet2.stake * bet2.odd) - bet2.stake + bet1.stake;
-    } else if (bet1.result === "lost" && bet2.result === "returned") {
-      return -bet1.stake;
-    } else if (bet2.result === "lost" && bet1.result === "returned") {
-      return -bet2.stake;
-    } else if (bet1.result === "won" && bet2.result === "won") {
-      return (bet1.stake * bet1.odd + bet2.stake * bet2.odd) - (bet1.stake + bet2.stake);
-    } else if (bet1.result === "lost" && bet2.result === "lost") {
-      return -(bet1.stake + bet2.stake);
-    } else if (bet1.result === "returned" && bet2.result === "returned") {
-      return 0;
+    // Use actualProfit from database (both bets have same value)
+    if (bet1.actualProfit !== undefined && bet1.actualProfit !== null) {
+      return parseFloat(String(bet1.actualProfit));
     }
+    if (bet2.actualProfit !== undefined && bet2.actualProfit !== null) {
+      return parseFloat(String(bet2.actualProfit));
+    }
+    
     return 0;
   };
 
