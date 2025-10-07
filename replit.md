@@ -85,12 +85,16 @@ Preferred communication style: Simple, everyday language.
 **Meio Green Feature (October 2025)**: Added "Meio Green" (half green) bet resolution functionality:
 - New light blue button in bet resolution section with dropdown options
 - Two resolution types: "Ganho" (half won) and "Devolvido" (half returned)
-- **Meio Green - Ganho**: Uses half stake at the odd, half is returned
-  - Calculation: `(stake/2 × odd) - stake/2`
-  - Example: stake=100, odd=2.0 → profit = (50 × 2) - 50 = 50
-- **Meio Green - Devolvido**: Half stake returned (no profit/loss on that half)
-  - Calculation: half stake amount is simply returned
-  - Example: stake=100 → R$50 returned (neutral)
-- Automatic profit recalculation for all "Meio Green" scenarios
+- **Meio Green - Ganho (half_won)**: Half stake at odd + half stake returned
+  - Return calculation: `(stake/2 × odd) + stake/2`
+  - Example: stake=2100, odd=1.7 → return = (1050 × 1.7) + 1050 = 2835
+- **Meio Green - Devolvido (half_returned)**: Half stake returned only
+  - Return calculation: `stake/2`
+  - Example: stake=1439.52 → return = 719.76
+- **Profit calculation**: Uses simplified helper function
+  - Total return = return_bet1 + return_bet2
+  - Total invested = stake_bet1 + stake_bet2
+  - Actual profit = total_return - total_invested
+  - Example: Bet1 half_won (2835) + Bet2 half_returned (719.76) - Total invested (3539.52) = R$ 15.24
 - New status badges: "Meio Green - Ganho" (sky blue) and "Meio Green - Devolvido" (light sky blue)
 - Supports all combinations with won/lost/returned/half_won/half_returned bets
