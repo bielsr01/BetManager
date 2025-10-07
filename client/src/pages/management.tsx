@@ -119,6 +119,33 @@ export default function Management() {
 
       return { previousData };
     },
+    onSuccess: (updatedBet) => {
+      // Inject actualProfit from backend response immediately
+      queryClient.setQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"], (old) => {
+        if (!old) return old;
+        return old.map(set => {
+          // Find if this set contains the updated bet
+          const hasBet = set.bets.some(b => b.id === updatedBet.id);
+          if (!hasBet) return set;
+
+          // Update the bet with backend data (including actualProfit)
+          const updatedBets = set.bets.map(bet => 
+            bet.id === updatedBet.id 
+              ? { ...bet, ...updatedBet }
+              : bet.surebetSetId === updatedBet.surebetSetId && updatedBet.actualProfit !== undefined
+                ? { ...bet, actualProfit: updatedBet.actualProfit } // Sync actualProfit to sibling bet
+                : bet
+          );
+          
+          const allHaveResults = updatedBets.every(b => b.result != null);
+          return {
+            ...set,
+            bets: updatedBets,
+            status: allHaveResults ? "resolved" : set.status
+          };
+        });
+      });
+    },
     onError: (err, variables, context) => {
       if (context?.previousData) {
         queryClient.setQueryData(["/api/surebet-sets"], context.previousData);
