@@ -145,7 +145,7 @@ export default function Dashboard() {
 
   const chartData = useMemo(() => {
     const resolvedBets = filteredBets
-      .filter(set => set.bets.every(bet => bet.result))
+      .filter(set => set.status === "resolved")
       .map(set => {
         // Use actualProfit from database
         const firstBet = set.bets[0];
