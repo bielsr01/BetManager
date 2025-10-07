@@ -80,10 +80,18 @@ export function BetCard({
   const isResolved = status === "resolved";
   const isPending = status === "pending";
   const totalStake = bet1.stake + bet2.stake;
+  
+  // Use actualProfit from backend if available, otherwise calculate locally
   let actualProfit = 0;
-
-  // Calculate actual profit based on bet results
-  if (bet1.result && bet2.result) {
+  
+  if (bet1.actualProfit !== undefined && bet1.actualProfit !== null) {
+    // Use the value calculated by backend (both bets have same actualProfit)
+    actualProfit = parseFloat(String(bet1.actualProfit));
+  } else if (bet2.actualProfit !== undefined && bet2.actualProfit !== null) {
+    // Use the value calculated by backend (both bets have same actualProfit)
+    actualProfit = parseFloat(String(bet2.actualProfit));
+  } else if (bet1.result && bet2.result) {
+    // Fallback: Calculate actual profit based on bet results (legacy logic)
     if (bet1.result === "won" && bet2.result === "lost") {
       // Win/Loss: (winning_stake × odd) - losing_stake - winning_stake
       actualProfit = (bet1.stake * bet1.odd) - bet2.stake - bet1.stake;
