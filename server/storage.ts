@@ -241,15 +241,21 @@ class DatabaseStorage implements IStorage {
       return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.000Z`;
     };
     
-    const result: SurebetSetWithBets[] = sets.map(set => ({
-      ...set,
-      eventDate: formatDateToISO(set.eventDate) as any,
-      createdAt: formatDateToISO(set.createdAt) as any,
-      bets: (betsBySetId.get(set.id) || []).map(bet => ({
-        ...bet,
-        createdAt: formatDateToISO(bet.createdAt) as any
-      }))
-    }));
+    const result: SurebetSetWithBets[] = sets.map(set => {
+      // Ordenar apostas por createdAt para manter ordem consistente
+      const setBets = (betsBySetId.get(set.id) || [])
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      
+      return {
+        ...set,
+        eventDate: formatDateToISO(set.eventDate) as any,
+        createdAt: formatDateToISO(set.createdAt) as any,
+        bets: setBets.map(bet => ({
+          ...bet,
+          createdAt: formatDateToISO(bet.createdAt) as any
+        }))
+      };
+    });
     
     return result;
   }
@@ -284,15 +290,22 @@ class DatabaseStorage implements IStorage {
       return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.000Z`;
     };
 
-    const formattedBets = setBets.map(row => ({
-      ...row.bets,
-      createdAt: formatDateToISO(row.bets.createdAt),
-      bettingHouse: {
-        ...row.betting_houses,
-        createdAt: formatDateToISO(row.betting_houses.createdAt),
-        accountHolder: row.account_holders
-      }
-    }));
+    // Ordenar apostas por createdAt para manter ordem consistente
+    const formattedBets = setBets
+      .sort((a, b) => {
+        const timeA = a.bets.createdAt ? new Date(a.bets.createdAt).getTime() : 0;
+        const timeB = b.bets.createdAt ? new Date(b.bets.createdAt).getTime() : 0;
+        return timeA - timeB;
+      })
+      .map(row => ({
+        ...row.bets,
+        createdAt: formatDateToISO(row.bets.createdAt),
+        bettingHouse: {
+          ...row.betting_houses,
+          createdAt: formatDateToISO(row.betting_houses.createdAt),
+          accountHolder: row.account_holders
+        }
+      }));
     
     return {
       ...set,

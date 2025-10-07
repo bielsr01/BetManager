@@ -353,9 +353,8 @@ export default function Management() {
   // Transform data
   const transformedBets = (surebetSets || [])
     .map((set) => {
-      const sortedBets = [...set.bets].sort((a, b) => 
-        new Date(a.createdAt!).getTime() - new Date(b.createdAt!).getTime()
-      );
+      // Backend já ordena as apostas por createdAt - não reordenar aqui
+      const sortedBets = set.bets;
 
       return {
         id: set.id,
