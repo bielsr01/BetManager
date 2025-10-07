@@ -19,24 +19,24 @@ const betFormSchema = z.object({
   league: z.string().min(1, "Liga é obrigatória"),
   teamA: z.string().min(1, "Time A é obrigatório"),
   teamB: z.string().min(1, "Time B é obrigatório"),
-  profitPercentage: z.string().transform(Number),
+  profitPercentage: z.string(),
   
   // Bet 1 - casa de apostas (texto para OCR) e titular da conta (selector)
   bet1House: z.string().min(1, "Casa de apostas é obrigatória"),
   bet1HouseId: z.string().min(1, "Titular da conta é obrigatório"),
   bet1Type: z.string().min(1, "Tipo de aposta é obrigatório"),
-  bet1Odd: z.string().transform(Number),
-  bet1Stake: z.string().transform(Number),
-  bet1Profit: z.string().transform(Number),
+  bet1Odd: z.string(),
+  bet1Stake: z.string(),
+  bet1Profit: z.string(),
   bet1AccountHolder: z.string().optional(),
   
   // Bet 2 - casa de apostas (texto para OCR) e titular da conta (selector)
   bet2House: z.string().min(1, "Casa de apostas é obrigatória"),
   bet2HouseId: z.string().min(1, "Titular da conta é obrigatório"),
   bet2Type: z.string().min(1, "Tipo de aposta é obrigatório"),
-  bet2Odd: z.string().transform(Number),
-  bet2Stake: z.string().transform(Number),
-  bet2Profit: z.string().transform(Number),
+  bet2Odd: z.string(),
+  bet2Stake: z.string(),
+  bet2Profit: z.string(),
   bet2AccountHolder: z.string().optional(),
 });
 
