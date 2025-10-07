@@ -355,28 +355,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (allHaveResults && allBets.length === 2) {
           const bet1 = allBets[0];
           const bet2 = allBets[1];
-          let actualProfit = 0;
           
-          // Calculate actual profit based on both bet results
-          if (bet1.result === "won" && bet2.result === "lost") {
-            actualProfit = (parseFloat(String(bet1.stake)) * parseFloat(String(bet1.odd))) - parseFloat(String(bet2.stake)) - parseFloat(String(bet1.stake));
-          } else if (bet2.result === "won" && bet1.result === "lost") {
-            actualProfit = (parseFloat(String(bet2.stake)) * parseFloat(String(bet2.odd))) - parseFloat(String(bet1.stake)) - parseFloat(String(bet2.stake));
-          } else if (bet1.result === "won" && bet2.result === "returned") {
-            actualProfit = (parseFloat(String(bet1.stake)) * parseFloat(String(bet1.odd))) - parseFloat(String(bet1.stake));
-          } else if (bet2.result === "won" && bet1.result === "returned") {
-            actualProfit = (parseFloat(String(bet2.stake)) * parseFloat(String(bet2.odd))) - parseFloat(String(bet2.stake));
-          } else if (bet1.result === "lost" && bet2.result === "returned") {
-            actualProfit = -parseFloat(String(bet1.stake)); // Perdeu apenas o stake da casa que perdeu
-          } else if (bet2.result === "lost" && bet1.result === "returned") {
-            actualProfit = -parseFloat(String(bet2.stake)); // Perdeu apenas o stake da casa que perdeu
-          } else if (bet1.result === "won" && bet2.result === "won") {
-            actualProfit = (parseFloat(String(bet1.stake)) * parseFloat(String(bet1.odd)) + parseFloat(String(bet2.stake)) * parseFloat(String(bet2.odd))) - (parseFloat(String(bet1.stake)) + parseFloat(String(bet2.stake)));
-          } else if (bet1.result === "lost" && bet2.result === "lost") {
-            actualProfit = -(parseFloat(String(bet1.stake)) + parseFloat(String(bet2.stake)));
-          } else if (bet1.result === "returned" && bet2.result === "returned") {
-            actualProfit = 0;
-          }
+          // Helper function to calculate return for each bet based on result
+          const calculateReturn = (bet: typeof bet1): number => {
+            const stake = parseFloat(String(bet.stake));
+            const odd = parseFloat(String(bet.odd));
+            
+            switch (bet.result) {
+              case "won":
+                return stake * odd;
+              case "lost":
+                return 0;
+              case "returned":
+                return stake;
+              case "half_won":
+                // Half stake at odd + half stake returned
+                return (stake / 2) * odd + (stake / 2);
+              case "half_returned":
+                // Half stake returned, half lost
+                return stake / 2;
+              default:
+                return 0;
+            }
+          };
+          
+          // Calculate total return and invested
+          const return1 = calculateReturn(bet1);
+          const return2 = calculateReturn(bet2);
+          const totalReturn = return1 + return2;
+          const totalInvested = parseFloat(String(bet1.stake)) + parseFloat(String(bet2.stake));
+          const actualProfit = totalReturn - totalInvested;
           
           // Update both bets with the calculated actual profit
           await storage.updateBet(bet1.id, { actualProfit: String(actualProfit) });
