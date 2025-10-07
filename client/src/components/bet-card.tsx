@@ -32,6 +32,7 @@ interface BetData {
   odd: number;
   stake: number;
   potentialProfit: number;
+  actualProfit?: number | null;
   result?: "won" | "lost" | "returned" | "half_won" | "half_returned";
 }
 
