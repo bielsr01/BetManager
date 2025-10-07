@@ -74,3 +74,10 @@ Preferred communication style: Simple, everyday language.
 - Client-side processing using jsQR library for instant results
 - Clean interface with image preview, extracted text display, and copy-to-clipboard functionality
 - No server processing required, ensuring fast and efficient QR code reading
+
+**Decimal Precision Update (October 2025)**: Enhanced odds precision to support 3 decimal places:
+- Updated `bets.odd` column from `numeric(8,2)` to `numeric(8,3)` using safe ALTER TABLE command
+- System now supports odds like 1.875, 2.125, etc.
+- CRITICAL: Migration performed via direct SQL ALTER TABLE (non-destructive) to avoid data loss
+- NEVER use `npm run db:push --force` as it deletes the session table and causes data corruption
+- All 206 existing bets preserved during migration
