@@ -218,7 +218,7 @@ export function BetCard({
             </div>
             <div>
               <span className="text-muted-foreground">Odd</span>
-              <p className="font-medium">{Number(bet1.odd).toFixed(3)}</p>
+              <p className="font-medium">{bet1.odd}</p>
             </div>
             <div>
               <span className="text-muted-foreground">Stake</span>
@@ -284,7 +284,7 @@ export function BetCard({
             </div>
             <div>
               <span className="text-muted-foreground">Odd</span>
-              <p className="font-medium">{Number(bet2.odd).toFixed(3)}</p>
+              <p className="font-medium">{bet2.odd}</p>
             </div>
             <div>
               <span className="text-muted-foreground">Stake</span>
