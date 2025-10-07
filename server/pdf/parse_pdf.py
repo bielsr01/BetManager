@@ -526,8 +526,6 @@ def processar_aposta_completa(texto_aposta, casa_aposta):
     # === EXTRAÇÃO DE ODD ===
     # A odd geralmente é o último número decimal antes do símbolo/stake
     # e está no range típico de 1.0 a 50.0
-    # IMPORTANTE: Preserva casas decimais exatas do PDF (2 ou 3 casas)
-    # Usa float() apenas para validar, mas retorna o float direto para preservar precisão
     numeros_antes = re.findall(r'\d+\.\d+', parte_antes_simbolo)
     odd = None
     
@@ -537,7 +535,6 @@ def processar_aposta_completa(texto_aposta, casa_aposta):
         for num_str in reversed(numeros_antes):
             num = float(num_str)
             if 1.0 <= num <= 50.0:
-                # Retorna float direto - PostgreSQL decimal(8,3) preservará casas decimais
                 odd = num
                 break
         

@@ -51,7 +51,7 @@ Preferred communication style: Simple, everyday language.
 
 **Progressive Enhancement**: The application starts with core functionality (manual data entry) and enhances with OCR automation. All features remain accessible even if OCR services are unavailable.
 
-**Financial Precision**: All monetary calculations use decimal data types with specific precision (10,2 for amounts, 8,3 for odds) to prevent floating-point arithmetic errors in financial calculations. Odds support up to 3 decimal places to accurately capture betting odds that come in formats like 2.125 or 1.850.
+**Financial Precision**: All monetary calculations use decimal data types with specific precision (10,2 for amounts, 8,2 for odds) to prevent floating-point arithmetic errors in financial calculations.
 
 **Responsive Design**: Mobile-first approach with collapsible sidebar navigation and touch-friendly interfaces for bet management on various devices.
 
@@ -74,10 +74,3 @@ Preferred communication style: Simple, everyday language.
 - Client-side processing using jsQR library for instant results
 - Clean interface with image preview, extracted text display, and copy-to-clipboard functionality
 - No server processing required, ensuring fast and efficient QR code reading
-
-**3-Decimal Odds Support (October 2025)**: Enhanced odds precision to support up to 3 decimal places:
-- Database schema updated: `odd` column changed from `decimal(8,2)` to `decimal(8,3)`
-- Form inputs updated: bet form odd fields now accept `step="0.001"` for precise entry
-- OCR preservation: PDF parser already preserves original decimal precision using Python's `float()` 
-- Display flexibility: System displays odds exactly as entered (2 or 3 decimals) without forced formatting
-- Backward compatible: Existing 2-decimal odds continue to work normally
