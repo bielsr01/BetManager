@@ -13,7 +13,7 @@ import type {
   User,
   InsertUser
 } from "@shared/schema";
-import { eq, desc, inArray } from "drizzle-orm";
+import { eq, desc, inArray, asc } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
@@ -196,13 +196,15 @@ class DatabaseStorage implements IStorage {
     }
     
     // Query 2: Get ALL bets for ALL sets in a single batched query
+    // ORDER BY garante ordem determinística (createdAt + id como critério de desempate)
     const setIds = sets.map(set => set.id);
     const allBets = await db
       .select()
       .from(bets)
       .innerJoin(bettingHouses, eq(bets.bettingHouseId, bettingHouses.id))
       .innerJoin(accountHolders, eq(bettingHouses.accountHolderId, accountHolders.id))
-      .where(inArray(bets.surebetSetId, setIds));
+      .where(inArray(bets.surebetSetId, setIds))
+      .orderBy(asc(bets.createdAt), asc(bets.id));
     
     // Group bets by set ID in memory
     const betsBySetId = new Map<string, any[]>();
@@ -242,9 +244,8 @@ class DatabaseStorage implements IStorage {
     };
     
     const result: SurebetSetWithBets[] = sets.map(set => {
-      // Ordenar apostas por createdAt para manter ordem consistente
-      const setBets = (betsBySetId.get(set.id) || [])
-        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      // SQL já ordena - não reordenar aqui
+      const setBets = betsBySetId.get(set.id) || [];
       
       return {
         ...set,
@@ -273,7 +274,8 @@ class DatabaseStorage implements IStorage {
       .from(bets)
       .innerJoin(bettingHouses, eq(bets.bettingHouseId, bettingHouses.id))
       .innerJoin(accountHolders, eq(bettingHouses.accountHolderId, accountHolders.id))
-      .where(eq(bets.surebetSetId, set.id));
+      .where(eq(bets.surebetSetId, set.id))
+      .orderBy(asc(bets.createdAt), asc(bets.id));
 
     // Helper para converter Date para ISO string sem conversão de timezone
     const formatDateToISO = (date: Date | string | null): string | null => {
@@ -290,14 +292,8 @@ class DatabaseStorage implements IStorage {
       return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.000Z`;
     };
 
-    // Ordenar apostas por createdAt para manter ordem consistente
-    const formattedBets = setBets
-      .sort((a, b) => {
-        const timeA = a.bets.createdAt ? new Date(a.bets.createdAt).getTime() : 0;
-        const timeB = b.bets.createdAt ? new Date(b.bets.createdAt).getTime() : 0;
-        return timeA - timeB;
-      })
-      .map(row => ({
+    // SQL já ordena - não reordenar aqui
+    const formattedBets = setBets.map(row => ({
         ...row.bets,
         createdAt: formatDateToISO(row.bets.createdAt),
         bettingHouse: {
