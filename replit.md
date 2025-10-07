@@ -67,6 +67,7 @@ Preferred communication style: Simple, everyday language.
 - Interactive cumulative profit line chart using Recharts that plots daily accumulated profits over time, supporting both positive and negative values
 - Dynamic chart that responds to all filter selections
 - Removed all bet detail cards and management features from Dashboard (now exclusively in Management page)
+- **Profit Consistency Fix (October 2025)**: Dashboard now uses `set.status === "resolved"` filter (matching Management page) instead of `set.bets.every(bet => bet.result)` to ensure identical profit calculations across both pages. Both Dashboard and Management now display exactly the same profit totals using actualProfit from database.
 
 **QR Code Reader Feature (October 2025)**: Added dedicated QR code reader page with fast, client-side processing:
 - New "Leitor QR" menu item in sidebar (below "Teste de OCR")
