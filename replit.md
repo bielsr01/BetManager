@@ -83,6 +83,12 @@ Preferred communication style: Simple, everyday language.
 - NEVER use `npm run db:push --force` as it deletes the session table and causes data corruption
 - All 206 existing bets preserved during migration
 
+**Bet Position Stability Fix (October 2025)**: Fixed issue where bets would swap positions (Aposta 1 ↔ Aposta 2) after resolving:
+- **Root Cause**: Frontend was reordering bets dynamically on each render, causing position instability after updates
+- **Solution**: Backend now enforces consistent ordering by `createdAt` in both `getSurebetSets` and `getSurebetSetById` endpoints
+- **Frontend**: Removed dynamic sorting, now trusts backend ordering completely
+- **Result**: Bets maintain stable positions within pairs - Aposta 1 (oldest) always stays Aposta 1, Aposta 2 (newest) always stays Aposta 2
+
 **Meio Green Feature (October 2025)**: Added "Meio Green" (half green) bet resolution functionality:
 - New light blue button in bet resolution section with dropdown options
 - Two resolution types: "Ganho" (half won) and "Devolvido" (half returned)
