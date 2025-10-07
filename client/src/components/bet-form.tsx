@@ -353,7 +353,7 @@ export function BetForm({
                         <Input 
                           {...field} 
                           type="number" 
-                          step="0.01"
+                          step="0.001"
                           placeholder="2.25"
                           data-testid="input-bet1-odd"
                         />
@@ -501,7 +501,7 @@ export function BetForm({
                         <Input 
                           {...field} 
                           type="number" 
-                          step="0.01"
+                          step="0.001"
                           placeholder="2.25"
                           data-testid="input-bet2-odd"
                         />
