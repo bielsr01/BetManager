@@ -57,7 +57,7 @@ export const bets = pgTable("bets", {
   odd: decimal("odd", { precision: 8, scale: 3 }).notNull(),
   stake: decimal("stake", { precision: 10, scale: 2 }).notNull(),
   potentialProfit: decimal("potential_profit", { precision: 10, scale: 2 }).notNull(),
-  result: text("result"), // "won", "lost", "returned", null for pending
+  result: text("result"), // "won", "lost", "returned", "half_won", "half_returned", null for pending
   actualProfit: decimal("actual_profit", { precision: 10, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow(),
 });
