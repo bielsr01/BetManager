@@ -122,41 +122,12 @@ export default function Dashboard() {
   const totalProfitResolved = filteredBets
     .filter(set => set.bets.every(bet => bet.result))
     .reduce((acc, set) => {
-      const sortedBets = [...set.bets].sort((a, b) => 
-        new Date(a.createdAt!).getTime() - new Date(b.createdAt!).getTime()
-      );
-      const bet1 = sortedBets[0];
-      const bet2 = sortedBets[1];
-      
-      if (!bet1 || !bet2 || !bet1.result || !bet2.result) return acc;
-
-      let profit = 0;
-      const stake1 = parseFloat(bet1.stake);
-      const stake2 = parseFloat(bet2.stake);
-      const odd1 = parseFloat(bet1.odd);
-      const odd2 = parseFloat(bet2.odd);
-
-      if (bet1.result === "won" && bet2.result === "lost") {
-        profit = (stake1 * odd1) - stake2 - stake1;
-      } else if (bet2.result === "won" && bet1.result === "lost") {
-        profit = (stake2 * odd2) - stake1 - stake2;
-      } else if (bet1.result === "won" && bet2.result === "returned") {
-        profit = (stake1 * odd1) - stake1 + stake2;
-      } else if (bet2.result === "won" && bet1.result === "returned") {
-        profit = (stake2 * odd2) - stake2 + stake1;
-      } else if (bet1.result === "lost" && bet2.result === "returned") {
-        profit = -stake1;
-      } else if (bet2.result === "lost" && bet1.result === "returned") {
-        profit = -stake2;
-      } else if (bet1.result === "won" && bet2.result === "won") {
-        profit = (stake1 * odd1 + stake2 * odd2) - (stake1 + stake2);
-      } else if (bet1.result === "lost" && bet2.result === "lost") {
-        profit = -(stake1 + stake2);
-      } else if (bet1.result === "returned" && bet2.result === "returned") {
-        profit = 0;
+      // Use actualProfit from database (both bets have same value)
+      const firstBet = set.bets[0];
+      if (firstBet?.actualProfit !== undefined && firstBet?.actualProfit !== null) {
+        return acc + parseFloat(String(firstBet.actualProfit));
       }
-
-      return acc + profit;
+      return acc;
     }, 0);
 
   const totalProfitPending = filteredBets
@@ -176,41 +147,11 @@ export default function Dashboard() {
     const resolvedBets = filteredBets
       .filter(set => set.bets.every(bet => bet.result))
       .map(set => {
-        const sortedBets = [...set.bets].sort((a, b) => {
-          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return dateA - dateB;
-        });
-        const bet1 = sortedBets[0];
-        const bet2 = sortedBets[1];
-        
-        let profit = 0;
-        if (bet1 && bet2 && bet1.result && bet2.result) {
-          const stake1 = parseFloat(bet1.stake);
-          const stake2 = parseFloat(bet2.stake);
-          const odd1 = parseFloat(bet1.odd);
-          const odd2 = parseFloat(bet2.odd);
-
-          if (bet1.result === "won" && bet2.result === "lost") {
-            profit = (stake1 * odd1) - stake2 - stake1;
-          } else if (bet2.result === "won" && bet1.result === "lost") {
-            profit = (stake2 * odd2) - stake1 - stake2;
-          } else if (bet1.result === "won" && bet2.result === "returned") {
-            profit = (stake1 * odd1) - stake1 + stake2;
-          } else if (bet2.result === "won" && bet1.result === "returned") {
-            profit = (stake2 * odd2) - stake2 + stake1;
-          } else if (bet1.result === "lost" && bet2.result === "returned") {
-            profit = -stake1;
-          } else if (bet2.result === "lost" && bet1.result === "returned") {
-            profit = -stake2;
-          } else if (bet1.result === "won" && bet2.result === "won") {
-            profit = (stake1 * odd1 + stake2 * odd2) - (stake1 + stake2);
-          } else if (bet1.result === "lost" && bet2.result === "lost") {
-            profit = -(stake1 + stake2);
-          } else if (bet1.result === "returned" && bet2.result === "returned") {
-            profit = 0;
-          }
-        }
+        // Use actualProfit from database
+        const firstBet = set.bets[0];
+        const profit = (firstBet?.actualProfit !== undefined && firstBet?.actualProfit !== null) 
+          ? parseFloat(String(firstBet.actualProfit)) 
+          : 0;
 
         const insertionDate = set.createdAt ? new Date(set.createdAt) : new Date();
         const year = insertionDate.getFullYear();
