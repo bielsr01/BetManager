@@ -81,3 +81,16 @@ Preferred communication style: Simple, everyday language.
 - CRITICAL: Migration performed via direct SQL ALTER TABLE (non-destructive) to avoid data loss
 - NEVER use `npm run db:push --force` as it deletes the session table and causes data corruption
 - All 206 existing bets preserved during migration
+
+**Meio Green Feature (October 2025)**: Added "Meio Green" (half green) bet resolution functionality:
+- New light blue button in bet resolution section with dropdown options
+- Two resolution types: "Ganho" (half won) and "Devolvido" (half returned)
+- **Meio Green - Ganho**: Uses half stake at the odd, half is returned
+  - Calculation: `(stake/2 × odd) - stake/2`
+  - Example: stake=100, odd=2.0 → profit = (50 × 2) - 50 = 50
+- **Meio Green - Devolvido**: Half stake returned (no profit/loss on that half)
+  - Calculation: half stake amount is simply returned
+  - Example: stake=100 → R$50 returned (neutral)
+- Automatic profit recalculation for all "Meio Green" scenarios
+- New status badges: "Meio Green - Ganho" (sky blue) and "Meio Green - Devolvido" (light sky blue)
+- Supports all combinations with won/lost/returned/half_won/half_returned bets
