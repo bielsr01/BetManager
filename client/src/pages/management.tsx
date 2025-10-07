@@ -94,7 +94,7 @@ export default function Management() {
 
   // Mutation for updating bet results
   const updateBetMutation = useMutation({
-    mutationFn: async ({ betId, result }: { betId: string; result: "won" | "lost" | "returned" }) => {
+    mutationFn: async ({ betId, result }: { betId: string; result: "won" | "lost" | "returned" | "half_won" | "half_returned" }) => {
       const response = await apiRequest("PUT", `/api/bets/${betId}`, { result });
       return response.json();
     },
@@ -350,7 +350,8 @@ export default function Management() {
           odd: Number(sortedBets[0]?.odd) || 0,
           stake: Number(sortedBets[0]?.stake) || 0,
           potentialProfit: Number(sortedBets[0]?.potentialProfit) || 0,
-          result: sortedBets[0]?.result as "won" | "lost" | "returned" | undefined,
+          actualProfit: sortedBets[0]?.actualProfit !== undefined && sortedBets[0]?.actualProfit !== null ? Number(sortedBets[0].actualProfit) : undefined,
+          result: sortedBets[0]?.result as "won" | "lost" | "returned" | "half_won" | "half_returned" | undefined,
         },
         bet2: {
           id: sortedBets[1]?.id || "",
@@ -361,7 +362,8 @@ export default function Management() {
           odd: Number(sortedBets[1]?.odd) || 0,
           stake: Number(sortedBets[1]?.stake) || 0,
           potentialProfit: Number(sortedBets[1]?.potentialProfit) || 0,
-          result: sortedBets[1]?.result as "won" | "lost" | "returned" | undefined,
+          actualProfit: sortedBets[1]?.actualProfit !== undefined && sortedBets[1]?.actualProfit !== null ? Number(sortedBets[1].actualProfit) : undefined,
+          result: sortedBets[1]?.result as "won" | "lost" | "returned" | "half_won" | "half_returned" | undefined,
         },
       };
     });
