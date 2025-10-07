@@ -2,8 +2,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "./status-badge";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, TrendingUp, Users, Check, Edit, Trash2, RotateCcw, Loader2 } from "lucide-react";
+import { Calendar, TrendingUp, Users, Check, Edit, Trash2, RotateCcw, Loader2, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // Função para formatar data sem conversão de timezone
 function formatEventDate(isoString: string): { date: string; time: string } {
@@ -26,7 +32,7 @@ interface BetData {
   odd: number;
   stake: number;
   potentialProfit: number;
-  result?: "won" | "lost" | "returned";
+  result?: "won" | "lost" | "returned" | "half_won" | "half_returned";
 }
 
 interface SurebetCardProps {
@@ -41,7 +47,7 @@ interface SurebetCardProps {
   isChecked: boolean;
   bet1: BetData;
   bet2: BetData;
-  onResolve: (betId: string, result: "won" | "lost" | "returned") => void;
+  onResolve: (betId: string, result: "won" | "lost" | "returned" | "half_won" | "half_returned") => void;
   onStatusChange?: (surebetSetId: string, isChecked: boolean) => void;
   onReset?: (surebetSetId: string) => void;
   onEdit?: (surebetSetId: string) => void;
@@ -104,6 +110,42 @@ export function BetCard({
     } else if (bet1.result === "returned" && bet2.result === "returned") {
       // Both returned: no profit or loss
       actualProfit = 0;
+    } else if (bet1.result === "half_won" && bet2.result === "lost") {
+      // Half Won + Lost: (half_stake × odd) - half_stake - lost_stake
+      actualProfit = ((bet1.stake / 2) * bet1.odd) - (bet1.stake / 2) - bet2.stake;
+    } else if (bet2.result === "half_won" && bet1.result === "lost") {
+      // Half Won + Lost: (half_stake × odd) - half_stake - lost_stake
+      actualProfit = ((bet2.stake / 2) * bet2.odd) - (bet2.stake / 2) - bet1.stake;
+    } else if (bet1.result === "half_returned" && bet2.result === "lost") {
+      // Half Returned + Lost: -lost_stake (half returned doesn't affect profit)
+      actualProfit = -bet2.stake;
+    } else if (bet2.result === "half_returned" && bet1.result === "lost") {
+      // Half Returned + Lost: -lost_stake (half returned doesn't affect profit)
+      actualProfit = -bet1.stake;
+    } else if (bet1.result === "half_won" && bet2.result === "returned") {
+      // Half Won + Returned: (half_stake × odd) - half_stake
+      actualProfit = ((bet1.stake / 2) * bet1.odd) - (bet1.stake / 2);
+    } else if (bet2.result === "half_won" && bet1.result === "returned") {
+      // Half Won + Returned: (half_stake × odd) - half_stake
+      actualProfit = ((bet2.stake / 2) * bet2.odd) - (bet2.stake / 2);
+    } else if (bet1.result === "half_returned" && bet2.result === "returned") {
+      // Both partial returns: no profit or loss
+      actualProfit = 0;
+    } else if (bet1.result === "half_won" && bet2.result === "half_returned") {
+      // Half Won + Half Returned: (half_stake × odd) - half_stake
+      actualProfit = ((bet1.stake / 2) * bet1.odd) - (bet1.stake / 2);
+    } else if (bet2.result === "half_won" && bet1.result === "half_returned") {
+      // Half Won + Half Returned: (half_stake × odd) - half_stake
+      actualProfit = ((bet2.stake / 2) * bet2.odd) - (bet2.stake / 2);
+    } else if (bet1.result === "won" && bet2.result === "half_returned") {
+      // Won + Half Returned: (winning_stake × odd) - winning_stake
+      actualProfit = (bet1.stake * bet1.odd) - bet1.stake;
+    } else if (bet2.result === "won" && bet1.result === "half_returned") {
+      // Won + Half Returned: (winning_stake × odd) - winning_stake
+      actualProfit = (bet2.stake * bet2.odd) - bet2.stake;
+    } else if (bet1.result === "half_won" && bet2.result === "half_won") {
+      // Both Half Won: sum of half profits
+      actualProfit = ((bet1.stake / 2) * bet1.odd) - (bet1.stake / 2) + ((bet2.stake / 2) * bet2.odd) - (bet2.stake / 2);
     }
   }
 
@@ -260,6 +302,32 @@ export function BetCard({
               >
                 Devolvido
               </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    className="bg-sky-400 hover:bg-sky-500 text-white"
+                    data-testid={`button-half-green-${bet1.id}`}
+                  >
+                    Meio Green
+                    <ChevronDown className="w-3 h-3 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem
+                    onClick={() => onResolve(bet1.id, "half_won")}
+                    data-testid={`button-half-won-${bet1.id}`}
+                  >
+                    Ganho
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onResolve(bet1.id, "half_returned")}
+                    data-testid={`button-half-returned-${bet1.id}`}
+                  >
+                    Devolvido
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           )}
         </div>
@@ -326,6 +394,32 @@ export function BetCard({
               >
                 Devolvido
               </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    className="bg-sky-400 hover:bg-sky-500 text-white"
+                    data-testid={`button-half-green-${bet2.id}`}
+                  >
+                    Meio Green
+                    <ChevronDown className="w-3 h-3 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem
+                    onClick={() => onResolve(bet2.id, "half_won")}
+                    data-testid={`button-half-won-${bet2.id}`}
+                  >
+                    Ganho
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onResolve(bet2.id, "half_returned")}
+                    data-testid={`button-half-returned-${bet2.id}`}
+                  >
+                    Devolvido
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           )}
         </div>
