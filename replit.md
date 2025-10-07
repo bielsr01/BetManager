@@ -105,4 +105,7 @@ Preferred communication style: Simple, everyday language.
   - **Solution**: All components now prioritize actualProfit from backend (already calculated correctly)
   - Added fallback calculation in BetCard matching backend logic for backward compatibility
   - **Auto-update**: All profit metrics (Total, Resolved, Pending) now update automatically when bets are resolved
+    - Mutation injects actualProfit from backend immediately via onSuccess handler
+    - Both bets in surebet set receive synced actualProfit value
+    - UI updates instantly without waiting for refetch
   - Both backend and frontend now use consistent formula: (return1 + return2) - (stake1 + stake2)
