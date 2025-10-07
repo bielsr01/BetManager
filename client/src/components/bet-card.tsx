@@ -141,11 +141,15 @@ export function BetCard({
       // Both partial returns: no profit or loss
       actualProfit = 0;
     } else if (bet1.result === "half_won" && bet2.result === "half_returned") {
-      // Half Won + Half Returned: (half_stake × odd) - half_stake
-      actualProfit = ((bet1.stake / 2) * bet1.odd) - (bet1.stake / 2);
+      // Half Won + Half Returned: calculate returns for each bet then subtract total invested
+      const return1 = (bet1.stake / 2) * bet1.odd + (bet1.stake / 2); // Half won: (half × odd) + half returned
+      const return2 = bet2.stake / 2; // Half returned: only half returned
+      actualProfit = (return1 + return2) - (bet1.stake + bet2.stake);
     } else if (bet2.result === "half_won" && bet1.result === "half_returned") {
-      // Half Won + Half Returned: (half_stake × odd) - half_stake
-      actualProfit = ((bet2.stake / 2) * bet2.odd) - (bet2.stake / 2);
+      // Half Won + Half Returned: calculate returns for each bet then subtract total invested
+      const return1 = bet1.stake / 2; // Half returned: only half returned
+      const return2 = (bet2.stake / 2) * bet2.odd + (bet2.stake / 2); // Half won: (half × odd) + half returned
+      actualProfit = (return1 + return2) - (bet1.stake + bet2.stake);
     } else if (bet1.result === "won" && bet2.result === "half_returned") {
       // Won + Half Returned: (winning_stake × odd) - winning_stake
       actualProfit = (bet1.stake * bet1.odd) - bet1.stake;
