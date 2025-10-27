@@ -551,20 +551,29 @@ def processar_aposta_completa(texto_aposta, casa_aposta):
     if stake_matches:
         stake = float(stake_matches[0][0])
     
-    # Profit é geralmente o último número pequeno (< 100) na linha
+    # Profit é o último número após stake (geralmente < 1000 para lucros individuais)
+    # Extração mais robusta: procura o último número DEPOIS do stake
     todos_numeros = re.findall(r'\d+\.\d+', texto_aposta)
-    for num_str in reversed(todos_numeros):
-        num = float(num_str)
-        if num != stake and num != odd and num < 100:
-            profit = num
-            break
     
-    # Se não encontrou profit, busca especificamente após stake
-    if not profit and stake:
-        texto_pos_stake = texto_aposta[texto_aposta.find(str(stake)) + len(str(stake)):]
-        numeros_pos_stake = re.findall(r'\d+\.\d+', texto_pos_stake)
-        if numeros_pos_stake:
-            profit = float(numeros_pos_stake[-1])
+    # Primeiro tenta buscar especificamente após stake (mais preciso)
+    if stake:
+        # Encontra posição do stake no texto
+        stake_str = str(stake).replace('.', r'\.')
+        stake_pattern = re.search(stake_str, texto_aposta)
+        if stake_pattern:
+            texto_pos_stake = texto_aposta[stake_pattern.end():]
+            numeros_pos_stake = re.findall(r'\d+\.\d+', texto_pos_stake)
+            if numeros_pos_stake:
+                # Pega o último número após o stake (profit geralmente vem por último)
+                profit = float(numeros_pos_stake[-1])
+    
+    # Fallback: busca último número pequeno (< 1000) que não seja stake nem odd
+    if not profit:
+        for num_str in reversed(todos_numeros):
+            num = float(num_str)
+            if num != stake and num != odd and num < 1000:
+                profit = num
+                break
     
     # === EXTRAÇÃO DO TIPO DE APOSTA ===
     # Extrai tipo de TODA a linha, não apenas da parte antes de USD
@@ -576,27 +585,41 @@ def processar_aposta_completa(texto_aposta, casa_aposta):
     palavras = tipo_completo.split()
     palavras_filtradas = []
     
+    # Palavras-chave que indicam que o próximo número faz parte do tipo de aposta
+    palavras_chave_tipo = ['acima', 'abaixo', 'total', 'over', 'under', 'mais', 'menos', 
+                           'primeiro', 'segundo', 'tempo', 'extra', '1º', '2º']
+    
     for i, palavra in enumerate(palavras):
         # Remove moedas
         if palavra in ['USD', 'BRL']:
             continue
-            
-        # Remove números negativos (profits negativos como -0.88)
+        
+        # Verifica se a palavra anterior é uma palavra-chave de tipo de aposta
+        palavra_anterior_eh_chave = False
+        if i > 0:
+            palavra_anterior_lower = palavras[i-1].lower().replace('≥', '').replace('≤', '').strip()
+            palavra_anterior_eh_chave = any(chave in palavra_anterior_lower for chave in palavras_chave_tipo)
+        
+        # Verifica se é número
         if re.match(r'^-?\d+\.?\d*$', palavra):
             num = float(palavra)
             
+            # SEMPRE preserva números que vêm depois de palavras-chave (ex: "Acima 27.5")
+            if palavra_anterior_eh_chave:
+                palavras_filtradas.append(palavra)
+                continue
+            
             # Remove se for odd, stake ou profit (com tolerância)
-            if (odd and abs(num - odd) < 0.01) or (stake and abs(num - stake) < 0.01) or (profit and abs(num - profit) < 0.01):
+            if (odd and abs(num - odd) < 0.01):
                 continue
+            if (stake and abs(num - stake) < 0.01):
+                continue
+            if (profit and abs(num - profit) < 0.01):
+                continue
+            
             # Remove se for negativo (profit negativo)
-            elif num < 0:
+            if num < 0:
                 continue
-            # MUDANÇA: Só remove números grandes (>100) se não houver palavra-chave antes
-            # Isso preserva "Total ≥180.5", "Acima 180.5", etc.
-            elif num > 100:
-                # Verifica se a palavra anterior é uma palavra-chave de tipo de aposta
-                if i > 0 and not re.search(r'(acima|abaixo|total|over|under|≥|≤|>|<)', palavras[i-1].lower()):
-                    continue  # Remove apenas se não for parte do tipo
         
         palavras_filtradas.append(palavra)
     

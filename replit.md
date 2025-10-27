@@ -39,13 +39,17 @@ Preferred communication style: Simple, everyday language.
 - **Access Control**: Route-level protection (implementation pending)
 
 ### External Service Integrations
-- **OCR Processing**: Mistral AI API for automated text extraction from betting screenshots
+- **OCR Processing**: pdfplumber Python library for automated PDF text extraction from betting screenshots
+  - **October 2025 Enhancement**: Improved profit extraction to capture values up to 1000 (previously limited to 100)
+  - **October 2025 Enhancement**: Enhanced bet type parsing to preserve numbers after keywords (e.g., "Acima 27.5", "Abaixo 27.5")
+  - Profit now anchors on stake location for precise extraction
+  - Bet types preserve all numbers following keywords: acima, abaixo, total, over, under, mais, menos, primeiro, segundo, tempo, extra, 1º, 2º
 - **Image Processing**: Base64 encoding for API transmission with client-side preview
 - **Development Tools**: Replit integration with runtime error overlay and cartographer for debugging
 
 ### Key Architectural Decisions
 
-**OCR-First Data Entry**: The system prioritizes automated data extraction over manual entry, reducing human error and processing time. The workflow begins with image upload, processes through Mistral AI's OCR, then presents editable fields for user verification.
+**OCR-First Data Entry**: The system prioritizes automated data extraction over manual entry, reducing human error and processing time. The workflow begins with PDF upload, processes through pdfplumber Python library for text extraction, then presents editable fields for user verification.
 
 **Dual-Bet Structure**: Each surebet operation is modeled as a set containing exactly two opposing bets across different betting houses. This structure enforces the surebet concept where one bet must win while the other loses, guaranteeing profit regardless of outcome.
 
