@@ -96,7 +96,7 @@ Preferred communication style: Simple, everyday language.
 - All numeric fields support proper decimal precision (odds: 3 decimals, stakes/profits: 2 decimals)
 - Bulk creation button adds all successfully extracted bets to the system in one operation
 - Comprehensive error handling with individual failure tracking and user feedback
-- Auto-redirect to Management page after successful batch creation
+- **Auto-reset workflow**: After successful batch creation, automatically clears all data and returns to empty upload screen for next batch (no navigation/404 errors)
 - Full validation ensures only valid bets with selected betting houses are created
 
 **Decimal Precision Update (October 2025)**: Enhanced odds precision to support 3 decimal places:

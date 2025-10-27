@@ -324,19 +324,24 @@ export default function BatchUpload() {
 
       if (created > 0) {
         toast({
-          title: "Apostas criadas com sucesso",
+          title: "✅ Apostas criadas com sucesso!",
           description: `${created} aposta(s) adicionada(s) ao sistema${failed > 0 ? `. ${failed} falhou(aram)` : ''}`,
         });
 
+        // Reset para tela inicial após sucesso
         if (failed === 0) {
-          setTimeout(() => navigate('/management'), 1500);
+          setTimeout(() => {
+            setFiles([]);
+            setExtractedBets([]);
+            setEditableData({});
+          }, 1500);
         }
       }
 
       if (errors.length > 0 && failed > 0) {
         console.error('Erros na criação:', errors);
         toast({
-          title: "Alguns erros ocorreram",
+          title: "⚠️ Alguns erros ocorreram",
           description: `${failed} aposta(s) não puderam ser criadas. Verifique o console.`,
           variant: "destructive",
         });
