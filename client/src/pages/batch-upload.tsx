@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Upload, FileText, CheckCircle, XCircle, Loader2, Package } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import type { BettingHouse } from "@shared/schema";
+import type { BettingHouse, AccountHolder } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 
@@ -46,14 +46,19 @@ interface EditableBetData {
   league: string;
   teamA: string;
   teamB: string;
+  profitPercentage: string;
+  bet1House: string;
   bet1HouseId: string;
-  bet1Odd: string;
   bet1Type: string;
+  bet1Odd: string;
   bet1Stake: string;
+  bet1Profit: string;
+  bet2House: string;
   bet2HouseId: string;
-  bet2Odd: string;
   bet2Type: string;
+  bet2Odd: string;
   bet2Stake: string;
+  bet2Profit: string;
 }
 
 export default function BatchUpload() {
@@ -65,9 +70,32 @@ export default function BatchUpload() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
-  const { data: bettingHouses } = useQuery<BettingHouse[]>({
+  const { data: holders = [], isLoading: holdersLoading } = useQuery<AccountHolder[]>({
+    queryKey: ["/api/account-holders"],
+  });
+
+  const { data: allHouses = [], isLoading: housesLoading } = useQuery<BettingHouse[]>({
     queryKey: ['/api/betting-houses'],
   });
+
+  const isDataLoading = holdersLoading || housesLoading;
+
+  // Create combined options for dropdowns: "Titular - Casa"
+  const houseOptions = allHouses
+    .map(house => {
+      const holder = holders.find(h => h.id === house.accountHolderId);
+      return {
+        id: house.id,
+        name: house.name,
+        holderName: holder?.name || "Titular não encontrado",
+        displayLabel: `${holder?.name || "Titular não encontrado"} - ${house.name}`,
+      };
+    })
+    .sort((a, b) => {
+      const holderCompare = a.holderName.localeCompare(b.holderName);
+      if (holderCompare !== 0) return holderCompare;
+      return a.name.localeCompare(b.name);
+    });
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -89,11 +117,11 @@ export default function BatchUpload() {
   };
 
   const findBettingHouse = (houseName: string) => {
-    if (!bettingHouses) return null;
+    if (!allHouses) return null;
     
     const cleanName = houseName.replace(/\s*\([A-Z]{2}\)\s*/, '').trim().toLowerCase();
     
-    return bettingHouses.find(house => {
+    return allHouses.find(house => {
       const houseNameClean = house.name.toLowerCase();
       return houseNameClean.includes(cleanName) || cleanName.includes(houseNameClean);
     });
@@ -142,14 +170,19 @@ export default function BatchUpload() {
               league: bet.data.league,
               teamA: bet.data.teamA,
               teamB: bet.data.teamB,
+              profitPercentage: bet.data.profitPercentage.toString(),
+              bet1House: bet.data.bet1.house,
               bet1HouseId: house1?.id || '',
-              bet1Odd: bet.data.bet1.odd.toString(),
               bet1Type: bet.data.bet1.type,
+              bet1Odd: bet.data.bet1.odd.toString(),
               bet1Stake: bet.data.bet1.stake.toString(),
+              bet1Profit: bet.data.bet1.profit.toString(),
+              bet2House: bet.data.bet2.house,
               bet2HouseId: house2?.id || '',
-              bet2Odd: bet.data.bet2.odd.toString(),
               bet2Type: bet.data.bet2.type,
+              bet2Odd: bet.data.bet2.odd.toString(),
               bet2Stake: bet.data.bet2.stake.toString(),
+              bet2Profit: bet.data.bet2.profit.toString(),
             };
           }
         });
@@ -181,22 +214,9 @@ export default function BatchUpload() {
     }
   };
 
-  const formatDateForDisplay = (isoDate: string): string => {
-    if (!isoDate) return 'Data não disponível';
-    try {
-      const [datePart, timePart] = isoDate.split('T');
-      const [year, month, day] = datePart.split('-');
-      const time = timePart || '00:00';
-      return `${day}/${month}/${year} ${time}`;
-    } catch {
-      return isoDate;
-    }
-  };
-
   const formatDateForInput = (isoDate: string): string => {
     if (!isoDate) return '';
     try {
-      // Remove seconds and milliseconds for datetime-local input
       return isoDate.substring(0, 16);
     } catch {
       return '';
@@ -211,28 +231,6 @@ export default function BatchUpload() {
         [field]: value
       }
     }));
-  };
-
-  const calculateProfit = (data: EditableBetData) => {
-    const odd1 = parseFloat(data.bet1Odd) || 0;
-    const stake1 = parseFloat(data.bet1Stake) || 0;
-    const odd2 = parseFloat(data.bet2Odd) || 0;
-    const stake2 = parseFloat(data.bet2Stake) || 0;
-
-    const totalInvested = stake1 + stake2;
-    const return1 = stake1 * odd1;
-    const return2 = stake2 * odd2;
-    const minReturn = Math.min(return1, return2);
-    const profit = minReturn - totalInvested;
-    const profitPercentage = totalInvested > 0 ? (profit / totalInvested) * 100 : 0;
-
-    return {
-      profit,
-      profitPercentage,
-      totalInvested,
-      return1,
-      return2
-    };
   };
 
   const createAllBets = async () => {
@@ -267,50 +265,55 @@ export default function BatchUpload() {
           }
 
           if (!data.bet1HouseId || !data.bet2HouseId) {
-            errors.push(`${bet.fileName}: Selecione as casas de apostas`);
+            errors.push(`${bet.fileName}: Selecione os titulares de conta`);
             failed++;
             continue;
           }
 
-          const odd1 = parseFloat(data.bet1Odd);
-          const stake1 = parseFloat(data.bet1Stake);
-          const odd2 = parseFloat(data.bet2Odd);
-          const stake2 = parseFloat(data.bet2Stake);
-
-          // Calculate potential profit for each bet
-          const profitPotential1 = (stake1 * odd1) - stake1 - stake2;
-          const profitPotential2 = (stake2 * odd2) - stake2 - stake1;
-
-          const surebetPayload = {
-            surebetSet: {
-              eventDate: data.date,
-              sport: data.sport,
-              league: data.league,
-              teamA: data.teamA,
-              teamB: data.teamB,
-              status: 'pending' as const,
-            },
-            bets: [
-              {
-                bettingHouseId: data.bet1HouseId,
-                odd: data.bet1Odd.toString(),
-                betType: data.bet1Type,
-                stake: data.bet1Stake.toString(),
-                potentialProfit: profitPotential1.toString(),
-              },
-              {
-                bettingHouseId: data.bet2HouseId,
-                odd: data.bet2Odd.toString(),
-                betType: data.bet2Type,
-                stake: data.bet2Stake.toString(),
-                potentialProfit: profitPotential2.toString(),
-              }
-            ]
+          const surebetSetData = {
+            eventDate: data.date || null,
+            sport: data.sport,
+            league: data.league,
+            teamA: data.teamA,
+            teamB: data.teamB,
+            profitPercentage: data.profitPercentage.toString(),
+            status: "pending",
           };
 
-          await apiRequest('POST', '/api/surebet-sets', surebetPayload);
+          const bet1Data = {
+            betType: data.bet1Type,
+            odd: data.bet1Odd.toString(),
+            stake: data.bet1Stake.toString(),
+            potentialProfit: data.bet1Profit.toString(),
+            bettingHouseId: data.bet1HouseId,
+          };
 
-          created++;
+          const bet2Data = {
+            betType: data.bet2Type,
+            odd: data.bet2Odd.toString(),
+            stake: data.bet2Stake.toString(),
+            potentialProfit: data.bet2Profit.toString(),
+            bettingHouseId: data.bet2HouseId,
+          };
+
+          const response = await fetch('/api/surebet-sets', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              surebetSet: surebetSetData,
+              bets: [bet1Data, bet2Data],
+            }),
+          });
+
+          if (response.ok) {
+            created++;
+          } else {
+            const errorText = await response.text();
+            errors.push(`${bet.fileName}: ${errorText}`);
+            failed++;
+          }
         } catch (error) {
           errors.push(`${bet.fileName}: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
           failed++;
@@ -459,278 +462,311 @@ export default function BatchUpload() {
 
       {extractedBets.length > 0 && (
         <>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Apostas Extraídas</span>
-                <Badge variant="outline">
-                  {extractedBets.filter(b => b.success).length} / {extractedBets.length} sucesso
-                </Badge>
-              </CardTitle>
-              <CardDescription>
-                Revise e edite as apostas extraídas antes de adicioná-las ao sistema
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6 max-h-[600px] overflow-y-auto">
-                {extractedBets.map((bet, index) => (
-                  <Card
-                    key={index}
-                    className={bet.success ? "border-green-200 dark:border-green-900" : "border-red-200 dark:border-red-900"}
-                    data-testid={`extracted-bet-${index}`}
-                  >
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-2">
-                          {bet.success ? (
-                            <CheckCircle className="h-5 w-5 text-green-600" />
-                          ) : (
-                            <XCircle className="h-5 w-5 text-red-600" />
-                          )}
-                          <div>
-                            <p className="font-medium text-sm">{bet.fileName}</p>
+          <div className="space-y-6">
+            {extractedBets.map((bet, index) => (
+              <div key={index}>
+                {bet.success && bet.data && editableData[index] ? (
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                      <h2 className="text-xl font-semibold">{bet.fileName}</h2>
+                      <Badge variant="default">Sucesso</Badge>
+                    </div>
+
+                    {/* Event Information */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Informações do Evento</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor={`date-${index}`}>Data e Hora</Label>
+                            <Input
+                              id={`date-${index}`}
+                              type="datetime-local"
+                              value={formatDateForInput(editableData[index].date)}
+                              onChange={(e) => updateEditableField(index, 'date', e.target.value)}
+                              data-testid={`input-date-${index}`}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor={`profit-percentage-${index}`}>Lucro (%)</Label>
+                            <Input
+                              id={`profit-percentage-${index}`}
+                              type="number"
+                              step="0.01"
+                              value={editableData[index].profitPercentage}
+                              onChange={(e) => updateEditableField(index, 'profitPercentage', e.target.value)}
+                              data-testid={`input-profit-percentage-${index}`}
+                            />
                           </div>
                         </div>
-                        <Badge variant={bet.success ? "default" : "destructive"}>
-                          {bet.success ? "Sucesso" : "Erro"}
-                        </Badge>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor={`sport-${index}`}>Esporte</Label>
+                            <Input
+                              id={`sport-${index}`}
+                              value={editableData[index].sport}
+                              onChange={(e) => updateEditableField(index, 'sport', e.target.value)}
+                              data-testid={`input-sport-${index}`}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor={`league-${index}`}>Liga</Label>
+                            <Input
+                              id={`league-${index}`}
+                              value={editableData[index].league}
+                              onChange={(e) => updateEditableField(index, 'league', e.target.value)}
+                              data-testid={`input-league-${index}`}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor={`teamA-${index}`}>Time A</Label>
+                            <Input
+                              id={`teamA-${index}`}
+                              value={editableData[index].teamA}
+                              onChange={(e) => updateEditableField(index, 'teamA', e.target.value)}
+                              data-testid={`input-teamA-${index}`}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor={`teamB-${index}`}>Time B</Label>
+                            <Input
+                              id={`teamB-${index}`}
+                              value={editableData[index].teamB}
+                              onChange={(e) => updateEditableField(index, 'teamB', e.target.value)}
+                              data-testid={`input-teamB-${index}`}
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Bet 1 */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Aposta 1</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor={`bet1-house-${index}`}>Casa de Apostas</Label>
+                            <Input
+                              id={`bet1-house-${index}`}
+                              value={editableData[index].bet1House}
+                              onChange={(e) => updateEditableField(index, 'bet1House', e.target.value)}
+                              data-testid={`input-bet1-house-${index}`}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor={`bet1-type-${index}`}>Tipo</Label>
+                            <Input
+                              id={`bet1-type-${index}`}
+                              value={editableData[index].bet1Type}
+                              onChange={(e) => updateEditableField(index, 'bet1Type', e.target.value)}
+                              data-testid={`input-bet1-type-${index}`}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor={`bet1-house-id-${index}`}>Titular da Conta</Label>
+                            <Select
+                              value={editableData[index].bet1HouseId}
+                              onValueChange={(value) => updateEditableField(index, 'bet1HouseId', value)}
+                            >
+                              <SelectTrigger id={`bet1-house-id-${index}`} data-testid={`select-bet1-house-${index}`} disabled={isDataLoading}>
+                                <SelectValue placeholder={
+                                  isDataLoading 
+                                    ? "Carregando..." 
+                                    : houseOptions.length === 0 
+                                      ? "Nenhuma casa cadastrada" 
+                                      : "Selecionar titular"
+                                } />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {houseOptions.length === 0 && !isDataLoading ? (
+                                  <SelectItem value="no-houses" disabled>
+                                    Nenhuma casa de apostas cadastrada
+                                  </SelectItem>
+                                ) : (
+                                  houseOptions.map((option) => (
+                                    <SelectItem key={option.id} value={option.id}>
+                                      {option.displayLabel}
+                                    </SelectItem>
+                                  ))
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor={`bet1-odd-${index}`}>Odd</Label>
+                            <Input
+                              id={`bet1-odd-${index}`}
+                              type="number"
+                              step="0.001"
+                              value={editableData[index].bet1Odd}
+                              onChange={(e) => updateEditableField(index, 'bet1Odd', e.target.value)}
+                              data-testid={`input-bet1-odd-${index}`}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor={`bet1-stake-${index}`}>Stake (R$)</Label>
+                            <Input
+                              id={`bet1-stake-${index}`}
+                              type="number"
+                              step="0.01"
+                              value={editableData[index].bet1Stake}
+                              onChange={(e) => updateEditableField(index, 'bet1Stake', e.target.value)}
+                              data-testid={`input-bet1-stake-${index}`}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor={`bet1-profit-${index}`}>Lucro Potencial (R$)</Label>
+                            <Input
+                              id={`bet1-profit-${index}`}
+                              type="number"
+                              step="0.01"
+                              value={editableData[index].bet1Profit}
+                              onChange={(e) => updateEditableField(index, 'bet1Profit', e.target.value)}
+                              data-testid={`input-bet1-profit-${index}`}
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Bet 2 */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Aposta 2</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor={`bet2-house-${index}`}>Casa de Apostas</Label>
+                            <Input
+                              id={`bet2-house-${index}`}
+                              value={editableData[index].bet2House}
+                              onChange={(e) => updateEditableField(index, 'bet2House', e.target.value)}
+                              data-testid={`input-bet2-house-${index}`}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor={`bet2-type-${index}`}>Tipo</Label>
+                            <Input
+                              id={`bet2-type-${index}`}
+                              value={editableData[index].bet2Type}
+                              onChange={(e) => updateEditableField(index, 'bet2Type', e.target.value)}
+                              data-testid={`input-bet2-type-${index}`}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor={`bet2-house-id-${index}`}>Titular da Conta</Label>
+                            <Select
+                              value={editableData[index].bet2HouseId}
+                              onValueChange={(value) => updateEditableField(index, 'bet2HouseId', value)}
+                            >
+                              <SelectTrigger id={`bet2-house-id-${index}`} data-testid={`select-bet2-house-${index}`} disabled={isDataLoading}>
+                                <SelectValue placeholder={
+                                  isDataLoading 
+                                    ? "Carregando..." 
+                                    : houseOptions.length === 0 
+                                      ? "Nenhuma casa cadastrada" 
+                                      : "Selecionar titular"
+                                } />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {houseOptions.length === 0 && !isDataLoading ? (
+                                  <SelectItem value="no-houses" disabled>
+                                    Nenhuma casa de apostas cadastrada
+                                  </SelectItem>
+                                ) : (
+                                  houseOptions.map((option) => (
+                                    <SelectItem key={option.id} value={option.id}>
+                                      {option.displayLabel}
+                                    </SelectItem>
+                                  ))
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor={`bet2-odd-${index}`}>Odd</Label>
+                            <Input
+                              id={`bet2-odd-${index}`}
+                              type="number"
+                              step="0.001"
+                              value={editableData[index].bet2Odd}
+                              onChange={(e) => updateEditableField(index, 'bet2Odd', e.target.value)}
+                              data-testid={`input-bet2-odd-${index}`}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor={`bet2-stake-${index}`}>Stake (R$)</Label>
+                            <Input
+                              id={`bet2-stake-${index}`}
+                              type="number"
+                              step="0.01"
+                              value={editableData[index].bet2Stake}
+                              onChange={(e) => updateEditableField(index, 'bet2Stake', e.target.value)}
+                              data-testid={`input-bet2-stake-${index}`}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor={`bet2-profit-${index}`}>Lucro Potencial (R$)</Label>
+                            <Input
+                              id={`bet2-profit-${index}`}
+                              type="number"
+                              step="0.01"
+                              value={editableData[index].bet2Profit}
+                              onChange={(e) => updateEditableField(index, 'bet2Profit', e.target.value)}
+                              data-testid={`input-bet2-profit-${index}`}
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                ) : (
+                  <Card className="border-red-200 dark:border-red-900">
+                    <CardHeader>
+                      <div className="flex items-center gap-2">
+                        <XCircle className="h-5 w-5 text-red-600" />
+                        <CardTitle>{bet.fileName}</CardTitle>
+                        <Badge variant="destructive">Erro</Badge>
                       </div>
                     </CardHeader>
                     <CardContent>
-                      {bet.success && bet.data && editableData[index] ? (
-                        <div className="space-y-4">
-                          {/* Event Details - Editable */}
-                          <div className="grid md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label htmlFor={`date-${index}`}>Data do Evento</Label>
-                              <Input
-                                id={`date-${index}`}
-                                type="datetime-local"
-                                value={formatDateForInput(editableData[index].date)}
-                                onChange={(e) => updateEditableField(index, 'date', e.target.value)}
-                                data-testid={`input-date-${index}`}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor={`sport-${index}`}>Esporte</Label>
-                              <Input
-                                id={`sport-${index}`}
-                                value={editableData[index].sport}
-                                onChange={(e) => updateEditableField(index, 'sport', e.target.value)}
-                                data-testid={`input-sport-${index}`}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor={`league-${index}`}>Liga</Label>
-                              <Input
-                                id={`league-${index}`}
-                                value={editableData[index].league}
-                                onChange={(e) => updateEditableField(index, 'league', e.target.value)}
-                                data-testid={`input-league-${index}`}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor={`teamA-${index}`}>Time A</Label>
-                              <Input
-                                id={`teamA-${index}`}
-                                value={editableData[index].teamA}
-                                onChange={(e) => updateEditableField(index, 'teamA', e.target.value)}
-                                data-testid={`input-teamA-${index}`}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor={`teamB-${index}`}>Time B</Label>
-                              <Input
-                                id={`teamB-${index}`}
-                                value={editableData[index].teamB}
-                                onChange={(e) => updateEditableField(index, 'teamB', e.target.value)}
-                                data-testid={`input-teamB-${index}`}
-                              />
-                            </div>
-                          </div>
-
-                          {/* Bets - Editable */}
-                          <div className="grid md:grid-cols-2 gap-4">
-                            {/* Bet 1 */}
-                            <div className="p-4 rounded-md bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 space-y-3">
-                              <p className="font-semibold text-sm text-blue-700 dark:text-blue-400">APOSTA 1</p>
-                              
-                              <div className="space-y-2">
-                                <Label htmlFor={`bet1-house-${index}`}>Casa de Aposta</Label>
-                                <Select
-                                  value={editableData[index].bet1HouseId}
-                                  onValueChange={(value) => updateEditableField(index, 'bet1HouseId', value)}
-                                >
-                                  <SelectTrigger id={`bet1-house-${index}`} data-testid={`select-bet1-house-${index}`}>
-                                    <SelectValue placeholder="Selecione a casa" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {bettingHouses?.map((house) => (
-                                      <SelectItem key={house.id} value={house.id}>
-                                        {house.name}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-
-                              <div className="space-y-2">
-                                <Label htmlFor={`bet1-type-${index}`}>Tipo de Aposta</Label>
-                                <Input
-                                  id={`bet1-type-${index}`}
-                                  value={editableData[index].bet1Type}
-                                  onChange={(e) => updateEditableField(index, 'bet1Type', e.target.value)}
-                                  data-testid={`input-bet1-type-${index}`}
-                                />
-                              </div>
-
-                              <div className="grid grid-cols-2 gap-2">
-                                <div className="space-y-2">
-                                  <Label htmlFor={`bet1-odd-${index}`}>Odd</Label>
-                                  <Input
-                                    id={`bet1-odd-${index}`}
-                                    type="number"
-                                    step="0.001"
-                                    value={editableData[index].bet1Odd}
-                                    onChange={(e) => updateEditableField(index, 'bet1Odd', e.target.value)}
-                                    data-testid={`input-bet1-odd-${index}`}
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label htmlFor={`bet1-stake-${index}`}>Stake (R$)</Label>
-                                  <Input
-                                    id={`bet1-stake-${index}`}
-                                    type="number"
-                                    step="0.01"
-                                    value={editableData[index].bet1Stake}
-                                    onChange={(e) => updateEditableField(index, 'bet1Stake', e.target.value)}
-                                    data-testid={`input-bet1-stake-${index}`}
-                                  />
-                                </div>
-                              </div>
-
-                              <div className="pt-2 border-t border-blue-200 dark:border-blue-800">
-                                <p className="text-sm text-muted-foreground">
-                                  Retorno: <span className="font-semibold text-foreground">
-                                    R$ {calculateProfit(editableData[index]).return1.toFixed(2)}
-                                  </span>
-                                </p>
-                              </div>
-                            </div>
-
-                            {/* Bet 2 */}
-                            <div className="p-4 rounded-md bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900 space-y-3">
-                              <p className="font-semibold text-sm text-purple-700 dark:text-purple-400">APOSTA 2</p>
-                              
-                              <div className="space-y-2">
-                                <Label htmlFor={`bet2-house-${index}`}>Casa de Aposta</Label>
-                                <Select
-                                  value={editableData[index].bet2HouseId}
-                                  onValueChange={(value) => updateEditableField(index, 'bet2HouseId', value)}
-                                >
-                                  <SelectTrigger id={`bet2-house-${index}`} data-testid={`select-bet2-house-${index}`}>
-                                    <SelectValue placeholder="Selecione a casa" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {bettingHouses?.map((house) => (
-                                      <SelectItem key={house.id} value={house.id}>
-                                        {house.name}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-
-                              <div className="space-y-2">
-                                <Label htmlFor={`bet2-type-${index}`}>Tipo de Aposta</Label>
-                                <Input
-                                  id={`bet2-type-${index}`}
-                                  value={editableData[index].bet2Type}
-                                  onChange={(e) => updateEditableField(index, 'bet2Type', e.target.value)}
-                                  data-testid={`input-bet2-type-${index}`}
-                                />
-                              </div>
-
-                              <div className="grid grid-cols-2 gap-2">
-                                <div className="space-y-2">
-                                  <Label htmlFor={`bet2-odd-${index}`}>Odd</Label>
-                                  <Input
-                                    id={`bet2-odd-${index}`}
-                                    type="number"
-                                    step="0.001"
-                                    value={editableData[index].bet2Odd}
-                                    onChange={(e) => updateEditableField(index, 'bet2Odd', e.target.value)}
-                                    data-testid={`input-bet2-odd-${index}`}
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label htmlFor={`bet2-stake-${index}`}>Stake (R$)</Label>
-                                  <Input
-                                    id={`bet2-stake-${index}`}
-                                    type="number"
-                                    step="0.01"
-                                    value={editableData[index].bet2Stake}
-                                    onChange={(e) => updateEditableField(index, 'bet2Stake', e.target.value)}
-                                    data-testid={`input-bet2-stake-${index}`}
-                                  />
-                                </div>
-                              </div>
-
-                              <div className="pt-2 border-t border-purple-200 dark:border-purple-800">
-                                <p className="text-sm text-muted-foreground">
-                                  Retorno: <span className="font-semibold text-foreground">
-                                    R$ {calculateProfit(editableData[index]).return2.toFixed(2)}
-                                  </span>
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Profit Summary */}
-                          <div className="p-4 rounded-md bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900">
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                              <div>
-                                <p className="text-muted-foreground">Investido</p>
-                                <p className="font-semibold text-lg" data-testid={`invested-${index}`}>
-                                  R$ {calculateProfit(editableData[index]).totalInvested.toFixed(2)}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-muted-foreground">Retorno Mínimo</p>
-                                <p className="font-semibold text-lg" data-testid={`min-return-${index}`}>
-                                  R$ {Math.min(
-                                    calculateProfit(editableData[index]).return1,
-                                    calculateProfit(editableData[index]).return2
-                                  ).toFixed(2)}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-muted-foreground">Lucro</p>
-                                <p className={`font-semibold text-lg ${calculateProfit(editableData[index]).profit >= 0 ? 'text-green-600' : 'text-red-600'}`} data-testid={`profit-${index}`}>
-                                  R$ {calculateProfit(editableData[index]).profit.toFixed(2)}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-muted-foreground">Porcentagem</p>
-                                <p className={`font-semibold text-lg ${calculateProfit(editableData[index]).profitPercentage >= 0 ? 'text-green-600' : 'text-red-600'}`} data-testid={`percentage-${index}`}>
-                                  {calculateProfit(editableData[index]).profitPercentage.toFixed(2)}%
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-sm text-red-600 dark:text-red-400">
-                          <p className="font-medium">Erro:</p>
-                          <p className="text-xs mt-1">{bet.error || "Erro desconhecido ao processar PDF"}</p>
-                        </div>
-                      )}
+                      <p className="text-sm text-red-600 dark:text-red-400">
+                        {bet.error || "Erro desconhecido ao processar PDF"}
+                      </p>
                     </CardContent>
                   </Card>
-                ))}
+                )}
               </div>
-            </CardContent>
-          </Card>
+            ))}
+          </div>
 
           {extractedBets.some(b => b.success) && (
             <Card className="border-green-200 dark:border-green-900">
