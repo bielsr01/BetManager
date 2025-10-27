@@ -2,6 +2,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, FileText, CheckCircle, XCircle, Loader2, Package } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -37,9 +40,26 @@ interface ExtractedBet {
   };
 }
 
+interface EditableBetData {
+  date: string;
+  sport: string;
+  league: string;
+  teamA: string;
+  teamB: string;
+  bet1HouseId: string;
+  bet1Odd: string;
+  bet1Type: string;
+  bet1Stake: string;
+  bet2HouseId: string;
+  bet2Odd: string;
+  bet2Type: string;
+  bet2Stake: string;
+}
+
 export default function BatchUpload() {
   const [files, setFiles] = useState<File[]>([]);
   const [extractedBets, setExtractedBets] = useState<ExtractedBet[]>([]);
+  const [editableData, setEditableData] = useState<Record<number, EditableBetData>>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const { toast } = useToast();
@@ -64,7 +84,19 @@ export default function BatchUpload() {
       
       setFiles(pdfFiles);
       setExtractedBets([]);
+      setEditableData({});
     }
+  };
+
+  const findBettingHouse = (houseName: string) => {
+    if (!bettingHouses) return null;
+    
+    const cleanName = houseName.replace(/\s*\([A-Z]{2}\)\s*/, '').trim().toLowerCase();
+    
+    return bettingHouses.find(house => {
+      const houseNameClean = house.name.toLowerCase();
+      return houseNameClean.includes(cleanName) || cleanName.includes(houseNameClean);
+    });
   };
 
   const processAllPdfs = async () => {
@@ -79,6 +111,7 @@ export default function BatchUpload() {
 
     setIsProcessing(true);
     setExtractedBets([]);
+    setEditableData({});
 
     try {
       const formData = new FormData();
@@ -95,6 +128,32 @@ export default function BatchUpload() {
 
       if (response.ok && result.success) {
         setExtractedBets(result.results);
+        
+        // Initialize editable data for successful extractions
+        const initialEditableData: Record<number, EditableBetData> = {};
+        result.results.forEach((bet: ExtractedBet, index: number) => {
+          if (bet.success && bet.data) {
+            const house1 = findBettingHouse(bet.data.bet1.house);
+            const house2 = findBettingHouse(bet.data.bet2.house);
+            
+            initialEditableData[index] = {
+              date: bet.data.date,
+              sport: bet.data.sport,
+              league: bet.data.league,
+              teamA: bet.data.teamA,
+              teamB: bet.data.teamB,
+              bet1HouseId: house1?.id || '',
+              bet1Odd: bet.data.bet1.odd.toString(),
+              bet1Type: bet.data.bet1.type,
+              bet1Stake: bet.data.bet1.stake.toString(),
+              bet2HouseId: house2?.id || '',
+              bet2Odd: bet.data.bet2.odd.toString(),
+              bet2Type: bet.data.bet2.type,
+              bet2Stake: bet.data.bet2.stake.toString(),
+            };
+          }
+        });
+        setEditableData(initialEditableData);
         
         const successCount = result.results.filter((r: ExtractedBet) => r.success).length;
         const failCount = result.results.length - successCount;
@@ -127,25 +186,59 @@ export default function BatchUpload() {
     try {
       const [datePart, timePart] = isoDate.split('T');
       const [year, month, day] = datePart.split('-');
-      return `${day}/${month}/${year} ${timePart}`;
+      const time = timePart || '00:00';
+      return `${day}/${month}/${year} ${time}`;
     } catch {
       return isoDate;
     }
   };
 
-  const findBettingHouse = (houseName: string) => {
-    if (!bettingHouses) return null;
-    
-    const cleanName = houseName.replace(/\s*\([A-Z]{2}\)\s*/, '').trim().toLowerCase();
-    
-    return bettingHouses.find(house => {
-      const houseNameClean = house.name.toLowerCase();
-      return houseNameClean.includes(cleanName) || cleanName.includes(houseNameClean);
-    });
+  const formatDateForInput = (isoDate: string): string => {
+    if (!isoDate) return '';
+    try {
+      // Remove seconds and milliseconds for datetime-local input
+      return isoDate.substring(0, 16);
+    } catch {
+      return '';
+    }
+  };
+
+  const updateEditableField = (index: number, field: keyof EditableBetData, value: string) => {
+    setEditableData(prev => ({
+      ...prev,
+      [index]: {
+        ...prev[index],
+        [field]: value
+      }
+    }));
+  };
+
+  const calculateProfit = (data: EditableBetData) => {
+    const odd1 = parseFloat(data.bet1Odd) || 0;
+    const stake1 = parseFloat(data.bet1Stake) || 0;
+    const odd2 = parseFloat(data.bet2Odd) || 0;
+    const stake2 = parseFloat(data.bet2Stake) || 0;
+
+    const totalInvested = stake1 + stake2;
+    const return1 = stake1 * odd1;
+    const return2 = stake2 * odd2;
+    const minReturn = Math.min(return1, return2);
+    const profit = minReturn - totalInvested;
+    const profitPercentage = totalInvested > 0 ? (profit / totalInvested) * 100 : 0;
+
+    return {
+      profit,
+      profitPercentage,
+      totalInvested,
+      return1,
+      return2
+    };
   };
 
   const createAllBets = async () => {
-    const successfulBets = extractedBets.filter(bet => bet.success && bet.data);
+    const successfulBets = extractedBets
+      .map((bet, index) => ({ bet, index }))
+      .filter(({ bet }) => bet.success && bet.data);
     
     if (successfulBets.length === 0) {
       toast({
@@ -163,15 +256,18 @@ export default function BatchUpload() {
       let failed = 0;
       const errors: string[] = [];
 
-      for (const bet of successfulBets) {
+      for (const { bet, index } of successfulBets) {
         try {
-          const data = bet.data!;
+          const data = editableData[index];
           
-          const house1 = findBettingHouse(data.bet1.house);
-          const house2 = findBettingHouse(data.bet2.house);
+          if (!data) {
+            errors.push(`${bet.fileName}: Dados editáveis não encontrados`);
+            failed++;
+            continue;
+          }
 
-          if (!house1 || !house2) {
-            errors.push(`${bet.fileName}: Casas de apostas não encontradas no sistema`);
+          if (!data.bet1HouseId || !data.bet2HouseId) {
+            errors.push(`${bet.fileName}: Selecione as casas de apostas`);
             failed++;
             continue;
           }
@@ -187,18 +283,18 @@ export default function BatchUpload() {
             },
             bets: [
               {
-                bettingHouseId: house1.id,
-                odd: data.bet1.odd,
-                type: data.bet1.type,
-                stake: data.bet1.stake,
+                bettingHouseId: data.bet1HouseId,
+                odd: parseFloat(data.bet1Odd),
+                type: data.bet1Type,
+                stake: parseFloat(data.bet1Stake),
                 result: null,
                 returnAmount: null,
               },
               {
-                bettingHouseId: house2.id,
-                odd: data.bet2.odd,
-                type: data.bet2.type,
-                stake: data.bet2.stake,
+                bettingHouseId: data.bet2HouseId,
+                odd: parseFloat(data.bet2Odd),
+                type: data.bet2Type,
+                stake: parseFloat(data.bet2Stake),
                 result: null,
                 returnAmount: null,
               }
@@ -302,6 +398,7 @@ export default function BatchUpload() {
                   onClick={() => {
                     setFiles([]);
                     setExtractedBets([]);
+                    setEditableData({});
                   }}
                   data-testid="button-clear-files"
                 >
@@ -364,11 +461,11 @@ export default function BatchUpload() {
                 </Badge>
               </CardTitle>
               <CardDescription>
-                Revise as apostas extraídas antes de adicioná-las ao sistema
+                Revise e edite as apostas extraídas antes de adicioná-las ao sistema
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4 max-h-[600px] overflow-y-auto">
+              <div className="space-y-6 max-h-[600px] overflow-y-auto">
                 {extractedBets.map((bet, index) => (
                   <Card
                     key={index}
@@ -385,11 +482,6 @@ export default function BatchUpload() {
                           )}
                           <div>
                             <p className="font-medium text-sm">{bet.fileName}</p>
-                            {bet.success && bet.data && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {bet.data.teamA} vs {bet.data.teamB}
-                              </p>
-                            )}
                           </div>
                         </div>
                         <Badge variant={bet.success ? "default" : "destructive"}>
@@ -398,37 +490,224 @@ export default function BatchUpload() {
                       </div>
                     </CardHeader>
                     <CardContent>
-                      {bet.success && bet.data ? (
-                        <div className="grid gap-3 text-sm">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <span className="text-muted-foreground">Data:</span>
-                              <p className="font-medium">{formatDateForDisplay(bet.data.date)}</p>
+                      {bet.success && bet.data && editableData[index] ? (
+                        <div className="space-y-4">
+                          {/* Event Details - Editable */}
+                          <div className="grid md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor={`date-${index}`}>Data do Evento</Label>
+                              <Input
+                                id={`date-${index}`}
+                                type="datetime-local"
+                                value={formatDateForInput(editableData[index].date)}
+                                onChange={(e) => updateEditableField(index, 'date', e.target.value)}
+                                data-testid={`input-date-${index}`}
+                              />
                             </div>
-                            <div>
-                              <span className="text-muted-foreground">Esporte/Liga:</span>
-                              <p className="font-medium">{bet.data.sport} / {bet.data.league}</p>
+                            <div className="space-y-2">
+                              <Label htmlFor={`sport-${index}`}>Esporte</Label>
+                              <Input
+                                id={`sport-${index}`}
+                                value={editableData[index].sport}
+                                onChange={(e) => updateEditableField(index, 'sport', e.target.value)}
+                                data-testid={`input-sport-${index}`}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor={`league-${index}`}>Liga</Label>
+                              <Input
+                                id={`league-${index}`}
+                                value={editableData[index].league}
+                                onChange={(e) => updateEditableField(index, 'league', e.target.value)}
+                                data-testid={`input-league-${index}`}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor={`teamA-${index}`}>Time A</Label>
+                              <Input
+                                id={`teamA-${index}`}
+                                value={editableData[index].teamA}
+                                onChange={(e) => updateEditableField(index, 'teamA', e.target.value)}
+                                data-testid={`input-teamA-${index}`}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor={`teamB-${index}`}>Time B</Label>
+                              <Input
+                                id={`teamB-${index}`}
+                                value={editableData[index].teamB}
+                                onChange={(e) => updateEditableField(index, 'teamB', e.target.value)}
+                                data-testid={`input-teamB-${index}`}
+                              />
                             </div>
                           </div>
 
-                          <div className="grid md:grid-cols-2 gap-3">
-                            <div className="p-3 rounded-md bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900">
-                              <p className="font-semibold text-xs text-blue-700 dark:text-blue-400 mb-2">APOSTA 1</p>
-                              <div className="space-y-1">
-                                <p><span className="text-muted-foreground">Casa:</span> {bet.data.bet1.house}</p>
-                                <p><span className="text-muted-foreground">Tipo:</span> {bet.data.bet1.type}</p>
-                                <p><span className="text-muted-foreground">Odd:</span> {bet.data.bet1.odd}</p>
-                                <p><span className="text-muted-foreground">Stake:</span> R$ {bet.data.bet1.stake.toFixed(2)}</p>
+                          {/* Bets - Editable */}
+                          <div className="grid md:grid-cols-2 gap-4">
+                            {/* Bet 1 */}
+                            <div className="p-4 rounded-md bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 space-y-3">
+                              <p className="font-semibold text-sm text-blue-700 dark:text-blue-400">APOSTA 1</p>
+                              
+                              <div className="space-y-2">
+                                <Label htmlFor={`bet1-house-${index}`}>Casa de Aposta</Label>
+                                <Select
+                                  value={editableData[index].bet1HouseId}
+                                  onValueChange={(value) => updateEditableField(index, 'bet1HouseId', value)}
+                                >
+                                  <SelectTrigger id={`bet1-house-${index}`} data-testid={`select-bet1-house-${index}`}>
+                                    <SelectValue placeholder="Selecione a casa" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {bettingHouses?.map((house) => (
+                                      <SelectItem key={house.id} value={house.id}>
+                                        {house.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div className="space-y-2">
+                                <Label htmlFor={`bet1-type-${index}`}>Tipo de Aposta</Label>
+                                <Input
+                                  id={`bet1-type-${index}`}
+                                  value={editableData[index].bet1Type}
+                                  onChange={(e) => updateEditableField(index, 'bet1Type', e.target.value)}
+                                  data-testid={`input-bet1-type-${index}`}
+                                />
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="space-y-2">
+                                  <Label htmlFor={`bet1-odd-${index}`}>Odd</Label>
+                                  <Input
+                                    id={`bet1-odd-${index}`}
+                                    type="number"
+                                    step="0.001"
+                                    value={editableData[index].bet1Odd}
+                                    onChange={(e) => updateEditableField(index, 'bet1Odd', e.target.value)}
+                                    data-testid={`input-bet1-odd-${index}`}
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor={`bet1-stake-${index}`}>Stake (R$)</Label>
+                                  <Input
+                                    id={`bet1-stake-${index}`}
+                                    type="number"
+                                    step="0.01"
+                                    value={editableData[index].bet1Stake}
+                                    onChange={(e) => updateEditableField(index, 'bet1Stake', e.target.value)}
+                                    data-testid={`input-bet1-stake-${index}`}
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="pt-2 border-t border-blue-200 dark:border-blue-800">
+                                <p className="text-sm text-muted-foreground">
+                                  Retorno: <span className="font-semibold text-foreground">
+                                    R$ {calculateProfit(editableData[index]).return1.toFixed(2)}
+                                  </span>
+                                </p>
                               </div>
                             </div>
 
-                            <div className="p-3 rounded-md bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900">
-                              <p className="font-semibold text-xs text-purple-700 dark:text-purple-400 mb-2">APOSTA 2</p>
-                              <div className="space-y-1">
-                                <p><span className="text-muted-foreground">Casa:</span> {bet.data.bet2.house}</p>
-                                <p><span className="text-muted-foreground">Tipo:</span> {bet.data.bet2.type}</p>
-                                <p><span className="text-muted-foreground">Odd:</span> {bet.data.bet2.odd}</p>
-                                <p><span className="text-muted-foreground">Stake:</span> R$ {bet.data.bet2.stake.toFixed(2)}</p>
+                            {/* Bet 2 */}
+                            <div className="p-4 rounded-md bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900 space-y-3">
+                              <p className="font-semibold text-sm text-purple-700 dark:text-purple-400">APOSTA 2</p>
+                              
+                              <div className="space-y-2">
+                                <Label htmlFor={`bet2-house-${index}`}>Casa de Aposta</Label>
+                                <Select
+                                  value={editableData[index].bet2HouseId}
+                                  onValueChange={(value) => updateEditableField(index, 'bet2HouseId', value)}
+                                >
+                                  <SelectTrigger id={`bet2-house-${index}`} data-testid={`select-bet2-house-${index}`}>
+                                    <SelectValue placeholder="Selecione a casa" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {bettingHouses?.map((house) => (
+                                      <SelectItem key={house.id} value={house.id}>
+                                        {house.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div className="space-y-2">
+                                <Label htmlFor={`bet2-type-${index}`}>Tipo de Aposta</Label>
+                                <Input
+                                  id={`bet2-type-${index}`}
+                                  value={editableData[index].bet2Type}
+                                  onChange={(e) => updateEditableField(index, 'bet2Type', e.target.value)}
+                                  data-testid={`input-bet2-type-${index}`}
+                                />
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="space-y-2">
+                                  <Label htmlFor={`bet2-odd-${index}`}>Odd</Label>
+                                  <Input
+                                    id={`bet2-odd-${index}`}
+                                    type="number"
+                                    step="0.001"
+                                    value={editableData[index].bet2Odd}
+                                    onChange={(e) => updateEditableField(index, 'bet2Odd', e.target.value)}
+                                    data-testid={`input-bet2-odd-${index}`}
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor={`bet2-stake-${index}`}>Stake (R$)</Label>
+                                  <Input
+                                    id={`bet2-stake-${index}`}
+                                    type="number"
+                                    step="0.01"
+                                    value={editableData[index].bet2Stake}
+                                    onChange={(e) => updateEditableField(index, 'bet2Stake', e.target.value)}
+                                    data-testid={`input-bet2-stake-${index}`}
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="pt-2 border-t border-purple-200 dark:border-purple-800">
+                                <p className="text-sm text-muted-foreground">
+                                  Retorno: <span className="font-semibold text-foreground">
+                                    R$ {calculateProfit(editableData[index]).return2.toFixed(2)}
+                                  </span>
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Profit Summary */}
+                          <div className="p-4 rounded-md bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                              <div>
+                                <p className="text-muted-foreground">Investido</p>
+                                <p className="font-semibold text-lg" data-testid={`invested-${index}`}>
+                                  R$ {calculateProfit(editableData[index]).totalInvested.toFixed(2)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">Retorno Mínimo</p>
+                                <p className="font-semibold text-lg" data-testid={`min-return-${index}`}>
+                                  R$ {Math.min(
+                                    calculateProfit(editableData[index]).return1,
+                                    calculateProfit(editableData[index]).return2
+                                  ).toFixed(2)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">Lucro</p>
+                                <p className={`font-semibold text-lg ${calculateProfit(editableData[index]).profit >= 0 ? 'text-green-600' : 'text-red-600'}`} data-testid={`profit-${index}`}>
+                                  R$ {calculateProfit(editableData[index]).profit.toFixed(2)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">Porcentagem</p>
+                                <p className={`font-semibold text-lg ${calculateProfit(editableData[index]).profitPercentage >= 0 ? 'text-green-600' : 'text-red-600'}`} data-testid={`percentage-${index}`}>
+                                  {calculateProfit(editableData[index]).profitPercentage.toFixed(2)}%
+                                </p>
                               </div>
                             </div>
                           </div>
