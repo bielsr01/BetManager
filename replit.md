@@ -42,8 +42,11 @@ Preferred communication style: Simple, everyday language.
 - **OCR Processing**: pdfplumber Python library for automated PDF text extraction from betting screenshots
   - **October 2025 Enhancement**: Improved profit extraction to capture values up to 1000 (previously limited to 100)
   - **October 2025 Enhancement**: Enhanced bet type parsing to preserve numbers after keywords (e.g., "Acima 27.5", "Abaixo 27.5")
+  - **October 2025 Enhancement**: Intelligent house name removal - automatically strips betting house names from bet types without removing legitimate terms (preserves "Bet Builder" while removing "EstrelaBet")
+  - **October 2025 Enhancement**: Expanded sport detection - supports all major sports with position-anchored fallback for new sports (e.g., "Beisebal / Japão - NPB")
   - Profit now anchors on stake location for precise extraction
   - Bet types preserve all numbers following keywords: acima, abaixo, total, over, under, mais, menos, primeiro, segundo, tempo, extra, 1º, 2º
+  - Sport/league extraction uses team line anchor + strict guards to prevent false positives on bet-description lines
 - **Image Processing**: Base64 encoding for API transmission with client-side preview
 - **Development Tools**: Replit integration with runtime error overlay and cartographer for debugging
 
