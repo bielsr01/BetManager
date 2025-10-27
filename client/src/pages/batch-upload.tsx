@@ -177,12 +177,14 @@ export default function BatchUpload() {
           }
 
           const surebetPayload = {
-            eventDate: data.date,
-            sport: data.sport,
-            league: data.league,
-            teamA: data.teamA,
-            teamB: data.teamB,
-            status: 'pending' as const,
+            surebetSet: {
+              eventDate: data.date,
+              sport: data.sport,
+              league: data.league,
+              teamA: data.teamA,
+              teamB: data.teamB,
+              status: 'pending' as const,
+            },
             bets: [
               {
                 bettingHouseId: house1.id,
@@ -203,13 +205,7 @@ export default function BatchUpload() {
             ]
           };
 
-          await apiRequest('/api/surebet-sets', {
-            method: 'POST',
-            body: JSON.stringify(surebetPayload),
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
+          await apiRequest('POST', '/api/surebet-sets', surebetPayload);
 
           created++;
         } catch (error) {
