@@ -23,7 +23,8 @@ import {
   LogOut,
   User,
   UserCircle,
-  QrCode
+  QrCode,
+  Package
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,11 @@ const menuItems = [
     title: "Nova Aposta",
     url: "/upload",
     icon: Upload,
+  },
+  {
+    title: "Enviar Lote de Apostas",
+    url: "/batch-upload",
+    icon: Package,
   },
   {
     title: "Teste de OCR",
