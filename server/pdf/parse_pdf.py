@@ -138,15 +138,68 @@ def extrair_dados_pdf(caminho_pdf):
                         break
                 
                 # === EXTRAÇÃO DE ESPORTE E LIGA ===
+                # Encontra índice da linha de times para usar como âncora
+                indice_times = -1
                 for i, linha in enumerate(linhas):
-                    if ' / ' in linha and ('futebol' in linha.lower() or 'basquete' in linha.lower() or 
-                                          'tênis' in linha.lower() or 'tennis' in linha.lower() or 
-                                          'hóquei' in linha.lower() or 'hockey' in linha.lower()):
+                    if dados['teamA'] and dados['teamA'] in linha and dados['teamB'] and dados['teamB'] in linha:
+                        indice_times = i
+                        break
+                
+                # Primeiro tenta com palavras-chave conhecidas (deve estar próximo aos times)
+                for i, linha in enumerate(linhas):
+                    # Se tem índice de times, esporte deve estar próximo (±5 linhas)
+                    if indice_times >= 0 and abs(i - indice_times) > 5:
+                        continue
+                    
+                    if ' / ' in linha and any(sport in linha.lower() for sport in [
+                        'futebol', 'football', 'soccer',
+                        'basquete', 'basketball', 'basquetebol',
+                        'tênis', 'tennis',
+                        'hóquei', 'hockey', 'hoquei',
+                        'beisebol', 'beisebal', 'baseball',
+                        'voleibol', 'volleyball', 'vôlei', 'volei',
+                        'handball', 'handebol',
+                        'rugby',
+                        'cricket',
+                        'futsal'
+                    ]):
                         partes = linha.split(' / ')
                         if len(partes) >= 2:
                             dados['sport'] = partes[0].strip()
                             dados['league'] = ' / '.join(partes[1:]).strip()
                         break
+                
+                # Se não encontrou E tem times, usa lógica genérica com restrições fortes
+                if not dados['sport'] and dados['teamA'] and indice_times >= 0:
+                    # Procura APENAS nas linhas imediatamente após os times (máximo +3 linhas)
+                    for i in range(indice_times + 1, min(indice_times + 4, len(linhas))):
+                        linha = linhas[i]
+                        
+                        # Deve ter " / " e NÃO ter marcadores de outras seções
+                        if (' / ' in linha and 
+                            'Evento' not in linha and 
+                            'ROI' not in linha and
+                            '–' not in linha and      # Não é linha de times
+                            '%' not in linha and      # Não tem porcentagem
+                            'USD' not in linha and    # Não é linha de aposta
+                            'BRL' not in linha and
+                            'Chance' not in linha and # Não é header de tabela
+                            'Aposta' not in linha and
+                            not re.search(r'\d+\.\d{2,}', linha)):  # Não tem odds (números com 2+ decimais)
+                            
+                            partes = linha.split(' / ')
+                            if len(partes) >= 2:
+                                # Valida que a primeira parte parece um esporte
+                                possivel_esporte = partes[0].strip()
+                                possivel_liga = ' / '.join(partes[1:]).strip()
+                                
+                                # Esporte deve ser curto e não conter números grandes
+                                if (len(possivel_esporte) < 30 and 
+                                    possivel_esporte and 
+                                    not re.search(r'\d{2,}', possivel_esporte)):  # Sem números de 2+ dígitos
+                                    dados['sport'] = possivel_esporte
+                                    dados['league'] = possivel_liga
+                                    break
                 
                 # === EXTRAÇÃO DE APOSTAS ===
                 apostas_encontradas = []
@@ -632,21 +685,36 @@ def processar_aposta_completa(texto_aposta, casa_aposta):
     tipo_aposta = re.sub(r'\s+', ' ', tipo_aposta).strip()  # Limpa espaços
     tipo_aposta = re.sub(r'[-–]\s*$', '', tipo_aposta).strip()  # Remove traços finais
     
-    # Remove TODOS os tokens da casa de apostas do tipo de aposta
-    # Solução genérica: divide o nome da casa em palavras e remove cada uma
+    # Remove o nome da casa de apostas do tipo de aposta
     casa_sem_parenteses = re.sub(r'\s*\([A-Z]{2}\)\s*', '', casa_aposta).strip()
-    palavras_casa = casa_sem_parenteses.split()
     
-    # Remove cada palavra da casa do tipo de aposta
-    for palavra_casa in palavras_casa:
-        if len(palavra_casa) >= 3:  # Ignora palavras muito curtas
-            # Remove a palavra inteira (word boundary)
-            tipo_aposta = re.sub(r'\b' + re.escape(palavra_casa) + r'\b', '', tipo_aposta, flags=re.IGNORECASE)
+    # PRIMEIRO: Tenta remover o nome completo da casa como frase única
+    tipo_aposta = re.sub(r'\b' + re.escape(casa_sem_parenteses) + r'\b', '', tipo_aposta, flags=re.IGNORECASE)
     
-    # Remove também sufixos comuns de casas de apostas
-    sufixos_comuns = ['Bet', 'Sports', 'Gaming', 'Casino', 'Cassino']
-    for sufixo in sufixos_comuns:
-        tipo_aposta = re.sub(r'\b' + sufixo + r'\b', '', tipo_aposta, flags=re.IGNORECASE)
+    # SEGUNDO: Remove palavras individuais apenas para casas conhecidas (evita remover "Bet" genérico)
+    # Lista de casas conhecidas onde podemos remover palavras específicas
+    casas_conhecidas = {
+        'estrela': ['EstrelaBet', 'Estrela'],
+        'pinnacle': ['Pinnacle'],
+        'marjo': ['MarjoSports', 'Marjo', 'Sports'],  # Sports só se for MarjoSports
+        'super': ['SuperBet', 'Super'],
+        'stake': ['Stake'],
+        'kto': ['KTO'],
+        'blaze': ['Blaze'],
+        'multibet': ['MultiBet', 'Multi'],
+        'bravo': ['BravoBet', 'Bravo'],
+        'betfast': ['Betfast'],
+        'betano': ['Betano']
+    }
+    
+    casa_lower = casa_sem_parenteses.lower()
+    
+    # Remove palavras específicas apenas para casas conhecidas
+    for chave, palavras in casas_conhecidas.items():
+        if chave in casa_lower:
+            for palavra in palavras:
+                tipo_aposta = re.sub(r'\b' + re.escape(palavra) + r'\b', '', tipo_aposta, flags=re.IGNORECASE)
+            break  # Para após encontrar a casa
     
     # Limpa espaços extras resultantes da remoção
     tipo_aposta = re.sub(r'\s+', ' ', tipo_aposta).strip()
