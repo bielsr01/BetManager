@@ -632,37 +632,21 @@ def processar_aposta_completa(texto_aposta, casa_aposta):
     tipo_aposta = re.sub(r'\s+', ' ', tipo_aposta).strip()  # Limpa espaços
     tipo_aposta = re.sub(r'[-–]\s*$', '', tipo_aposta).strip()  # Remove traços finais
     
-    # Remove todos os tokens da casa de apostas (incluindo variantes) do tipo
-    casa_lower = casa_aposta.lower()
+    # Remove TODOS os tokens da casa de apostas do tipo de aposta
+    # Solução genérica: divide o nome da casa em palavras e remove cada uma
+    casa_sem_parenteses = re.sub(r'\s*\([A-Z]{2}\)\s*', '', casa_aposta).strip()
+    palavras_casa = casa_sem_parenteses.split()
     
-    # Remove palavras da casa de apostas do tipo
-    if 'super' in casa_lower:
-        # Remove "SuperBet" junto e também "Super", "Bet" individualmente
-        tipo_aposta = re.sub(r'\bSuperBet\b', '', tipo_aposta, flags=re.IGNORECASE)
-        tipo_aposta = re.sub(r'\bSuper\b', '', tipo_aposta, flags=re.IGNORECASE)
-        tipo_aposta = re.sub(r'\bBet\b', '', tipo_aposta, flags=re.IGNORECASE)
-    elif 'stake' in casa_lower:
-        tipo_aposta = re.sub(r'\bStake\b', '', tipo_aposta, flags=re.IGNORECASE)
-    elif 'kto' in casa_lower:
-        tipo_aposta = re.sub(r'\bKTO\b', '', tipo_aposta, flags=re.IGNORECASE)
-    elif 'blaze' in casa_lower:
-        tipo_aposta = re.sub(r'\bBlaze\b', '', tipo_aposta, flags=re.IGNORECASE)
-    elif 'pinnacle' in casa_lower:
-        tipo_aposta = re.sub(r'\bPinnacle\b', '', tipo_aposta, flags=re.IGNORECASE)
-    elif 'multibet' in casa_lower:
-        tipo_aposta = re.sub(r'\bMultiBet\b', '', tipo_aposta, flags=re.IGNORECASE)
-    elif 'bravobet' in casa_lower:
-        tipo_aposta = re.sub(r'\bBravoBet\b', '', tipo_aposta, flags=re.IGNORECASE)
-    elif 'betfast' in casa_lower:
-        tipo_aposta = re.sub(r'\bBetfast\b', '', tipo_aposta, flags=re.IGNORECASE)
-    elif 'betano' in casa_lower:
-        tipo_aposta = re.sub(r'\bBetano\b', '', tipo_aposta, flags=re.IGNORECASE)
-    elif 'marjo' in casa_lower or 'sports' in casa_lower:
-        tipo_aposta = re.sub(r'\bMarjoSports\b', '', tipo_aposta, flags=re.IGNORECASE)
-        tipo_aposta = re.sub(r'\bMarjo\b', '', tipo_aposta, flags=re.IGNORECASE)
-        tipo_aposta = re.sub(r'\bSports\b', '', tipo_aposta, flags=re.IGNORECASE)
-    elif 'cassino' in casa_lower:
-        tipo_aposta = re.sub(r'\bCassino\b', '', tipo_aposta, flags=re.IGNORECASE)
+    # Remove cada palavra da casa do tipo de aposta
+    for palavra_casa in palavras_casa:
+        if len(palavra_casa) >= 3:  # Ignora palavras muito curtas
+            # Remove a palavra inteira (word boundary)
+            tipo_aposta = re.sub(r'\b' + re.escape(palavra_casa) + r'\b', '', tipo_aposta, flags=re.IGNORECASE)
+    
+    # Remove também sufixos comuns de casas de apostas
+    sufixos_comuns = ['Bet', 'Sports', 'Gaming', 'Casino', 'Cassino']
+    for sufixo in sufixos_comuns:
+        tipo_aposta = re.sub(r'\b' + sufixo + r'\b', '', tipo_aposta, flags=re.IGNORECASE)
     
     # Limpa espaços extras resultantes da remoção
     tipo_aposta = re.sub(r'\s+', ' ', tipo_aposta).strip()
