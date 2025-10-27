@@ -87,12 +87,16 @@ Preferred communication style: Simple, everyday language.
 - New "Enviar Lote de Apostas" page allowing upload of multiple PDFs simultaneously (up to 50 files)
 - Backend endpoint `/api/ocr/process-batch` processes all PDFs in parallel using Promise.all
 - Visual interface shows extraction status for each PDF (success/error) with detailed bet information
-- Color-coded cards displaying extracted data: date, sport, league, teams, bets with odds/stakes
-- Automatic betting house matching against system database
+- **Fully Editable Data**: All extracted fields are editable before creation - date, sport, league, teams, bet types, odds, stakes
+- **Manual House Selection**: Dropdown selectors for choosing betting houses for each bet, with automatic matching as initial suggestion
+- **Live Profit Calculations**: Real-time display of invested amount, minimum return, profit (R$), and profit percentage for each surebet
+- **Automatic Updates**: Profit metrics recalculate instantly when user edits odds or stakes
+- Color-coded cards displaying extracted data with dedicated sections for Aposta 1 (blue) and Aposta 2 (purple)
+- Individual profit summary showing: Investido, Retorno Mínimo, Lucro, and Porcentagem
 - Bulk creation button adds all successfully extracted bets to the system in one operation
 - Comprehensive error handling with individual failure tracking and user feedback
 - Auto-redirect to Management page after successful batch creation
-- Full validation ensures only valid bets with matched betting houses are created
+- Full validation ensures only valid bets with selected betting houses are created
 
 **Decimal Precision Update (October 2025)**: Enhanced odds precision to support 3 decimal places:
 - Updated `bets.odd` column from `numeric(8,2)` to `numeric(8,3)` using safe ALTER TABLE command
