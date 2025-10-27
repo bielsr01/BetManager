@@ -483,6 +483,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Batch OCR processing route - accepts multiple files
+  app.post("/api/ocr/process-batch", requireAuth, upload.array('files', 50), async (req, res) => {
+    try {
+      const files = req.files as Express.Multer.File[];
+      
+      if (!files || files.length === 0) {
+        res.status(400).json({ error: "No files provided" });
+        return;
+      }
+
+      console.log(`Batch processing ${files.length} PDF(s)...`);
+
+      const results = await Promise.all(
+        files.map(async (file) => {
+          try {
+            const ocrResult = await pdfPlumberService.processDocument(
+              file.buffer,
+              file.originalname,
+              file.mimetype,
+              null
+            );
+
+            return {
+              fileName: file.originalname,
+              success: true,
+              data: ocrResult
+            };
+          } catch (error) {
+            console.error(`Error processing ${file.originalname}:`, error);
+            return {
+              fileName: file.originalname,
+              success: false,
+              error: error instanceof Error ? error.message : "Unknown error"
+            };
+          }
+        })
+      );
+
+      const successCount = results.filter(r => r.success).length;
+      console.log(`Batch processing complete: ${successCount}/${files.length} successful`);
+
+      res.json({
+        success: true,
+        results
+      });
+    } catch (error) {
+      console.error("Batch processing error:", error);
+      res.status(500).json({
+        error: "Failed to process batch",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

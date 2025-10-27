@@ -15,6 +15,7 @@ import Dashboard from "@/pages/dashboard";
 import UploadPage from "@/pages/upload";
 import OCRTestPage from "@/pages/ocr-test";
 import QRReaderPage from "@/pages/qr-reader";
+import BatchUploadPage from "@/pages/batch-upload";
 import AccountHoldersPage from "@/pages/account-holders";
 import ManagementPage from "@/pages/management";
 import AuthPage from "@/pages/auth-page";
@@ -56,6 +57,7 @@ function Router() {
       <ProtectedRoute path="/upload" component={() => <AuthenticatedLayout><UploadPage /></AuthenticatedLayout>} />
       <ProtectedRoute path="/test-ocr" component={() => <AuthenticatedLayout><OCRTestPage /></AuthenticatedLayout>} />
       <ProtectedRoute path="/qr-reader" component={() => <AuthenticatedLayout><QRReaderPage /></AuthenticatedLayout>} />
+      <ProtectedRoute path="/batch-upload" component={() => <AuthenticatedLayout><BatchUploadPage /></AuthenticatedLayout>} />
       <ProtectedRoute path="/account-holders" component={() => <AuthenticatedLayout><AccountHoldersPage /></AuthenticatedLayout>} />
       <ProtectedRoute path="/gerenciamento" component={() => <AuthenticatedLayout><ManagementPage /></AuthenticatedLayout>} />
       <ProtectedRoute path="/dashboard" component={() => <AuthenticatedLayout><Dashboard /></AuthenticatedLayout>} />
