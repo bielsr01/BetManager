@@ -87,12 +87,13 @@ Preferred communication style: Simple, everyday language.
 - New "Enviar Lote de Apostas" page allowing upload of multiple PDFs simultaneously (up to 50 files)
 - Backend endpoint `/api/ocr/process-batch` processes all PDFs in parallel using Promise.all
 - Visual interface shows extraction status for each PDF (success/error) with detailed bet information
-- **Fully Editable Data**: All extracted fields are editable before creation - date, sport, league, teams, bet types, odds, stakes
-- **Manual House Selection**: Dropdown selectors for choosing betting houses for each bet, with automatic matching as initial suggestion
-- **Live Profit Calculations**: Real-time display of invested amount, minimum return, profit (R$), and profit percentage for each surebet
-- **Automatic Updates**: Profit metrics recalculate instantly when user edits odds or stakes
-- Color-coded cards displaying extracted data with dedicated sections for Aposta 1 (blue) and Aposta 2 (purple)
-- Individual profit summary showing: Investido, Retorno Mínimo, Lucro, and Porcentagem
+- **EXACT Layout Match**: Interface replicates the "Nova Aposta" page structure for consistency
+- **Fully Editable Data**: All extracted fields are editable before creation - date, sport, league, teams, bet types, odds, stakes, profit percentage
+- **House Name Display**: Text input field shows the extracted betting house name from PDF
+- **Manual House Selection**: Dropdown "Titular da Conta" with complete list formatted as "Titular - Casa" (matching BetForm behavior)
+- Automatic matching suggests the most likely betting house based on extracted name
+- Separate Cards for: Event Information, Aposta 1, Aposta 2 (matching single bet workflow)
+- All numeric fields support proper decimal precision (odds: 3 decimals, stakes/profits: 2 decimals)
 - Bulk creation button adds all successfully extracted bets to the system in one operation
 - Comprehensive error handling with individual failure tracking and user feedback
 - Auto-redirect to Management page after successful batch creation
