@@ -272,6 +272,15 @@ export default function BatchUpload() {
             continue;
           }
 
+          const odd1 = parseFloat(data.bet1Odd);
+          const stake1 = parseFloat(data.bet1Stake);
+          const odd2 = parseFloat(data.bet2Odd);
+          const stake2 = parseFloat(data.bet2Stake);
+
+          // Calculate potential profit for each bet
+          const profitPotential1 = (stake1 * odd1) - stake1 - stake2;
+          const profitPotential2 = (stake2 * odd2) - stake2 - stake1;
+
           const surebetPayload = {
             surebetSet: {
               eventDate: data.date,
@@ -284,19 +293,17 @@ export default function BatchUpload() {
             bets: [
               {
                 bettingHouseId: data.bet1HouseId,
-                odd: parseFloat(data.bet1Odd),
-                type: data.bet1Type,
-                stake: parseFloat(data.bet1Stake),
-                result: null,
-                returnAmount: null,
+                odd: data.bet1Odd.toString(),
+                betType: data.bet1Type,
+                stake: data.bet1Stake.toString(),
+                potentialProfit: profitPotential1.toString(),
               },
               {
                 bettingHouseId: data.bet2HouseId,
-                odd: parseFloat(data.bet2Odd),
-                type: data.bet2Type,
-                stake: parseFloat(data.bet2Stake),
-                result: null,
-                returnAmount: null,
+                odd: data.bet2Odd.toString(),
+                betType: data.bet2Type,
+                stake: data.bet2Stake.toString(),
+                potentialProfit: profitPotential2.toString(),
               }
             ]
           };
