@@ -2,7 +2,7 @@
 
 ## Overview
 
-A comprehensive web application designed for managing and tracking surebet operations with automated OCR image processing. The system enables users to upload betting screenshots, automatically extract betting data using Mistral AI's OCR service, and manage dual-bet scenarios where one bet wins while the other loses. The application streamlines the entire surebet workflow from data entry to profit tracking and reporting.
+A comprehensive web application designed for managing and tracking surebet operations with automated OCR PDF processing. The system enables users to upload betting PDFs (single or batch), automatically extract betting data using pdfplumber, and manage dual-bet scenarios where one bet wins while the other loses. The application streamlines the entire surebet workflow from data entry to profit tracking and reporting, with support for bulk operations.
 
 ## User Preferences
 
@@ -82,6 +82,17 @@ Preferred communication style: Simple, everyday language.
 - Client-side processing using jsQR library for instant results
 - Clean interface with image preview, extracted text display, and copy-to-clipboard functionality
 - No server processing required, ensuring fast and efficient QR code reading
+
+**Batch Upload Feature (October 2025)**: Added bulk PDF processing for high-volume operations:
+- New "Enviar Lote de Apostas" page allowing upload of multiple PDFs simultaneously (up to 50 files)
+- Backend endpoint `/api/ocr/process-batch` processes all PDFs in parallel using Promise.all
+- Visual interface shows extraction status for each PDF (success/error) with detailed bet information
+- Color-coded cards displaying extracted data: date, sport, league, teams, bets with odds/stakes
+- Automatic betting house matching against system database
+- Bulk creation button adds all successfully extracted bets to the system in one operation
+- Comprehensive error handling with individual failure tracking and user feedback
+- Auto-redirect to Management page after successful batch creation
+- Full validation ensures only valid bets with matched betting houses are created
 
 **Decimal Precision Update (October 2025)**: Enhanced odds precision to support 3 decimal places:
 - Updated `bets.odd` column from `numeric(8,2)` to `numeric(8,3)` using safe ALTER TABLE command
