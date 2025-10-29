@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const menuItems = [
   {
@@ -144,6 +145,7 @@ export function AppSidebar() {
                 <p className="text-sm font-medium truncate">{user.name}</p>
                 <p className="text-xs text-muted-foreground truncate">{user.email}</p>
               </div>
+              <ThemeToggle />
             </div>
             <div className="flex gap-2">
               <Button 
