@@ -22,7 +22,9 @@ import {
   Settings,
   LogOut,
   User,
-  UserCircle
+  UserCircle,
+  QrCode,
+  Package
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -44,9 +46,19 @@ const menuItems = [
     icon: Upload,
   },
   {
+    title: "Enviar Lote de Apostas",
+    url: "/batch-upload",
+    icon: Package,
+  },
+  {
     title: "Teste de OCR",
     url: "/test-ocr",
     icon: TestTube,
+  },
+  {
+    title: "Leitor QR",
+    url: "/qr-reader",
+    icon: QrCode,
   },
 ];
 
@@ -63,15 +75,14 @@ export function AppSidebar() {
   const { user, logoutMutation } = useAuth();
 
   return (
-    <Sidebar>
+    <Sidebar className="border-r">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2">
           <div className="p-2 bg-primary rounded-lg">
             <TrendingUp className="h-6 w-6 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="font-bold text-lg">SureBet</h1>
-            <p className="text-sm text-muted-foreground">Manager</p>
+            <h1 className="font-bold text-lg">BetTracker Pro</h1>
           </div>
         </div>
       </SidebarHeader>

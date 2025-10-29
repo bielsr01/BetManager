@@ -54,7 +54,7 @@ export default function AuthPage() {
             <div className="p-3 bg-primary rounded-lg">
               <TrendingUp className="w-8 h-8 text-primary-foreground" />
             </div>
-            <h1 className="text-3xl font-bold">Surebet Manager</h1>
+            <h1 className="text-3xl font-bold">BetTracker Pro</h1>
           </div>
           <p className="text-xl text-muted-foreground mb-12">
             Gerencie e acompanhe suas apostas de arbitragem com velocidade e segurança que sua operação precisa.
@@ -63,10 +63,8 @@ export default function AuthPage() {
             {features.map((feature, index) => {
               const Icon = feature.icon;
               return (
-                <div key={index} className="flex gap-4">
-                  <div className="flex-shrink-0 p-2 rounded-lg bg-card border">
-                    <Icon className="w-5 h-5 text-primary" />
-                  </div>
+                <div key={index} className="flex gap-4 items-start">
+                  <Icon className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
                   <div>
                     <h3 className="font-semibold mb-1">{feature.title}</h3>
                     <p className="text-sm text-muted-foreground">{feature.description}</p>
@@ -85,7 +83,7 @@ export default function AuthPage() {
             <div className="p-2 bg-primary rounded-lg">
               <TrendingUp className="w-6 h-6 text-primary-foreground" />
             </div>
-            <h1 className="text-2xl font-bold">Surebet Manager</h1>
+            <h1 className="text-2xl font-bold">BetTracker Pro</h1>
           </div>
           
           <div className="mb-8">

@@ -39,8 +39,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await apiRequest("POST", "/api/login", credentials);
       return await res.json();
     },
-    onSuccess: (user: SelectUser) => {
+    onSuccess: async (user: SelectUser) => {
+      // Clear ALL cache to prevent showing previous user's data
+      queryClient.clear();
+      
+      // Set the new user data
       queryClient.setQueryData(["/api/user"], user);
+      
+      // Force refetch all user-specific data with fresh data
+      await queryClient.invalidateQueries({ 
+        refetchType: 'all' // Force refetch even if data is stale
+      });
     },
     onError: () => {
       toast({
@@ -56,6 +65,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await apiRequest("POST", "/api/logout");
     },
     onSuccess: () => {
+      // Clear ALL cache when logging out to prevent data leakage to next user
+      queryClient.clear();
+      
+      // Set user to null
       queryClient.setQueryData(["/api/user"], null);
     },
     onError: () => {

@@ -2,8 +2,27 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "./status-badge";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, TrendingUp, Users, Check, Edit, Trash2, RotateCcw, Loader2 } from "lucide-react";
+import { Calendar, TrendingUp, Users, Check, Edit, Trash2, RotateCcw, Loader2, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+// Função para formatar data sem conversão de timezone
+function formatEventDate(isoString: string): { date: string; time: string } {
+  // Extrai data/hora diretamente da string ISO: "2025-10-03T11:00:00.000Z" -> "2025-10-03T11:00"
+  const dateTimeLocal = isoString.substring(0, 16);
+  const [datePart, timePart] = dateTimeLocal.split('T');
+  const [year, month, day] = datePart.split('-');
+  
+  return {
+    date: `${day}/${month}/${year}`,
+    time: timePart
+  };
+}
 
 interface BetData {
   id: string;
@@ -13,7 +32,8 @@ interface BetData {
   odd: number;
   stake: number;
   potentialProfit: number;
-  result?: "won" | "lost" | "returned";
+  actualProfit?: number | null;
+  result?: "won" | "lost" | "returned" | "half_won" | "half_returned";
 }
 
 interface SurebetCardProps {
@@ -28,7 +48,7 @@ interface SurebetCardProps {
   isChecked: boolean;
   bet1: BetData;
   bet2: BetData;
-  onResolve: (betId: string, result: "won" | "lost" | "returned") => void;
+  onResolve: (betId: string, result: "won" | "lost" | "returned" | "half_won" | "half_returned") => void;
   onStatusChange?: (surebetSetId: string, isChecked: boolean) => void;
   onReset?: (surebetSetId: string) => void;
   onEdit?: (surebetSetId: string) => void;
@@ -60,10 +80,18 @@ export function BetCard({
   const isResolved = status === "resolved";
   const isPending = status === "pending";
   const totalStake = bet1.stake + bet2.stake;
+  
+  // Use actualProfit from backend if available, otherwise calculate locally
   let actualProfit = 0;
-
-  // Calculate actual profit based on bet results
-  if (bet1.result && bet2.result) {
+  
+  if (bet1.actualProfit !== undefined && bet1.actualProfit !== null) {
+    // Use the value calculated by backend (both bets have same actualProfit)
+    actualProfit = parseFloat(String(bet1.actualProfit));
+  } else if (bet2.actualProfit !== undefined && bet2.actualProfit !== null) {
+    // Use the value calculated by backend (both bets have same actualProfit)
+    actualProfit = parseFloat(String(bet2.actualProfit));
+  } else if (bet1.result && bet2.result) {
+    // Fallback: Calculate actual profit based on bet results (legacy logic)
     if (bet1.result === "won" && bet2.result === "lost") {
       // Win/Loss: (winning_stake × odd) - losing_stake - winning_stake
       actualProfit = (bet1.stake * bet1.odd) - bet2.stake - bet1.stake;
@@ -71,17 +99,17 @@ export function BetCard({
       // Win/Loss: (winning_stake × odd) - losing_stake - winning_stake
       actualProfit = (bet2.stake * bet2.odd) - bet1.stake - bet2.stake;
     } else if (bet1.result === "won" && bet2.result === "returned") {
-      // Win/Return: (winning_stake × odd) - winning_stake + returned_stake
-      actualProfit = (bet1.stake * bet1.odd) - bet1.stake + bet2.stake;
+      // Win/Return: (winning_stake × odd) - winning_stake
+      actualProfit = (bet1.stake * bet1.odd) - bet1.stake;
     } else if (bet2.result === "won" && bet1.result === "returned") {
-      // Win/Return: (winning_stake × odd) - winning_stake + returned_stake
-      actualProfit = (bet2.stake * bet2.odd) - bet2.stake + bet1.stake;
+      // Win/Return: (winning_stake × odd) - winning_stake
+      actualProfit = (bet2.stake * bet2.odd) - bet2.stake;
     } else if (bet1.result === "lost" && bet2.result === "returned") {
-      // Loss/Return: -lost_stake + returned_stake
-      actualProfit = -bet1.stake + bet2.stake;
+      // Loss/Return: -lost_stake (returned stake doesn't count, just comes back)
+      actualProfit = -bet1.stake;
     } else if (bet2.result === "lost" && bet1.result === "returned") {
-      // Loss/Return: -lost_stake + returned_stake
-      actualProfit = -bet2.stake + bet1.stake;
+      // Loss/Return: -lost_stake (returned stake doesn't count, just comes back)
+      actualProfit = -bet2.stake;
     } else if (bet1.result === "won" && bet2.result === "won") {
       // Both won: (return1 + return2) - (stake1 + stake2)
       actualProfit = (bet1.stake * bet1.odd + bet2.stake * bet2.odd) - (bet1.stake + bet2.stake);
@@ -91,11 +119,51 @@ export function BetCard({
     } else if (bet1.result === "returned" && bet2.result === "returned") {
       // Both returned: no profit or loss
       actualProfit = 0;
+    } else if (bet1.result === "half_won" && bet2.result === "lost") {
+      // Half Won + Lost: (half_stake × odd) - half_stake - lost_stake
+      actualProfit = ((bet1.stake / 2) * bet1.odd) - (bet1.stake / 2) - bet2.stake;
+    } else if (bet2.result === "half_won" && bet1.result === "lost") {
+      // Half Won + Lost: (half_stake × odd) - half_stake - lost_stake
+      actualProfit = ((bet2.stake / 2) * bet2.odd) - (bet2.stake / 2) - bet1.stake;
+    } else if (bet1.result === "half_returned" && bet2.result === "lost") {
+      // Half Returned + Lost: -lost_stake (half returned doesn't affect profit)
+      actualProfit = -bet2.stake;
+    } else if (bet2.result === "half_returned" && bet1.result === "lost") {
+      // Half Returned + Lost: -lost_stake (half returned doesn't affect profit)
+      actualProfit = -bet1.stake;
+    } else if (bet1.result === "half_won" && bet2.result === "returned") {
+      // Half Won + Returned: (half_stake × odd) - half_stake
+      actualProfit = ((bet1.stake / 2) * bet1.odd) - (bet1.stake / 2);
+    } else if (bet2.result === "half_won" && bet1.result === "returned") {
+      // Half Won + Returned: (half_stake × odd) - half_stake
+      actualProfit = ((bet2.stake / 2) * bet2.odd) - (bet2.stake / 2);
+    } else if (bet1.result === "half_returned" && bet2.result === "returned") {
+      // Both partial returns: no profit or loss
+      actualProfit = 0;
+    } else if (bet1.result === "half_won" && bet2.result === "half_returned") {
+      // Half Won + Half Returned: calculate returns for each bet then subtract total invested
+      const return1 = (bet1.stake / 2) * bet1.odd + (bet1.stake / 2); // Half won: (half × odd) + half returned
+      const return2 = bet2.stake / 2; // Half returned: only half returned
+      actualProfit = (return1 + return2) - (bet1.stake + bet2.stake);
+    } else if (bet2.result === "half_won" && bet1.result === "half_returned") {
+      // Half Won + Half Returned: calculate returns for each bet then subtract total invested
+      const return1 = bet1.stake / 2; // Half returned: only half returned
+      const return2 = (bet2.stake / 2) * bet2.odd + (bet2.stake / 2); // Half won: (half × odd) + half returned
+      actualProfit = (return1 + return2) - (bet1.stake + bet2.stake);
+    } else if (bet1.result === "won" && bet2.result === "half_returned") {
+      // Won + Half Returned: (winning_stake × odd) - winning_stake
+      actualProfit = (bet1.stake * bet1.odd) - bet1.stake;
+    } else if (bet2.result === "won" && bet1.result === "half_returned") {
+      // Won + Half Returned: (winning_stake × odd) - winning_stake
+      actualProfit = (bet2.stake * bet2.odd) - bet2.stake;
+    } else if (bet1.result === "half_won" && bet2.result === "half_won") {
+      // Both Half Won: sum of half profits
+      actualProfit = ((bet1.stake / 2) * bet1.odd) - (bet1.stake / 2) + ((bet2.stake / 2) * bet2.odd) - (bet2.stake / 2);
     }
   }
 
   return (
-    <Card className={cn("hover-elevate", className)} data-testid={`card-surebet-${id}`}>
+    <Card className={cn("hover-elevate", status === "resolved" && "bg-[#e6f7ed] dark:bg-[#344038]", className)} data-testid={`card-surebet-${id}`}>
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -178,7 +246,7 @@ export function BetCard({
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-1">
             <Calendar className="w-4 h-4" />
-            <span>{new Date(eventDate).toLocaleDateString('pt-BR')} às {new Date(eventDate).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+            <span>{formatEventDate(eventDate).date} às {formatEventDate(eventDate).time}</span>
           </div>
           <span>{sport} • {league}</span>
         </div>
@@ -247,6 +315,32 @@ export function BetCard({
               >
                 Devolvido
               </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    className="bg-sky-400 hover:bg-sky-500 text-white"
+                    data-testid={`button-half-green-${bet1.id}`}
+                  >
+                    Meio Green
+                    <ChevronDown className="w-3 h-3 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem
+                    onClick={() => onResolve(bet1.id, "half_won")}
+                    data-testid={`button-half-won-${bet1.id}`}
+                  >
+                    Ganho
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onResolve(bet1.id, "half_returned")}
+                    data-testid={`button-half-returned-${bet1.id}`}
+                  >
+                    Devolvido
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           )}
         </div>
@@ -313,6 +407,32 @@ export function BetCard({
               >
                 Devolvido
               </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    className="bg-sky-400 hover:bg-sky-500 text-white"
+                    data-testid={`button-half-green-${bet2.id}`}
+                  >
+                    Meio Green
+                    <ChevronDown className="w-3 h-3 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem
+                    onClick={() => onResolve(bet2.id, "half_won")}
+                    data-testid={`button-half-won-${bet2.id}`}
+                  >
+                    Ganho
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onResolve(bet2.id, "half_returned")}
+                    data-testid={`button-half-returned-${bet2.id}`}
+                  >
+                    Devolvido
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           )}
         </div>

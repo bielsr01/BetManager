@@ -13,7 +13,7 @@ import type {
   User,
   InsertUser
 } from "@shared/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, inArray, asc } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
@@ -182,6 +182,7 @@ class DatabaseStorage implements IStorage {
   }
 
   async getSurebetSets(userId?: string): Promise<SurebetSetWithBets[]> {
+    // Query 1: Get all surebet sets
     let query = db.select().from(surebetSets);
     
     if (userId) {
@@ -190,29 +191,72 @@ class DatabaseStorage implements IStorage {
     
     const sets = await query.orderBy(desc(surebetSets.createdAt));
     
-    const result: SurebetSetWithBets[] = [];
+    if (sets.length === 0) {
+      return [];
+    }
     
-    for (const set of sets) {
-      const setBets = await db
-        .select()
-        .from(bets)
-        .innerJoin(bettingHouses, eq(bets.bettingHouseId, bettingHouses.id))
-        .innerJoin(accountHolders, eq(bettingHouses.accountHolderId, accountHolders.id))
-        .where(eq(bets.surebetSetId, set.id));
-
-      const formattedBets = setBets.map(row => ({
+    // Query 2: Get ALL bets for ALL sets in a single batched query
+    // ORDER BY garante ordem determinística (createdAt + id como critério de desempate)
+    const setIds = sets.map(set => set.id);
+    const allBets = await db
+      .select()
+      .from(bets)
+      .innerJoin(bettingHouses, eq(bets.bettingHouseId, bettingHouses.id))
+      .innerJoin(accountHolders, eq(bettingHouses.accountHolderId, accountHolders.id))
+      .where(inArray(bets.surebetSetId, setIds))
+      .orderBy(asc(bets.createdAt), asc(bets.id));
+    
+    // Group bets by set ID in memory
+    const betsBySetId = new Map<string, any[]>();
+    
+    for (const row of allBets) {
+      const setId = row.bets.surebetSetId;
+      if (!setId) continue; // Skip if no set ID (shouldn't happen)
+      
+      if (!betsBySetId.has(setId)) {
+        betsBySetId.set(setId, []);
+      }
+      
+      betsBySetId.get(setId)!.push({
         ...row.bets,
         bettingHouse: {
           ...row.betting_houses,
           accountHolder: row.account_holders
         }
-      }));
-      
-      result.push({
-        ...set,
-        bets: formattedBets
       });
     }
+    
+    // Assemble final result
+    // Converte Date para string ISO mantendo os valores UTC (que são os valores do banco sem timezone)
+    const formatDateToISO = (date: Date | string | null): string | null => {
+      if (!date) return null;
+      if (typeof date === 'string') return date;
+      
+      // Extrai componentes UTC do Date (que representam os valores do banco)
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      const hours = String(date.getUTCHours()).padStart(2, '0');
+      const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+      const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+      
+      return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.000Z`;
+    };
+    
+    const result: SurebetSetWithBets[] = sets.map(set => {
+      // SQL já ordena - não reordenar aqui
+      const setBets = betsBySetId.get(set.id) || [];
+      
+      return {
+        ...set,
+        eventDate: formatDateToISO(set.eventDate) as any,
+        createdAt: formatDateToISO(set.createdAt) as any,
+        bets: setBets.map(bet => ({
+          ...bet,
+          createdAt: formatDateToISO(bet.createdAt) as any
+        }))
+      };
+    });
     
     return result;
   }
@@ -230,20 +274,41 @@ class DatabaseStorage implements IStorage {
       .from(bets)
       .innerJoin(bettingHouses, eq(bets.bettingHouseId, bettingHouses.id))
       .innerJoin(accountHolders, eq(bettingHouses.accountHolderId, accountHolders.id))
-      .where(eq(bets.surebetSetId, set.id));
+      .where(eq(bets.surebetSetId, set.id))
+      .orderBy(asc(bets.createdAt), asc(bets.id));
 
+    // Helper para converter Date para ISO string sem conversão de timezone
+    const formatDateToISO = (date: Date | string | null): string | null => {
+      if (!date) return null;
+      if (typeof date === 'string') return date;
+      
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      const hours = String(date.getUTCHours()).padStart(2, '0');
+      const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+      const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+      
+      return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.000Z`;
+    };
+
+    // SQL já ordena - não reordenar aqui
     const formattedBets = setBets.map(row => ({
-      ...row.bets,
-      bettingHouse: {
-        ...row.betting_houses,
-        accountHolder: row.account_holders
-      }
-    }));
+        ...row.bets,
+        createdAt: formatDateToISO(row.bets.createdAt),
+        bettingHouse: {
+          ...row.betting_houses,
+          createdAt: formatDateToISO(row.betting_houses.createdAt),
+          accountHolder: row.account_holders
+        }
+      }));
     
     return {
       ...set,
+      eventDate: formatDateToISO(set.eventDate) as any,
+      createdAt: formatDateToISO(set.createdAt) as any,
       bets: formattedBets
-    };
+    } as SurebetSetWithBets;
   }
 
   async updateSurebetSet(id: string, data: Partial<InsertSurebetSet>): Promise<SurebetSet> {

@@ -9,7 +9,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CalendarIcon, Save, ArrowLeft } from "lucide-react";
+import { CalendarIcon, Save, ArrowLeft, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AccountHolder, BettingHouse } from "@shared/schema";
 
@@ -19,24 +19,24 @@ const betFormSchema = z.object({
   league: z.string().min(1, "Liga é obrigatória"),
   teamA: z.string().min(1, "Time A é obrigatório"),
   teamB: z.string().min(1, "Time B é obrigatório"),
-  profitPercentage: z.string().transform(Number),
+  profitPercentage: z.coerce.number(),
   
   // Bet 1 - casa de apostas (texto para OCR) e titular da conta (selector)
   bet1House: z.string().min(1, "Casa de apostas é obrigatória"),
   bet1HouseId: z.string().min(1, "Titular da conta é obrigatório"),
   bet1Type: z.string().min(1, "Tipo de aposta é obrigatório"),
-  bet1Odd: z.string().transform(Number),
-  bet1Stake: z.string().transform(Number),
-  bet1Profit: z.string().transform(Number),
+  bet1Odd: z.coerce.number(),
+  bet1Stake: z.coerce.number(),
+  bet1Profit: z.coerce.number(),
   bet1AccountHolder: z.string().optional(),
   
   // Bet 2 - casa de apostas (texto para OCR) e titular da conta (selector)
   bet2House: z.string().min(1, "Casa de apostas é obrigatória"),
   bet2HouseId: z.string().min(1, "Titular da conta é obrigatório"),
   bet2Type: z.string().min(1, "Tipo de aposta é obrigatório"),
-  bet2Odd: z.string().transform(Number),
-  bet2Stake: z.string().transform(Number),
-  bet2Profit: z.string().transform(Number),
+  bet2Odd: z.coerce.number(),
+  bet2Stake: z.coerce.number(),
+  bet2Profit: z.coerce.number(),
   bet2AccountHolder: z.string().optional(),
 });
 
@@ -70,15 +70,24 @@ export function BetForm({
   const isDataLoading = holdersLoading || housesLoading;
 
   // Create combined options for dropdowns: "Titular - Casa"
-  const houseOptions = allHouses.map(house => {
-    const holder = holders.find(h => h.id === house.accountHolderId);
-    return {
-      id: house.id,
-      name: house.name,
-      holderName: holder?.name || "Titular não encontrado",
-      displayLabel: `${holder?.name || "Titular não encontrado"} - ${house.name}`,
-    };
-  });
+  // First, group houses by holder and sort alphabetically
+  const houseOptions = allHouses
+    .map(house => {
+      const holder = holders.find(h => h.id === house.accountHolderId);
+      return {
+        id: house.id,
+        name: house.name,
+        holderName: holder?.name || "Titular não encontrado",
+        displayLabel: `${holder?.name || "Titular não encontrado"} - ${house.name}`,
+      };
+    })
+    .sort((a, b) => {
+      // First sort by holder name alphabetically
+      const holderCompare = a.holderName.localeCompare(b.holderName);
+      if (holderCompare !== 0) return holderCompare;
+      // Then sort by house name alphabetically within the same holder
+      return a.name.localeCompare(b.name);
+    });
 
   const form = useForm<BetFormData>({
     resolver: zodResolver(betFormSchema),
@@ -88,20 +97,20 @@ export function BetForm({
       league: initialData?.league || "",
       teamA: initialData?.teamA || "",
       teamB: initialData?.teamB || "",
-      profitPercentage: String(initialData?.profitPercentage || ""),
+      profitPercentage: initialData?.profitPercentage || 0,
       bet1House: initialData?.bet1House || "",
       bet1HouseId: initialData?.bet1HouseId || "",
       bet1Type: initialData?.bet1Type || "",
-      bet1Odd: String(initialData?.bet1Odd || ""),
-      bet1Stake: String(initialData?.bet1Stake || ""),
-      bet1Profit: String(initialData?.bet1Profit || ""),
+      bet1Odd: initialData?.bet1Odd || 0,
+      bet1Stake: initialData?.bet1Stake || 0,
+      bet1Profit: initialData?.bet1Profit || 0,
       bet1AccountHolder: initialData?.bet1AccountHolder || "",
       bet2House: initialData?.bet2House || "",
       bet2HouseId: initialData?.bet2HouseId || "",
       bet2Type: initialData?.bet2Type || "",
-      bet2Odd: String(initialData?.bet2Odd || ""),
-      bet2Stake: String(initialData?.bet2Stake || ""),
-      bet2Profit: String(initialData?.bet2Profit || ""),
+      bet2Odd: initialData?.bet2Odd || 0,
+      bet2Stake: initialData?.bet2Stake || 0,
+      bet2Profit: initialData?.bet2Profit || 0,
       bet2AccountHolder: initialData?.bet2AccountHolder || "",
     },
   });
@@ -561,7 +570,11 @@ export function BetForm({
               disabled={isLoading}
               data-testid="button-save-bet"
             >
-              <Save className="w-4 h-4 mr-2" />
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4 mr-2" />
+              )}
               {isLoading ? "Salvando..." : "Salvar Aposta"}
             </Button>
           </div>

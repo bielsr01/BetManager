@@ -5,14 +5,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Upload, Wand2 } from "lucide-react";
 import { Link } from "wouter";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
 
 type UploadStep = "upload" | "edit";
 
 export default function UploadPage() {
+  const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState<UploadStep>("upload");
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedData, setExtractedData] = useState<any>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Check for imported OCR data on component mount
   useEffect(() => {
@@ -86,12 +90,19 @@ export default function UploadPage() {
   };
 
   const handleFormSubmit = async (data: any) => {
+    setIsSaving(true);
     try {
       console.log("Submitting form data:", data);
       
       // Validate required fields
       if (!data.bet1HouseId || !data.bet2HouseId) {
-        alert("Por favor, selecione os titulares de conta para ambas as apostas.");
+        toast({
+          title: "Campos obrigatórios",
+          description: "Por favor, selecione os titulares de conta para ambas as apostas.",
+          variant: "destructive",
+          duration: 3000,
+        });
+        setIsSaving(false);
         return;
       }
       
@@ -136,17 +147,42 @@ export default function UploadPage() {
       if (response.ok) {
         const result = await response.json();
         console.log("Bet saved successfully!", result);
-        alert("Surebet salvo com sucesso!");
+        
+        // Invalidate queries asynchronously (no await needed for faster UX)
+        queryClient.invalidateQueries({ 
+          queryKey: ["/api/surebet-sets"],
+          refetchType: 'all' // Force refetch even if data is stale
+        });
+        
+        toast({
+          title: "✅ Aposta salva!",
+          description: "Surebet salvo com sucesso!",
+          duration: 3000,
+        });
+        
+        setIsSaving(false);
         // Clear form and stay on upload page
         handleImageRemove(); // This will reset to upload step and clear all data
       } else {
         const errorText = await response.text();
         console.error("Failed to save bet:", errorText);
-        alert("Erro ao salvar surebet. Verifique os dados e tente novamente.");
+        toast({
+          title: "❌ Erro ao salvar",
+          description: "Erro ao salvar surebet. Verifique os dados e tente novamente.",
+          variant: "destructive",
+          duration: 3000,
+        });
+        setIsSaving(false);
       }
     } catch (error) {
       console.error("Error saving bet:", error);
-      alert("Erro ao salvar surebet. Verifique sua conexão e tente novamente.");
+      toast({
+        title: "❌ Erro de conexão",
+        description: "Erro ao salvar surebet. Verifique sua conexão e tente novamente.",
+        variant: "destructive",
+        duration: 3000,
+      });
+      setIsSaving(false);
     }
   };
 
@@ -162,6 +198,7 @@ export default function UploadPage() {
           initialData={extractedData}
           onSubmit={handleFormSubmit}
           onCancel={handleCancel}
+          isLoading={isSaving}
         />
       </div>
     );

@@ -54,10 +54,10 @@ export const bets = pgTable("bets", {
   surebetSetId: varchar("surebet_set_id").references(() => surebetSets.id),
   bettingHouseId: varchar("betting_house_id").references(() => bettingHouses.id),
   betType: text("bet_type").notNull(), // "Acima 2.25", "1x2", etc.
-  odd: decimal("odd", { precision: 8, scale: 2 }).notNull(),
+  odd: decimal("odd", { precision: 8, scale: 3 }).notNull(),
   stake: decimal("stake", { precision: 10, scale: 2 }).notNull(),
   potentialProfit: decimal("potential_profit", { precision: 10, scale: 2 }).notNull(),
-  result: text("result"), // "won", "lost", "returned", null for pending
+  result: text("result"), // "won", "lost", "returned", "half_won", "half_returned", null for pending
   actualProfit: decimal("actual_profit", { precision: 10, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow(),
 });

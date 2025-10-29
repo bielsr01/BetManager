@@ -355,28 +355,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (allHaveResults && allBets.length === 2) {
           const bet1 = allBets[0];
           const bet2 = allBets[1];
-          let actualProfit = 0;
           
-          // Calculate actual profit based on both bet results
-          if (bet1.result === "won" && bet2.result === "lost") {
-            actualProfit = (parseFloat(String(bet1.stake)) * parseFloat(String(bet1.odd))) - parseFloat(String(bet2.stake)) - parseFloat(String(bet1.stake));
-          } else if (bet2.result === "won" && bet1.result === "lost") {
-            actualProfit = (parseFloat(String(bet2.stake)) * parseFloat(String(bet2.odd))) - parseFloat(String(bet1.stake)) - parseFloat(String(bet2.stake));
-          } else if (bet1.result === "won" && bet2.result === "returned") {
-            actualProfit = (parseFloat(String(bet1.stake)) * parseFloat(String(bet1.odd))) - parseFloat(String(bet1.stake)) + parseFloat(String(bet2.stake));
-          } else if (bet2.result === "won" && bet1.result === "returned") {
-            actualProfit = (parseFloat(String(bet2.stake)) * parseFloat(String(bet2.odd))) - parseFloat(String(bet2.stake)) + parseFloat(String(bet1.stake));
-          } else if (bet1.result === "lost" && bet2.result === "returned") {
-            actualProfit = -parseFloat(String(bet1.stake)); // Perdeu apenas o stake da casa que perdeu
-          } else if (bet2.result === "lost" && bet1.result === "returned") {
-            actualProfit = -parseFloat(String(bet2.stake)); // Perdeu apenas o stake da casa que perdeu
-          } else if (bet1.result === "won" && bet2.result === "won") {
-            actualProfit = (parseFloat(String(bet1.stake)) * parseFloat(String(bet1.odd)) + parseFloat(String(bet2.stake)) * parseFloat(String(bet2.odd))) - (parseFloat(String(bet1.stake)) + parseFloat(String(bet2.stake)));
-          } else if (bet1.result === "lost" && bet2.result === "lost") {
-            actualProfit = -(parseFloat(String(bet1.stake)) + parseFloat(String(bet2.stake)));
-          } else if (bet1.result === "returned" && bet2.result === "returned") {
-            actualProfit = 0;
-          }
+          // Helper function to calculate return for each bet based on result
+          const calculateReturn = (bet: typeof bet1): number => {
+            const stake = parseFloat(String(bet.stake));
+            const odd = parseFloat(String(bet.odd));
+            
+            switch (bet.result) {
+              case "won":
+                return stake * odd;
+              case "lost":
+                return 0;
+              case "returned":
+                return stake;
+              case "half_won":
+                // Half stake at odd + half stake returned
+                return (stake / 2) * odd + (stake / 2);
+              case "half_returned":
+                // Half stake returned, half lost
+                return stake / 2;
+              default:
+                return 0;
+            }
+          };
+          
+          // Calculate total return and invested
+          const return1 = calculateReturn(bet1);
+          const return2 = calculateReturn(bet2);
+          const totalReturn = return1 + return2;
+          const totalInvested = parseFloat(String(bet1.stake)) + parseFloat(String(bet2.stake));
+          const actualProfit = totalReturn - totalInvested;
           
           // Update both bets with the calculated actual profit
           await storage.updateBet(bet1.id, { actualProfit: String(actualProfit) });
@@ -470,6 +478,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("pdfplumber processing error:", error);
       res.status(400).json({ 
         error: "Failed to process OCR",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Batch OCR processing route - accepts multiple files
+  app.post("/api/ocr/process-batch", requireAuth, upload.array('files', 50), async (req, res) => {
+    try {
+      const files = req.files as Express.Multer.File[];
+      
+      if (!files || files.length === 0) {
+        res.status(400).json({ error: "No files provided" });
+        return;
+      }
+
+      console.log(`Batch processing ${files.length} PDF(s)...`);
+
+      const results = await Promise.all(
+        files.map(async (file) => {
+          try {
+            const ocrResult = await pdfPlumberService.processDocument(
+              file.buffer,
+              file.originalname,
+              file.mimetype,
+              undefined
+            );
+
+            return {
+              fileName: file.originalname,
+              success: true,
+              data: ocrResult
+            };
+          } catch (error) {
+            console.error(`Error processing ${file.originalname}:`, error);
+            return {
+              fileName: file.originalname,
+              success: false,
+              error: error instanceof Error ? error.message : "Unknown error"
+            };
+          }
+        })
+      );
+
+      const successCount = results.filter(r => r.success).length;
+      console.log(`Batch processing complete: ${successCount}/${files.length} successful`);
+
+      res.json({
+        success: true,
+        results
+      });
+    } catch (error) {
+      console.error("Batch processing error:", error);
+      res.status(500).json({
+        error: "Failed to process batch",
         message: error instanceof Error ? error.message : "Unknown error"
       });
     }

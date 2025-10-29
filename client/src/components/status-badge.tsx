@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-type BetStatus = "pending" | "won" | "lost" | "returned";
+type BetStatus = "pending" | "won" | "lost" | "returned" | "half_won" | "half_returned";
 
 interface StatusBadgeProps {
   status: BetStatus;
@@ -28,6 +28,16 @@ const statusConfig = {
     label: "Devolvido",
     variant: "outline" as const,
     className: "bg-betting-returned text-foreground",
+  },
+  half_won: {
+    label: "Meio Green - Ganho",
+    variant: "default" as const,
+    className: "bg-sky-400 text-white",
+  },
+  half_returned: {
+    label: "Meio Green - Devolvido",
+    variant: "outline" as const,
+    className: "bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300",
   },
 };
 
