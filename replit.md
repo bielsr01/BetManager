@@ -8,6 +8,11 @@ A comprehensive web application designed for managing and tracking surebet opera
 
 Preferred communication style: Simple, everyday language.
 
+**Default Management Page Filters (October 2025)**:
+- Management page always opens with "Pendente" status filter pre-selected
+- "Ordenar por Data" button is always active by default
+- User can still change filters manually after opening the page
+
 ## System Architecture
 
 ### Frontend Architecture

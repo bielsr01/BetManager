@@ -28,9 +28,9 @@ const removeAccents = (str: string): string => {
 };
 
 export default function Management() {
-  const [filters, setFilters] = useState<FilterValues>({});
-  const [tempFilters, setTempFilters] = useState<FilterValues>({});
-  const [chronologicalSort, setChronologicalSort] = useState(false);
+  const [filters, setFilters] = useState<FilterValues>({ status: 'pending' });
+  const [tempFilters, setTempFilters] = useState<FilterValues>({ status: 'pending' });
+  const [chronologicalSort, setChronologicalSort] = useState(true);
   const [, setLocation] = useLocation();
   const [editingBet, setEditingBet] = useState<any>(null);
   const [editingNumericFields, setEditingNumericFields] = useState<{
