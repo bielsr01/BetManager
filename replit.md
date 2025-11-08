@@ -61,7 +61,10 @@ Preferred communication style: Simple, everyday language.
   - Improved sport detection.
 - **Image Processing**: Base64 encoding for API transmission.
 - **QR Code Reading**: `jsQR` library (client-side processing for QR codes).
-- **BetBurger Integration**: Custom parser for BetBurger Excel data format.
+- **BetBurger Integration**: Custom parser for BetBurger Excel data format with full system compatibility.
+  - **November 2025**: Fixed critical submission bug - changed from TanStack mutation to direct fetch() matching batch-upload payload structure
+  - Payload format: `{surebetSet: {...}, bets: [...]}` with all fields as strings and `status: "pending"`
+  - 100% compatible with Management, Dashboard, graphs, and profit calculations
 - **Database Hosting**: Neon (serverless PostgreSQL).
 - **UI Components**: Shadcn/ui, Radix UI.
 - **Development Tools**: Replit integration (runtime error overlay, cartographer).
