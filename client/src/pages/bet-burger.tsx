@@ -60,6 +60,7 @@ export default function BetBurger() {
   const [excelData, setExcelData] = useState("");
   const [parsedBets, setParsedBets] = useState<ParsedBet[]>([]);
   const [editableData, setEditableData] = useState<Record<number, EditableData>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data: bettingHouses = [] } = useQuery<BettingHouseWithAccountHolder[]>({
     queryKey: ["/api/betting-houses"],
@@ -211,19 +212,14 @@ export default function BetBurger() {
     }));
   };
 
-  const createBetMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", "/api/surebet-sets", data);
-      return response.json();
-    },
-  });
-
   const handleSubmitBets = async () => {
+    setIsSubmitting(true);
     let created = 0;
     let failed = 0;
     const errors: string[] = [];
 
-    for (let i = 0; i < parsedBets.length; i++) {
+    try {
+      for (let i = 0; i < parsedBets.length; i++) {
       const data = editableData[i];
       
       if (!data.bet1SelectedHouseId || !data.bet2SelectedHouseId) {
@@ -246,36 +242,58 @@ export default function BetBurger() {
       }
 
       try {
-        await createBetMutation.mutateAsync({
-          eventDate: data.eventDate,
-          profitPercentage: parseFloat(data.profitPercentage),
+        const surebetSetData = {
+          eventDate: data.eventDate || null,
           sport: data.sport,
           league: data.league,
           teamA: data.teamA,
           teamB: data.teamB,
-          bets: [
-            {
-              bettingHouseId: data.bet1SelectedHouseId,
-              betType: data.bet1Type,
-              odd: bet1Odd.toFixed(3),
-              stake: bet1Stake.toFixed(2),
-              potentialProfit: bet1Profit.toFixed(2),
-            },
-            {
-              bettingHouseId: data.bet2SelectedHouseId,
-              betType: data.bet2Type,
-              odd: bet2Odd.toFixed(3),
-              stake: bet2Stake.toFixed(2),
-              potentialProfit: bet2Profit.toFixed(2),
-            }
-          ]
+          profitPercentage: data.profitPercentage.toString(),
+          status: "pending",
+        };
+
+        const bet1Data = {
+          betType: data.bet1Type,
+          odd: bet1Odd.toFixed(3),
+          stake: bet1Stake.toFixed(2),
+          potentialProfit: bet1Profit.toFixed(2),
+          bettingHouseId: data.bet1SelectedHouseId,
+        };
+
+        const bet2Data = {
+          betType: data.bet2Type,
+          odd: bet2Odd.toFixed(3),
+          stake: bet2Stake.toFixed(2),
+          potentialProfit: bet2Profit.toFixed(2),
+          bettingHouseId: data.bet2SelectedHouseId,
+        };
+
+        const response = await fetch('/api/surebet-sets', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            surebetSet: surebetSetData,
+            bets: [bet1Data, bet2Data],
+          }),
         });
-        created++;
+
+        if (response.ok) {
+          created++;
+        } else {
+          const errorText = await response.text();
+          errors.push(`Aposta ${i + 1}: ${errorText}`);
+          failed++;
+        }
       } catch (error: any) {
         console.error(`Erro ao criar aposta ${i + 1}:`, error);
         errors.push(`Aposta ${i + 1}: ${error.message || 'Erro desconhecido'}`);
         failed++;
       }
+    }
+    } finally {
+      setIsSubmitting(false);
     }
 
     queryClient.invalidateQueries({ queryKey: ['/api/surebet-sets'] });
@@ -371,10 +389,10 @@ export default function BetBurger() {
               </Button>
               <Button
                 onClick={handleSubmitBets}
-                disabled={createBetMutation.isPending}
+                disabled={isSubmitting}
                 data-testid="button-submit-bets"
               >
-                {createBetMutation.isPending ? "Enviando..." : "Adicionar Todas as Apostas ao Sistema"}
+                {isSubmitting ? "Enviando..." : "Adicionar Todas as Apostas ao Sistema"}
               </Button>
             </div>
           </div>
