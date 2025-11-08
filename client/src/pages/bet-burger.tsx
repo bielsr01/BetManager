@@ -45,11 +45,13 @@ interface EditableData {
   bet1Type: string;
   bet1Odd: string;
   bet1Stake: string;
+  bet1Profit: string;
   bet1SelectedHouseId?: string;
   bet2House: string;
   bet2Type: string;
   bet2Odd: string;
   bet2Stake: string;
+  bet2Profit: string;
   bet2SelectedHouseId?: string;
 }
 
@@ -166,11 +168,13 @@ export default function BetBurger() {
           bet1Type: bet.bet1.type,
           bet1Odd: bet.bet1.odd.toFixed(3),
           bet1Stake: bet.bet1.stake.toFixed(2),
+          bet1Profit: bet.bet1.profit.toFixed(2),
           bet1SelectedHouseId: findMatchingHouse(bet.bet1.house),
           bet2House: bet.bet2.house,
           bet2Type: bet.bet2.type,
           bet2Odd: bet.bet2.odd.toFixed(3),
           bet2Stake: bet.bet2.stake.toFixed(2),
+          bet2Profit: bet.bet2.profit.toFixed(2),
           bet2SelectedHouseId: findMatchingHouse(bet.bet2.house),
         };
       });
@@ -230,17 +234,16 @@ export default function BetBurger() {
 
       const bet1Odd = parseFloat(data.bet1Odd);
       const bet1Stake = parseFloat(data.bet1Stake);
+      const bet1Profit = parseFloat(data.bet1Profit);
       const bet2Odd = parseFloat(data.bet2Odd);
       const bet2Stake = parseFloat(data.bet2Stake);
+      const bet2Profit = parseFloat(data.bet2Profit);
 
-      if (isNaN(bet1Odd) || isNaN(bet1Stake) || isNaN(bet2Odd) || isNaN(bet2Stake)) {
+      if (isNaN(bet1Odd) || isNaN(bet1Stake) || isNaN(bet1Profit) || isNaN(bet2Odd) || isNaN(bet2Stake) || isNaN(bet2Profit)) {
         errors.push(`Aposta ${i + 1}: Valores numéricos inválidos`);
         failed++;
         continue;
       }
-
-      const bet1PotentialProfit = bet1Stake * bet1Odd - bet1Stake;
-      const bet2PotentialProfit = bet2Stake * bet2Odd - bet2Stake;
 
       try {
         await createBetMutation.mutateAsync({
@@ -256,14 +259,14 @@ export default function BetBurger() {
               betType: data.bet1Type,
               odd: bet1Odd.toFixed(3),
               stake: bet1Stake.toFixed(2),
-              potentialProfit: bet1PotentialProfit.toFixed(2),
+              potentialProfit: bet1Profit.toFixed(2),
             },
             {
               bettingHouseId: data.bet2SelectedHouseId,
               betType: data.bet2Type,
               odd: bet2Odd.toFixed(3),
               stake: bet2Stake.toFixed(2),
-              potentialProfit: bet2PotentialProfit.toFixed(2),
+              potentialProfit: bet2Profit.toFixed(2),
             }
           ]
         });
@@ -459,14 +462,32 @@ export default function BetBurger() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="pt-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
-                          <Label>Casa de Apostas (Extraído)</Label>
+                          <Label>Casa de Apostas</Label>
                           <Input
                             value={data.bet1House}
-                            disabled
-                            className="bg-muted"
+                            onChange={(e) => updateEditableField(index, 'bet1House', e.target.value)}
+                            data-testid={`input-bet1-house-${index}`}
                           />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Titular da Conta</Label>
+                          <Select
+                            value={data.bet1SelectedHouseId || ""}
+                            onValueChange={(value) => updateEditableField(index, 'bet1SelectedHouseId', value)}
+                          >
+                            <SelectTrigger data-testid={`select-bet1-holder-${index}`}>
+                              <SelectValue placeholder="Selecione o titular" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {bettingHouses.map((house) => (
+                                <SelectItem key={house.id} value={house.id}>
+                                  {house.accountHolder?.name || 'Sem titular'} - {house.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div className="space-y-2">
                           <Label>Tipo</Label>
@@ -475,28 +496,6 @@ export default function BetBurger() {
                             onChange={(e) => updateEditableField(index, 'bet1Type', e.target.value)}
                             data-testid={`input-bet1-type-${index}`}
                           />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Titular da Conta *</Label>
-                          <Select
-                            value={data.bet1SelectedHouseId || ""}
-                            onValueChange={(value) => updateEditableField(index, 'bet1SelectedHouseId', value)}
-                          >
-                            <SelectTrigger data-testid={`select-bet1-house-${index}`}>
-                              <SelectValue placeholder="Selecione o titular" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {bettingHouses.length === 0 ? (
-                                <div className="p-2 text-sm text-muted-foreground">Nenhuma casa cadastrada</div>
-                              ) : (
-                                bettingHouses.map((house) => (
-                                  <SelectItem key={house.id} value={house.id}>
-                                    {house.accountHolder?.name || 'Sem titular'} - {house.name}
-                                  </SelectItem>
-                                ))
-                              )}
-                            </SelectContent>
-                          </Select>
                         </div>
                         <div className="space-y-2">
                           <Label>Odd</Label>
@@ -521,9 +520,11 @@ export default function BetBurger() {
                         <div className="space-y-2">
                           <Label>Lucro Potencial (R$)</Label>
                           <Input
-                            value={(parseFloat(data.bet1Stake || '0') * parseFloat(data.bet1Odd || '0') - parseFloat(data.bet1Stake || '0')).toFixed(2)}
-                            disabled
-                            className="bg-muted"
+                            type="number"
+                            step="0.01"
+                            value={data.bet1Profit}
+                            onChange={(e) => updateEditableField(index, 'bet1Profit', e.target.value)}
+                            data-testid={`input-bet1-profit-${index}`}
                           />
                         </div>
                       </div>
@@ -539,14 +540,32 @@ export default function BetBurger() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="pt-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
-                          <Label>Casa de Apostas (Extraído)</Label>
+                          <Label>Casa de Apostas</Label>
                           <Input
                             value={data.bet2House}
-                            disabled
-                            className="bg-muted"
+                            onChange={(e) => updateEditableField(index, 'bet2House', e.target.value)}
+                            data-testid={`input-bet2-house-${index}`}
                           />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Titular da Conta</Label>
+                          <Select
+                            value={data.bet2SelectedHouseId || ""}
+                            onValueChange={(value) => updateEditableField(index, 'bet2SelectedHouseId', value)}
+                          >
+                            <SelectTrigger data-testid={`select-bet2-holder-${index}`}>
+                              <SelectValue placeholder="Selecione o titular" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {bettingHouses.map((house) => (
+                                <SelectItem key={house.id} value={house.id}>
+                                  {house.accountHolder?.name || 'Sem titular'} - {house.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div className="space-y-2">
                           <Label>Tipo</Label>
@@ -555,24 +574,6 @@ export default function BetBurger() {
                             onChange={(e) => updateEditableField(index, 'bet2Type', e.target.value)}
                             data-testid={`input-bet2-type-${index}`}
                           />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Titular da Conta *</Label>
-                          <Select
-                            value={data.bet2SelectedHouseId || ""}
-                            onValueChange={(value) => updateEditableField(index, 'bet2SelectedHouseId', value)}
-                          >
-                            <SelectTrigger data-testid={`select-bet2-house-${index}`}>
-                              <SelectValue placeholder="Selecione o titular" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {bettingHouses.map((house) => (
-                                <SelectItem key={house.id} value={house.id}>
-                                  {house.accountHolder?.name} - {house.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
                         </div>
                         <div className="space-y-2">
                           <Label>Odd</Label>
@@ -597,9 +598,11 @@ export default function BetBurger() {
                         <div className="space-y-2">
                           <Label>Lucro Potencial (R$)</Label>
                           <Input
-                            value={(parseFloat(data.bet2Stake || '0') * parseFloat(data.bet2Odd || '0') - parseFloat(data.bet2Stake || '0')).toFixed(2)}
-                            disabled
-                            className="bg-muted"
+                            type="number"
+                            step="0.01"
+                            value={data.bet2Profit}
+                            onChange={(e) => updateEditableField(index, 'bet2Profit', e.target.value)}
+                            data-testid={`input-bet2-profit-${index}`}
                           />
                         </div>
                       </div>
