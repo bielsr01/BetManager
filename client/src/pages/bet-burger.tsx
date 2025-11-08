@@ -486,11 +486,15 @@ export default function BetBurger() {
                               <SelectValue placeholder="Selecione o titular" />
                             </SelectTrigger>
                             <SelectContent>
-                              {bettingHouses.map((house) => (
-                                <SelectItem key={house.id} value={house.id}>
-                                  {house.accountHolder?.name} - {house.name}
-                                </SelectItem>
-                              ))}
+                              {bettingHouses.length === 0 ? (
+                                <div className="p-2 text-sm text-muted-foreground">Nenhuma casa cadastrada</div>
+                              ) : (
+                                bettingHouses.map((house) => (
+                                  <SelectItem key={house.id} value={house.id}>
+                                    {house.accountHolder?.name || 'Sem titular'} - {house.name}
+                                  </SelectItem>
+                                ))
+                              )}
                             </SelectContent>
                           </Select>
                         </div>
