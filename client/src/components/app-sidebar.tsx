@@ -24,7 +24,8 @@ import {
   User,
   UserCircle,
   QrCode,
-  Package
+  Package,
+  Clipboard
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,11 @@ const menuItems = [
     title: "Enviar Lote de Apostas",
     url: "/batch-upload",
     icon: Package,
+  },
+  {
+    title: "Bet Burger",
+    url: "/bet-burger",
+    icon: Clipboard,
   },
   {
     title: "Teste de OCR",
