@@ -70,13 +70,12 @@ export default function BetBurger() {
     for (let i = 0; i < lines.length; i += 3) {
       if (i + 2 >= lines.length) break;
 
-      const dateTimeLine = lines[i];
-      const mainLine = lines[i + 1];
+      const dateTimeMainLine = lines[i];
       const bet1Line = lines[i + 1];
       const bet2Line = lines[i + 2];
 
-      // Parse date/time (formato: 08/11/2025 13:15)
-      const dateTimeMatch = dateTimeLine.match(/(\d{2}\/\d{2}\/\d{4})\s+(\d{2}:\d{2})/);
+      // Parse date/time + main line (formato: 08/11/2025 13:15 Esporte.Time1 - Time2 (Liga) Porcentagem%)
+      const dateTimeMatch = dateTimeMainLine.match(/(\d{2}\/\d{2}\/\d{4})\s+(\d{2}:\d{2})/);
       let eventDate = new Date().toISOString().slice(0, 16);
       if (dateTimeMatch) {
         const [_, datePart, timePart] = dateTimeMatch;
@@ -85,12 +84,13 @@ export default function BetBurger() {
       }
 
       // Parse linha principal: Esporte.Time1 - Time2 (Liga) Porcentagem%
-      const mainMatch = mainLine.match(/^([^.]+)\.([^-]+)\s*-\s*([^(]+)\s*\(([^)]+)\)\s*([\d.]+)%/);
+      // A linha principal vem depois da data/hora na mesma linha
+      const mainMatch = dateTimeMainLine.match(/\d{2}:\d{2}\s+(.+?)\.(.+?)\s*-\s*(.+?)\s*\(([^)]+)\)\s*([\d.]+)%/);
       if (!mainMatch) continue;
 
       const [_, sport, teamA, teamB, league, profitPct] = mainMatch;
 
-      // Parse bet1 (próxima linha após a linha principal)
+      // Parse bet1 (segunda linha com tabs)
       const bet1Parts = bet1Line.split('\t').filter(p => p.trim());
       if (bet1Parts.length < 6) continue;
 

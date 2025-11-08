@@ -88,6 +88,18 @@ Preferred communication style: Simple, everyday language.
 - Clean interface with image preview, extracted text display, and copy-to-clipboard functionality
 - No server processing required, ensuring fast and efficient QR code reading
 
+**Bet Burger Integration (November 2025)**: New data import from BetBurger Excel format:
+- New "Bet Burger" page added after "Enviar Lote de Apostas" in sidebar
+- Allows pasting Excel data directly from BetBurger platform
+- Parser understands BetBurger format: "Esporte.Time1 - Time2 (Liga) Porcentagem%"
+- Extracts: Date/time, sport, teams, league, profit percentage, bet details (house, type, odd, stake)
+- Shows identical layout to batch upload: 3 cards (Event Info, Aposta 1, Aposta 2)
+- All extracted fields are fully editable before submission
+- Automatic betting house matching based on extracted house names
+- Manual selection of account holders via dropdown
+- Supports multiple bets from single paste operation
+- Auto-reset after successful creation for next batch
+
 **Batch Upload Feature (October 2025)**: Added bulk PDF processing for high-volume operations:
 - New "Enviar Lote de Apostas" page allowing upload of multiple PDFs simultaneously (up to 50 files)
 - Backend endpoint `/api/ocr/process-batch` processes all PDFs in parallel using Promise.all
