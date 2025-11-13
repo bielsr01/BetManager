@@ -69,7 +69,15 @@ export default function BatchUpload() {
   const [editableData, setEditableData] = useState<Record<number, EditableBetData>>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const { toast } = useToast();
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [currentUnmatchedHouse, setCurrentUnmatchedHouse] = useState<string | null>(null);
+  const [isCreatingHouse, setIsCreatingHouse] = useState(false);
+  const [holderMode, setHolderMode] = useState<"existing" | "new">("existing");
+  const [selectedHolderId, setSelectedHolderId] = useState<string>("");
+  const [newHolderName, setNewHolderName] = useState<string>("");
+  const [houseName, setHouseName] = useState<string>("");
+  const [dialogError, setDialogError] = useState<string>("");
+  const { toast} = useToast();
   const [, navigate] = useLocation();
 
   const { data: holders = [], isLoading: holdersLoading } = useQuery<AccountHolder[]>({
@@ -98,6 +106,32 @@ export default function BatchUpload() {
       if (holderCompare !== 0) return holderCompare;
       return a.name.localeCompare(b.name);
     });
+
+  // Derive unmatched betting houses from editable data
+  const unmatchedHouses = useMemo(() => {
+    const unmatched: string[] = [];
+    const seen = new Set<string>();
+    
+    Object.values(editableData).forEach((data) => {
+      // Check bet1: has house name but no house ID
+      if (data.bet1House && !data.bet1HouseId) {
+        const normalized = data.bet1House.trim().toLowerCase();
+        if (!seen.has(normalized)) {
+          seen.add(normalized);
+          unmatched.push(data.bet1House); // Keep original casing for display
+        }
+      }
+      // Check bet2: has house name but no house ID
+      if (data.bet2House && !data.bet2HouseId) {
+        const normalized = data.bet2House.trim().toLowerCase();
+        if (!seen.has(normalized)) {
+          seen.add(normalized);
+          unmatched.push(data.bet2House); // Keep original casing for display
+        }
+      }
+    });
+    return unmatched;
+  }, [editableData]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -466,6 +500,36 @@ export default function BatchUpload() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Blocking Alert for Unmatched Betting Houses */}
+      {extractedBets.length > 0 && unmatchedHouses.length > 0 && (
+        <Alert variant="destructive" data-testid="alert-unmatched-houses">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Casas de Apostas Não Cadastradas</AlertTitle>
+          <AlertDescription className="space-y-3">
+            <p>As seguintes casas precisam ser criadas antes de adicionar as apostas ao sistema:</p>
+            <div className="flex flex-wrap gap-2">
+              {unmatchedHouses.map(house => (
+                <Badge key={house} variant="outline" className="text-sm">
+                  {house}
+                </Badge>
+              ))}
+            </div>
+            <Button 
+              onClick={() => {
+                setCurrentUnmatchedHouse(unmatchedHouses[0]);
+                setShowCreateDialog(true);
+              }}
+              size="sm"
+              variant="default"
+              data-testid="button-create-houses"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Criar Casas de Apostas
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {extractedBets.length > 0 && (
         <>
