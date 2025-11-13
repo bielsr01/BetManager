@@ -53,6 +53,7 @@ Preferred communication style: Simple, everyday language.
 - **Dashboard Visual Redesign**: Dedicated visual analytics page with summary cards and an interactive cumulative profit line chart (Recharts), independent of bet management.
 - **Bet Position Stability**: Ensures stable bet ordering using deterministic SQL ordering (`ORDER BY createdAt ASC, id ASC`) to prevent position swaps.
 - **"Meio Green" Feature**: Added functionality for resolving bets as "half won" or "half returned" with precise profit calculations.
+- **New User Onboarding**: Batch upload automatically detects unmatched betting houses via `useMemo`, displays blocking alert with "quick create" button, creates default holder ("Titular Padrão") and all unmatched houses. Uses `createResource` helper for error handling, refetches queries to update dropdowns, surfaces backend errors with house names, handles partial failures gracefully.
 
 ## External Dependencies
 
