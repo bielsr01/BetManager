@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, FileText, CheckCircle, XCircle, Loader2, Package, AlertTriangle, Plus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -63,20 +62,29 @@ interface EditableBetData {
   bet2Profit: string;
 }
 
+// Helper function to wrap apiRequest with proper error handling and JSON parsing
+async function createResource<T>(
+  endpoint: string,
+  payload: unknown,
+  resourceLabel: string
+): Promise<T> {
+  try {
+    const response = await apiRequest("POST", endpoint, payload);
+    return await response.json();
+  } catch (error) {
+    // apiRequest already throws enriched errors with backend messages
+    const errorMsg = error instanceof Error ? error.message : "Erro desconhecido";
+    throw new Error(`Falha ao criar ${resourceLabel}: ${errorMsg}`);
+  }
+}
+
 export default function BatchUpload() {
   const [files, setFiles] = useState<File[]>([]);
   const [extractedBets, setExtractedBets] = useState<ExtractedBet[]>([]);
   const [editableData, setEditableData] = useState<Record<number, EditableBetData>>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [currentUnmatchedHouse, setCurrentUnmatchedHouse] = useState<string | null>(null);
   const [isCreatingHouse, setIsCreatingHouse] = useState(false);
-  const [holderMode, setHolderMode] = useState<"existing" | "new">("existing");
-  const [selectedHolderId, setSelectedHolderId] = useState<string>("");
-  const [newHolderName, setNewHolderName] = useState<string>("");
-  const [houseName, setHouseName] = useState<string>("");
-  const [dialogError, setDialogError] = useState<string>("");
   const { toast} = useToast();
   const [, navigate] = useLocation();
 
@@ -269,6 +277,118 @@ export default function BatchUpload() {
     }));
   };
 
+  const handleQuickCreateHouses = async () => {
+    setIsCreatingHouse(true);
+    
+    try {
+      // 1. Ensure we have an account holder
+      let holderId = "";
+      
+      if (holders.length === 0) {
+        // Create a default account holder using helper
+        const newHolder = await createResource<AccountHolder>(
+          '/api/account-holders',
+          { name: "Titular Padrão" },
+          "titular padrão"
+        );
+        holderId = newHolder.id;
+        
+        // Invalidate AND refetch to ensure dropdowns update
+        await queryClient.invalidateQueries({ queryKey: ['/api/account-holders'] });
+        await queryClient.refetchQueries({ queryKey: ['/api/account-holders'] });
+      } else {
+        // Use the first available holder
+        holderId = holders[0].id;
+      }
+      
+      // 2. Create all unmatched houses one by one
+      const createdHouses: { originalName: string; normalizedName: string; id: string }[] = [];
+      const errors: string[] = [];
+      
+      for (const houseName of unmatchedHouses) {
+        try {
+          const newHouse = await createResource<BettingHouse>(
+            '/api/betting-houses',
+            {
+              name: houseName,
+              accountHolderId: holderId,
+            },
+            `casa "${houseName}"`
+          );
+          
+          createdHouses.push({
+            originalName: houseName,
+            normalizedName: houseName.trim().toLowerCase(),
+            id: newHouse.id
+          });
+        } catch (error) {
+          // Preserve backend error message
+          const errorMsg = error instanceof Error ? error.message : 'Erro desconhecido';
+          errors.push(`${houseName}: ${errorMsg}`);
+        }
+      }
+      
+      // If ALL houses failed to create, throw error
+      if (errors.length > 0 && createdHouses.length === 0) {
+        throw new Error(`Nenhuma casa foi criada. Erros:\n${errors.join('\n')}`);
+      }
+      
+      // 3. Update editableData ONLY for successfully created houses
+      if (createdHouses.length > 0) {
+        setEditableData(prev => {
+          const updated = { ...prev };
+          Object.keys(updated).forEach(key => {
+            const k = parseInt(key);
+            
+            createdHouses.forEach(({ normalizedName, id }) => {
+              // Normalize bet house names for comparison
+              const bet1Normalized = updated[k].bet1House?.trim().toLowerCase();
+              const bet2Normalized = updated[k].bet2House?.trim().toLowerCase();
+              
+              if (bet1Normalized === normalizedName) {
+                updated[k].bet1HouseId = id;
+              }
+              if (bet2Normalized === normalizedName) {
+                updated[k].bet2HouseId = id;
+              }
+            });
+          });
+          return updated;
+        });
+        
+        // 4. Invalidate queries to refresh dropdowns
+        await queryClient.invalidateQueries({ queryKey: ['/api/betting-houses'] });
+      }
+      
+      // Show success/partial success message with backend error details
+      if (errors.length > 0) {
+        const failedHouses = errors.map(e => e.split(':')[0]).join(', ');
+        toast({
+          title: "Casas criadas parcialmente",
+          description: `${createdHouses.length} casa(s) criadas com sucesso. ${errors.length} falharam: ${failedHouses}. Veja o console para mais detalhes.`,
+          variant: "default",
+        });
+        console.error('Erros detalhados ao criar casas:', errors);
+      } else {
+        toast({
+          title: "Casas criadas com sucesso!",
+          description: `${createdHouses.length} casa(s) de apostas foram criadas. Agora você pode adicionar as apostas ao sistema.`,
+        });
+      }
+      
+    } catch (error) {
+      // Display backend error message to user
+      const errorMsg = error instanceof Error ? error.message : "Erro desconhecido";
+      toast({
+        title: "Erro ao criar casas",
+        description: errorMsg,
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingHouse(false);
+    }
+  };
+
   const createAllBets = async () => {
     const successfulBets = extractedBets
       .map((bet, index) => ({ bet, index }))
@@ -301,7 +421,10 @@ export default function BatchUpload() {
           }
 
           if (!data.bet1HouseId || !data.bet2HouseId) {
-            errors.push(`${bet.fileName}: Selecione os titulares de conta`);
+            const missing = [];
+            if (!data.bet1HouseId) missing.push(data.bet1House || "Aposta 1");
+            if (!data.bet2HouseId) missing.push(data.bet2House || "Aposta 2");
+            errors.push(`${bet.fileName}: Casas não configuradas: ${missing.join(", ")}. Clique no botão "Criar Casas de Apostas Automaticamente" acima.`);
             failed++;
             continue;
           }
@@ -516,16 +639,23 @@ export default function BatchUpload() {
               ))}
             </div>
             <Button 
-              onClick={() => {
-                setCurrentUnmatchedHouse(unmatchedHouses[0]);
-                setShowCreateDialog(true);
-              }}
+              onClick={handleQuickCreateHouses}
+              disabled={isCreatingHouse}
               size="sm"
               variant="default"
               data-testid="button-create-houses"
             >
-              <Plus className="h-4 w-4 mr-2" />
-              Criar Casas de Apostas
+              {isCreatingHouse ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Criando...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Criar Casas de Apostas Automaticamente
+                </>
+              )}
             </Button>
           </AlertDescription>
         </Alert>
@@ -842,9 +972,14 @@ export default function BatchUpload() {
           {extractedBets.some(b => b.success) && (
             <Card className="border-green-200 dark:border-green-900">
               <CardContent className="pt-6">
+                {unmatchedHouses.length > 0 && (
+                  <p className="text-sm text-muted-foreground mb-4 text-center">
+                    ⚠️ Configure as casas de apostas acima antes de adicionar ao sistema
+                  </p>
+                )}
                 <Button
                   onClick={createAllBets}
-                  disabled={isCreating}
+                  disabled={isCreating || unmatchedHouses.length > 0 || isDataLoading || isCreatingHouse}
                   className="w-full"
                   size="lg"
                   data-testid="button-create-all-bets"
@@ -853,6 +988,11 @@ export default function BatchUpload() {
                     <>
                       <Loader2 className="h-5 w-5 mr-2 animate-spin" />
                       Criando apostas...
+                    </>
+                  ) : unmatchedHouses.length > 0 ? (
+                    <>
+                      <AlertTriangle className="h-5 w-5 mr-2" />
+                      Configure as casas de apostas primeiro
                     </>
                   ) : (
                     <>
