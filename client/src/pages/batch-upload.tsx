@@ -519,7 +519,7 @@ export default function BatchUpload() {
   };
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="container mx-auto p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
           <Package className="h-8 w-8" />
