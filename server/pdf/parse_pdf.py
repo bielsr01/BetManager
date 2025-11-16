@@ -304,10 +304,17 @@ def extrair_dados_pdf(caminho_pdf):
                                 j += 1
                                 continue
                             
-                            # Para se encontrar outra casa de apostas COMPLETA (não fragmento)
+                            # Para se encontrar outra casa de apostas diferente
                             casa_na_proxima = detectar_casa_apostas(proxima_linha)
-                            if casa_na_proxima and any(char.isdigit() for char in proxima_linha):
-                                break
+                            if casa_na_proxima:
+                                # Para se for uma casa DIFERENTE da atual
+                                # Compara início do nome para evitar parar em fragmentos da mesma casa
+                                casa_atual_base = casa_encontrada.split()[0] if casa_encontrada else ""
+                                casa_proxima_base = casa_na_proxima.split()[0] if casa_na_proxima else ""
+                                
+                                # Se são casas diferentes, para imediatamente
+                                if casa_atual_base.lower() != casa_proxima_base.lower():
+                                    break
                                 
                             # Para se encontrar "Aposta total" ou outras seções
                             if any(keyword in proxima_linha for keyword in ['Aposta total', 'Mostrar', 'Use sua', 'Arredondar']):

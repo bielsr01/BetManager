@@ -82,7 +82,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       // Users can only edit themselves unless they're admin
-      if (req.user.role !== 'admin' && req.user.id !== id) {
+      if (req.user!.role !== 'admin' && req.user!.id !== id) {
         return res.status(403).json({ error: "Forbidden" });
       }
 
