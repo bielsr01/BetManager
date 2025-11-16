@@ -88,6 +88,13 @@ def extrair_dados_pdf(caminho_pdf):
             'stake': None,
             'profit': None
         },
+        'bet3': {
+            'house': None,
+            'odd': None,
+            'type': None,
+            'stake': None,
+            'profit': None
+        },
         'profitPercentage': None
     }
     
@@ -326,14 +333,19 @@ def extrair_dados_pdf(caminho_pdf):
                     else:
                         i += 1
                 
-                # Mapeia apostas para bet1 e bet2
+                # Mapeia apostas para bet1, bet2 e bet3 (se houver)
                 if len(apostas_encontradas) >= 1:
                     dados['bet1'].update(apostas_encontradas[0])
                 
                 if len(apostas_encontradas) >= 2:
                     dados['bet2'].update(apostas_encontradas[1])
                 
+                if len(apostas_encontradas) >= 3:
+                    dados['bet3'].update(apostas_encontradas[2])
+                
                 # Se encontrou dados suficientes, para
+                # Para apostas duplas: bet1 e bet2 devem ter house
+                # Para apostas triplas: bet1, bet2 e bet3 devem ter house
                 if dados['teamA'] and dados['teamB'] and dados['bet1']['house'] and dados['bet2']['house']:
                     break
     

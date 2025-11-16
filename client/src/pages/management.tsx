@@ -391,6 +391,21 @@ export default function Management() {
           actualProfit: sortedBets[1]?.actualProfit !== undefined && sortedBets[1]?.actualProfit !== null ? Number(sortedBets[1].actualProfit) : undefined,
           result: sortedBets[1]?.result as "won" | "lost" | "returned" | "half_won" | "half_returned" | undefined,
         },
+        // bet3 is optional - only include if there's a third bet
+        ...(sortedBets[2] && {
+          bet3: {
+            id: sortedBets[2].id,
+            bettingHouseId: sortedBets[2].bettingHouseId,
+            house: sortedBets[2].bettingHouse?.name || "Casa 3",
+            accountHolder: sortedBets[2].bettingHouse?.accountHolder?.name || "",
+            betType: sortedBets[2].betType || "N/A",
+            odd: Number(sortedBets[2].odd) || 0,
+            stake: Number(sortedBets[2].stake) || 0,
+            potentialProfit: Number(sortedBets[2].potentialProfit) || 0,
+            actualProfit: sortedBets[2].actualProfit !== undefined && sortedBets[2].actualProfit !== null ? Number(sortedBets[2].actualProfit) : undefined,
+            result: sortedBets[2].result as "won" | "lost" | "returned" | "half_won" | "half_returned" | undefined,
+          }
+        }),
       };
     });
 

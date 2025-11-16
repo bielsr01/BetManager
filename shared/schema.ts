@@ -125,6 +125,7 @@ export type SurebetSetWithBets = SurebetSet & {
 };
 
 // OCR extraction result type - allows null values for missing data (no fallbacks)
+// Supports 2 or 3 bets per surebet
 export type OCRResult = {
   date: string | null;
   sport: string | null;
@@ -140,6 +141,14 @@ export type OCRResult = {
     accountHolder?: string;
   };
   bet2: {
+    house: string | null;
+    odd: number | null;
+    type: string | null;
+    stake: number | null;
+    profit: number | null;
+    accountHolder?: string;
+  };
+  bet3?: {
     house: string | null;
     odd: number | null;
     type: string | null;

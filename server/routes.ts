@@ -261,6 +261,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { surebetSet, bets: setBets } = req.body;
       
+      // Validate number of bets (supports 2 or 3 bets)
+      if (!Array.isArray(setBets) || setBets.length < 2 || setBets.length > 3) {
+        res.status(400).json({ error: "Surebet must have 2 or 3 bets" });
+        return;
+      }
+      
       // Validate surebet set data
       const surebetData = insertSurebetSetSchema.parse(surebetSet);
       

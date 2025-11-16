@@ -48,6 +48,7 @@ interface SurebetCardProps {
   isChecked: boolean;
   bet1: BetData;
   bet2: BetData;
+  bet3?: BetData; // Optional third bet
   onResolve: (betId: string, result: "won" | "lost" | "returned" | "half_won" | "half_returned") => void;
   onStatusChange?: (surebetSetId: string, isChecked: boolean) => void;
   onReset?: (surebetSetId: string) => void;
@@ -69,6 +70,7 @@ export function BetCard({
   isChecked,
   bet1,
   bet2,
+  bet3,
   onResolve,
   onStatusChange,
   onReset,
@@ -79,7 +81,7 @@ export function BetCard({
 }: SurebetCardProps) {
   const isResolved = status === "resolved";
   const isPending = status === "pending";
-  const totalStake = bet1.stake + bet2.stake;
+  const totalStake = bet1.stake + bet2.stake + (bet3?.stake || 0);
   
   // Use actualProfit from backend if available, otherwise calculate locally
   let actualProfit = 0;
@@ -180,7 +182,7 @@ export function BetCard({
                 <Edit className="w-3 h-3" />
               </Button>
             )}
-            {onReset && (bet1.result || bet2.result) && (
+            {onReset && (bet1.result || bet2.result || bet3?.result) && (
               <Button
                 size="sm"
                 variant="outline"
@@ -437,6 +439,100 @@ export function BetCard({
           )}
         </div>
 
+        {/* Bet 3 (if exists) */}
+        {bet3 && (
+          <div className="p-4 rounded-lg border bg-card/50">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">{bet3.house}</Badge>
+                <span className="text-sm text-muted-foreground">
+                  <Users className="w-3 h-3 inline mr-1" />
+                  {bet3.accountHolder}
+                </span>
+              </div>
+              {bet3.result && <StatusBadge status={bet3.result} />}
+            </div>
+
+            <div className="grid grid-cols-5 gap-2 text-sm">
+              <div>
+                <span className="text-muted-foreground">Tipo</span>
+                <p className="font-medium">{bet3.betType}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Odd</span>
+                <p className="font-medium">{bet3.odd}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Stake</span>
+                <p className="font-medium">R$ {bet3.stake.toFixed(2)}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Retorno</span>
+                <p className="font-medium">R$ {(bet3.odd * bet3.stake).toFixed(2)}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Lucro Pot.</span>
+                <p className="font-medium text-betting-profit">R$ {bet3.potentialProfit.toFixed(2)}</p>
+              </div>
+            </div>
+
+            {!bet3.result && (
+              <div className="flex gap-2 mt-3">
+                <Button
+                  size="sm"
+                  onClick={() => onResolve(bet3.id, "won")}
+                  className="bg-betting-win hover:bg-betting-win/80"
+                  data-testid={`button-resolve-won-${bet3.id}`}
+                >
+                  Ganhou
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => onResolve(bet3.id, "lost")}
+                  data-testid={`button-resolve-lost-${bet3.id}`}
+                >
+                  Perdeu
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onResolve(bet3.id, "returned")}
+                  data-testid={`button-resolve-returned-${bet3.id}`}
+                >
+                  Devolvido
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      size="sm"
+                      className="bg-sky-400 hover:bg-sky-500 text-white"
+                      data-testid={`button-half-green-${bet3.id}`}
+                    >
+                      Meio Green
+                      <ChevronDown className="w-3 h-3 ml-1" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem
+                      onClick={() => onResolve(bet3.id, "half_won")}
+                      data-testid={`button-half-won-${bet3.id}`}
+                    >
+                      Ganho
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => onResolve(bet3.id, "half_returned")}
+                      data-testid={`button-half-returned-${bet3.id}`}
+                    >
+                      Devolvido
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Summary */}
         <div className="flex items-center justify-between pt-2 border-t">
           <div className="text-sm">
@@ -444,7 +540,7 @@ export function BetCard({
             <span className="font-medium">R$ {totalStake.toFixed(2)}</span>
           </div>
 
-          {(bet1.result && bet2.result) && (
+          {(bet1.result && bet2.result && (!bet3 || bet3.result)) && (
             <div className="text-sm">
               <span className="text-muted-foreground">Lucro Real: </span>
               <span className={cn(
