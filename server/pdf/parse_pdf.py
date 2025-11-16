@@ -305,10 +305,33 @@ def extrair_dados_pdf(caminho_pdf):
                                 continue
                             
                             # Para se encontrar outra casa de apostas diferente
+                            # PRIMEIRO: Detecta se a linha é uma palavra capitalizada curta (potencial início de casa)
+                            # Usa detectar_casa_apostas para validar se é prefixo de casa conhecida
+                            palavras_linha = proxima_linha.strip().split()
+                            if palavras_linha:
+                                primeira_palavra = palavras_linha[0]
+                                
+                                # Se é palavra capitalizada curta (3-15 chars) SEM números/odds
+                                if (len(primeira_palavra) >= 3 and 
+                                    len(primeira_palavra) <= 15 and 
+                                    primeira_palavra[0].isupper() and
+                                    not re.search(r'\d+\.\d+', proxima_linha)):  # Não tem odds
+                                    
+                                    # Tenta detectar a palavra como possível casa
+                                    possivel_casa = detectar_casa_apostas(primeira_palavra)
+                                    if possivel_casa:
+                                        # É uma palavra que inicia uma casa conhecida
+                                        # Compara com casa atual para ver se é diferente
+                                        casa_atual_base = casa_encontrada.split()[0] if casa_encontrada else ""
+                                        if casa_atual_base.lower() != primeira_palavra.lower():
+                                            # É uma casa NOVA diferente - para imediatamente!
+                                            print(f"DEBUG: Detectada NOVA CASA! casaAtual={casa_atual_base} novaDetectada={primeira_palavra} linha={proxima_linha[:50]}", file=sys.stderr)
+                                            break
+                            
+                            # SEGUNDO: Tenta detecção normal de casa
                             casa_na_proxima = detectar_casa_apostas(proxima_linha)
                             if casa_na_proxima:
                                 # Para se for uma casa DIFERENTE da atual
-                                # Compara início do nome para evitar parar em fragmentos da mesma casa
                                 casa_atual_base = casa_encontrada.split()[0] if casa_encontrada else ""
                                 casa_proxima_base = casa_na_proxima.split()[0] if casa_na_proxima else ""
                                 
