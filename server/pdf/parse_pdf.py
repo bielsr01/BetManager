@@ -365,6 +365,7 @@ def detectar_casa_apostas(linha):
     """
     Detecta casas de apostas usando lista completa do sistema (1005+ casas)
     Suporta todas as variantes incluindo casas com parênteses como KTO (BR), Blaze (BR)
+    Detecta também fragmentos iniciais de casas compostas (ex: "Cloud" -> CloudBet)
     """
     # Lista completa de todas as casas de apostas do sistema
     casas_sistema = [
@@ -568,6 +569,20 @@ def detectar_casa_apostas(linha):
         # Valida se parece ser nome de casa de apostas
         if len(casa_candidata) >= 3:
             return casa_candidata
+    
+    # Detecta fragmentos iniciais de casas compostas (ex: "Cloud" -> CloudBet, "Marjo" -> MarjoSports)
+    # Procura palavras capitalizadas no início da linha
+    palavras = linha.strip().split()
+    if palavras:
+        primeira_palavra = palavras[0]
+        # Se é uma palavra capitalizada curta (3-15 chars), verifica se é início de casa conhecida
+        if len(primeira_palavra) >= 3 and len(primeira_palavra) <= 15 and primeira_palavra[0].isupper():
+            # Verifica se essa palavra é o início de alguma casa na lista
+            for casa in casas_sistema:
+                casa_limpa = casa.split('(')[0].strip()  # Remove sufixos como (BR), (CO)
+                # Se a casa começa com essa palavra, retorna como fragmento detectado
+                if casa_limpa.lower().startswith(primeira_palavra.lower()):
+                    return primeira_palavra
     
     # Fallback: palavras individuais capitalizadas (como "Marjo", "Sports")
     # Retorna None para permitir junção posterior
