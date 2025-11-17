@@ -129,6 +129,17 @@ export class PdfPlumberService {
       profitPercentage: data.profitPercentage || null
     };
 
+    // Add bet3 if it exists (supports triple bets)
+    if (data.bet3 && (data.bet3.house || data.bet3.type || data.bet3.odd)) {
+      result.bet3 = {
+        house: data.bet3.house || null,
+        odd: data.bet3.odd || null,
+        type: data.bet3.type || null,
+        stake: data.bet3.stake || null,
+        profit: data.bet3.profit || null
+      };
+    }
+
     return result;
   }
 }
