@@ -83,16 +83,19 @@ export function BetCard({
   const isPending = status === "pending";
   const totalStake = bet1.stake + bet2.stake + (bet3?.stake || 0);
   
-  // Use actualProfit from backend if available, otherwise calculate locally
-  let actualProfit = 0;
+  // Use actualProfit from backend - don't calculate locally to avoid showing incorrect values
+  let actualProfit: number | null = null;
   
   if (bet1.actualProfit !== undefined && bet1.actualProfit !== null) {
-    // Use the value calculated by backend (both bets have same actualProfit)
+    // Use the value calculated by backend (all bets have same actualProfit)
     actualProfit = parseFloat(String(bet1.actualProfit));
   } else if (bet2.actualProfit !== undefined && bet2.actualProfit !== null) {
-    // Use the value calculated by backend (both bets have same actualProfit)
+    // Use the value calculated by backend (all bets have same actualProfit)
     actualProfit = parseFloat(String(bet2.actualProfit));
-  } else if (bet1.result && bet2.result) {
+  } else if (bet3 && bet3.actualProfit !== undefined && bet3.actualProfit !== null) {
+    // For triple bets, check bet3 as well
+    actualProfit = parseFloat(String(bet3.actualProfit));
+  } else if (false && bet1.result && bet2.result) { // Disabled fallback to prevent incorrect temporary values
     // Fallback: Calculate actual profit based on bet results (legacy logic)
     if (bet1.result === "won" && bet2.result === "lost") {
       // Win/Loss: (winning_stake × odd) - losing_stake - winning_stake
@@ -540,7 +543,7 @@ export function BetCard({
             <span className="font-medium">R$ {totalStake.toFixed(2)}</span>
           </div>
 
-          {(bet1.result && bet2.result && (!bet3 || bet3.result)) && (
+          {(bet1.result && bet2.result && (!bet3 || bet3.result) && actualProfit !== null) && (
             <div className="text-sm">
               <span className="text-muted-foreground">Lucro Real: </span>
               <span className={cn(
