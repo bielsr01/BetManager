@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -98,6 +98,18 @@ export function BetForm({
       return a.name.localeCompare(b.name);
     });
 
+  // Detect if bet3 exists based on initialData
+  const hasBet3 = useMemo(() => {
+    if (!initialData) return false;
+    // Check if any bet3 field has meaningful data
+    return !!(
+      initialData.bet3House ||
+      initialData.bet3Type ||
+      initialData.bet3Odd ||
+      initialData.bet3Stake
+    );
+  }, [initialData]);
+
   const form = useForm<BetFormData>({
     resolver: zodResolver(betFormSchema),
     defaultValues: {
@@ -130,6 +142,9 @@ export function BetForm({
       bet3AccountHolder: initialData?.bet3AccountHolder || "",
     },
   });
+
+  // Debug log to verify bet3 data
+  console.log('BetForm initialized with hasBet3:', hasBet3, 'bet3House:', initialData?.bet3House);
 
   const handleSubmit = (data: BetFormData) => {
     console.log("Form submitted:", data);
@@ -571,7 +586,7 @@ export function BetForm({
           </Card>
 
           {/* Bet 3 (condicional - apenas para apostas triplas) */}
-          {(initialData?.bet3House || initialData?.bet3Type || initialData?.bet3Odd) && (
+          {hasBet3 && (
             <Card>
               <CardHeader>
                 <CardTitle>Aposta 3</CardTitle>

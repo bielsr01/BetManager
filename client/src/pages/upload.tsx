@@ -231,6 +231,17 @@ export default function UploadPage() {
   };
 
   if (currentStep === "edit" && extractedData) {
+    // Debug log to verify bet3 data is being passed to BetForm
+    console.log('Upload page passing extractedData to BetForm:', {
+      hasBet3House: !!extractedData.bet3House,
+      hasBet3Type: !!extractedData.bet3Type,
+      hasBet3Odd: !!extractedData.bet3Odd,
+      bet3House: extractedData.bet3House,
+      bet3Type: extractedData.bet3Type,
+      bet3Odd: extractedData.bet3Odd,
+      fullData: extractedData
+    });
+    
     return (
       <div className="p-6">
         <BetForm
