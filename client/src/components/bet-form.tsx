@@ -571,7 +571,7 @@ export function BetForm({
           </Card>
 
           {/* Bet 3 (condicional - apenas para apostas triplas) */}
-          {initialData?.bet3House && (
+          {(initialData?.bet3House || initialData?.bet3Type || initialData?.bet3Odd) && (
             <Card>
               <CardHeader>
                 <CardTitle>Aposta 3</CardTitle>
