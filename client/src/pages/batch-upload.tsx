@@ -37,6 +37,13 @@ interface ExtractedBet {
       stake: number;
       profit: number;
     };
+    bet3?: {
+      house: string;
+      odd: number;
+      type: string;
+      stake: number;
+      profit: number;
+    };
     profitPercentage: number;
   };
 }
@@ -60,6 +67,12 @@ interface EditableBetData {
   bet2Odd: string;
   bet2Stake: string;
   bet2Profit: string;
+  bet3House?: string;
+  bet3HouseId?: string;
+  bet3Type?: string;
+  bet3Odd?: string;
+  bet3Stake?: string;
+  bet3Profit?: string;
 }
 
 // Helper function to wrap apiRequest with proper error handling and JSON parsing
@@ -115,7 +128,7 @@ export default function BatchUpload() {
       return a.name.localeCompare(b.name);
     });
 
-  // Derive unmatched betting houses from editable data
+  // Derive unmatched betting houses from editable data (supports bet3)
   const unmatchedHouses = useMemo(() => {
     const unmatched: string[] = [];
     const seen = new Set<string>();
@@ -135,6 +148,14 @@ export default function BatchUpload() {
         if (!seen.has(normalized)) {
           seen.add(normalized);
           unmatched.push(data.bet2House); // Keep original casing for display
+        }
+      }
+      // Check bet3: has house name but no house ID (triple bets)
+      if (data.bet3House && !data.bet3HouseId) {
+        const normalized = data.bet3House.trim().toLowerCase();
+        if (!seen.has(normalized)) {
+          seen.add(normalized);
+          unmatched.push(data.bet3House); // Keep original casing for display
         }
       }
     });
@@ -201,12 +222,13 @@ export default function BatchUpload() {
       if (response.ok && result.success) {
         setExtractedBets(result.results);
         
-        // Initialize editable data for successful extractions
+        // Initialize editable data for successful extractions (supports bet3)
         const initialEditableData: Record<number, EditableBetData> = {};
         result.results.forEach((bet: ExtractedBet, index: number) => {
           if (bet.success && bet.data) {
             const house1 = findBettingHouse(bet.data.bet1.house);
             const house2 = findBettingHouse(bet.data.bet2.house);
+            const house3 = bet.data.bet3 ? findBettingHouse(bet.data.bet3.house) : null;
             
             initialEditableData[index] = {
               date: bet.data.date,
@@ -228,6 +250,16 @@ export default function BatchUpload() {
               bet2Stake: bet.data.bet2.stake.toString(),
               bet2Profit: bet.data.bet2.profit.toString(),
             };
+            
+            // Add bet3 if it exists (triple bets)
+            if (bet.data.bet3) {
+              initialEditableData[index].bet3House = bet.data.bet3.house;
+              initialEditableData[index].bet3HouseId = house3?.id || '';
+              initialEditableData[index].bet3Type = bet.data.bet3.type;
+              initialEditableData[index].bet3Odd = bet.data.bet3.odd.toString();
+              initialEditableData[index].bet3Stake = bet.data.bet3.stake.toString();
+              initialEditableData[index].bet3Profit = bet.data.bet3.profit.toString();
+            }
           }
         });
         setEditableData(initialEditableData);
@@ -420,10 +452,15 @@ export default function BatchUpload() {
             continue;
           }
 
-          if (!data.bet1HouseId || !data.bet2HouseId) {
+          // Check if bet3 exists (triple bet detection)
+          const hasBet3 = !!(data.bet3House || data.bet3Type || data.bet3Odd);
+          
+          // Validate required house IDs (including bet3 if it exists)
+          if (!data.bet1HouseId || !data.bet2HouseId || (hasBet3 && !data.bet3HouseId)) {
             const missing = [];
             if (!data.bet1HouseId) missing.push(data.bet1House || "Aposta 1");
             if (!data.bet2HouseId) missing.push(data.bet2House || "Aposta 2");
+            if (hasBet3 && !data.bet3HouseId) missing.push(data.bet3House || "Aposta 3");
             errors.push(`${bet.fileName}: Casas não configuradas: ${missing.join(", ")}. Clique no botão "Criar Casas de Apostas Automaticamente" acima.`);
             failed++;
             continue;
@@ -455,6 +492,20 @@ export default function BatchUpload() {
             bettingHouseId: data.bet2HouseId,
           };
 
+          const betsArray = [bet1Data, bet2Data];
+
+          // Add bet3 if it exists (triple bets)
+          if (hasBet3) {
+            const bet3Data = {
+              betType: data.bet3Type!,
+              odd: data.bet3Odd!.toString(),
+              stake: data.bet3Stake!.toString(),
+              potentialProfit: data.bet3Profit!.toString(),
+              bettingHouseId: data.bet3HouseId!,
+            };
+            betsArray.push(bet3Data);
+          }
+
           const response = await fetch('/api/surebet-sets', {
             method: 'POST',
             headers: {
@@ -462,7 +513,7 @@ export default function BatchUpload() {
             },
             body: JSON.stringify({
               surebetSet: surebetSetData,
-              bets: [bet1Data, bet2Data],
+              bets: betsArray,
             }),
           });
 
@@ -948,6 +999,107 @@ export default function BatchUpload() {
                         </div>
                       </CardContent>
                     </Card>
+
+                    {/* Bet 3 (condicional - apenas para apostas triplas) */}
+                    {editableData[index].bet3House && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Aposta 3</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor={`bet3-house-${index}`}>Casa de Apostas</Label>
+                              <Input
+                                id={`bet3-house-${index}`}
+                                value={editableData[index].bet3House}
+                                onChange={(e) => updateEditableField(index, 'bet3House', e.target.value)}
+                                data-testid={`input-bet3-house-${index}`}
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label htmlFor={`bet3-type-${index}`}>Tipo</Label>
+                              <Input
+                                id={`bet3-type-${index}`}
+                                value={editableData[index].bet3Type}
+                                onChange={(e) => updateEditableField(index, 'bet3Type', e.target.value)}
+                                data-testid={`input-bet3-type-${index}`}
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label htmlFor={`bet3-house-id-${index}`}>Titular da Conta</Label>
+                              <Select
+                                value={editableData[index].bet3HouseId}
+                                onValueChange={(value) => updateEditableField(index, 'bet3HouseId', value)}
+                              >
+                                <SelectTrigger id={`bet3-house-id-${index}`} data-testid={`select-bet3-house-${index}`} disabled={isDataLoading}>
+                                  <SelectValue placeholder={
+                                    isDataLoading 
+                                      ? "Carregando..." 
+                                      : houseOptions.length === 0 
+                                        ? "Nenhuma casa cadastrada" 
+                                        : "Selecionar titular"
+                                  } />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {houseOptions.length === 0 && !isDataLoading ? (
+                                    <SelectItem value="no-houses" disabled>
+                                      Nenhuma casa de apostas cadastrada
+                                    </SelectItem>
+                                  ) : (
+                                    houseOptions.map((option) => (
+                                      <SelectItem key={option.id} value={option.id}>
+                                        {option.displayLabel}
+                                      </SelectItem>
+                                    ))
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor={`bet3-odd-${index}`}>Odd</Label>
+                              <Input
+                                id={`bet3-odd-${index}`}
+                                type="number"
+                                step="0.001"
+                                value={editableData[index].bet3Odd}
+                                onChange={(e) => updateEditableField(index, 'bet3Odd', e.target.value)}
+                                data-testid={`input-bet3-odd-${index}`}
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label htmlFor={`bet3-stake-${index}`}>Stake (R$)</Label>
+                              <Input
+                                id={`bet3-stake-${index}`}
+                                type="number"
+                                step="0.01"
+                                value={editableData[index].bet3Stake}
+                                onChange={(e) => updateEditableField(index, 'bet3Stake', e.target.value)}
+                                data-testid={`input-bet3-stake-${index}`}
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label htmlFor={`bet3-profit-${index}`}>Lucro Potencial (R$)</Label>
+                              <Input
+                                id={`bet3-profit-${index}`}
+                                type="number"
+                                step="0.01"
+                                value={editableData[index].bet3Profit}
+                                onChange={(e) => updateEditableField(index, 'bet3Profit', e.target.value)}
+                                data-testid={`input-bet3-profit-${index}`}
+                              />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
                   </div>
                 ) : (
                   <Card className="border-red-200 dark:border-red-900">

@@ -353,17 +353,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Check if both bets in the surebet set have results and calculate actual profit
+      // Check if all bets in the surebet set have results and calculate actual profit (supports 2 or 3 bets)
       if (updatedBet.surebetSetId && updateData.result) {
         const allBets = await db.select().from(bets).where(eq(bets.surebetSetId, updatedBet.surebetSetId));
         const allHaveResults = allBets.every(b => b.result != null);
         
-        if (allHaveResults && allBets.length === 2) {
-          const bet1 = allBets[0];
-          const bet2 = allBets[1];
-          
+        // Calculate profit for both dual (2 bets) and triple (3 bets) surebets
+        if (allHaveResults && (allBets.length === 2 || allBets.length === 3)) {
           // Helper function to calculate return for each bet based on result
-          const calculateReturn = (bet: typeof bet1): number => {
+          const calculateReturn = (bet: typeof allBets[0]): number => {
             const stake = parseFloat(String(bet.stake));
             const odd = parseFloat(String(bet.odd));
             
@@ -385,16 +383,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           };
           
-          // Calculate total return and invested
-          const return1 = calculateReturn(bet1);
-          const return2 = calculateReturn(bet2);
-          const totalReturn = return1 + return2;
-          const totalInvested = parseFloat(String(bet1.stake)) + parseFloat(String(bet2.stake));
+          // Calculate total return and invested for all bets (2 or 3)
+          const totalReturn = allBets.reduce((sum, bet) => sum + calculateReturn(bet), 0);
+          const totalInvested = allBets.reduce((sum, bet) => sum + parseFloat(String(bet.stake)), 0);
           const actualProfit = totalReturn - totalInvested;
           
-          // Update both bets with the calculated actual profit
-          await storage.updateBet(bet1.id, { actualProfit: String(actualProfit) });
-          await storage.updateBet(bet2.id, { actualProfit: String(actualProfit) });
+          // Update all bets with the calculated actual profit
+          for (const bet of allBets) {
+            await storage.updateBet(bet.id, { actualProfit: String(actualProfit) });
+          }
           
           // Update surebet set status to resolved
           await storage.updateSurebetSet(updatedBet.surebetSetId, { status: "resolved" });

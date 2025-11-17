@@ -477,16 +477,39 @@ export default function Management() {
   const pendingBets = filteredBets.filter(bet => bet.status === "pending");
   const resolvedBets = filteredBets.filter(bet => bet.status === "resolved");
 
-  const totalStakePending = pendingBets.reduce((sum, bet) => sum + bet.bet1.stake + bet.bet2.stake, 0);
-  const totalStakeResolved = resolvedBets.reduce((sum, bet) => sum + bet.bet1.stake + bet.bet2.stake, 0);
+  // Calculate stakes (supports 2 or 3 bets)
+  const totalStakePending = pendingBets.reduce((sum, bet) => {
+    let stake = bet.bet1.stake + bet.bet2.stake;
+    if (bet.bet3) stake += bet.bet3.stake;
+    return sum + stake;
+  }, 0);
+  
+  const totalStakeResolved = resolvedBets.reduce((sum, bet) => {
+    let stake = bet.bet1.stake + bet.bet2.stake;
+    if (bet.bet3) stake += bet.bet3.stake;
+    return sum + stake;
+  }, 0);
+  
   const totalStake = totalStakePending + totalStakeResolved;
 
-  // Calculate real profit for resolved bets using actualProfit from database
+  // Calculate real profit for resolved bets using actualProfit from database (supports 2 or 3 bets)
   const calculateRealProfit = (bet: typeof filteredBets[0]) => {
-    const { bet1, bet2 } = bet;
-    if (!bet1.result || !bet2.result) return 0;
+    const { bet1, bet2, bet3 } = bet;
+    
+    // For triple bets, all 3 must have results
+    if (bet3) {
+      if (!bet1.result || !bet2.result || !bet3.result) return 0;
+      
+      // Use actualProfit from database (all bets have same value)
+      if (bet3.actualProfit !== undefined && bet3.actualProfit !== null) {
+        return parseFloat(String(bet3.actualProfit));
+      }
+    } else {
+      // For dual bets, both must have results
+      if (!bet1.result || !bet2.result) return 0;
+    }
 
-    // Use actualProfit from database (both bets have same value)
+    // Use actualProfit from database (all bets have same value)
     if (bet1.actualProfit !== undefined && bet1.actualProfit !== null) {
       return parseFloat(String(bet1.actualProfit));
     }
@@ -498,7 +521,12 @@ export default function Management() {
   };
 
   const totalProfitResolved = resolvedBets.reduce((sum, bet) => sum + calculateRealProfit(bet), 0);
-  const totalProfitPending = pendingBets.reduce((sum, bet) => sum + bet.bet1.potentialProfit, 0);
+  
+  // Calculate potential profit for pending bets (supports 2 or 3 bets)
+  const totalProfitPending = pendingBets.reduce((sum, bet) => {
+    // Use the first bet's potential profit (they should all be the same for a surebet)
+    return sum + bet.bet1.potentialProfit;
+  }, 0);
   const totalProfitTotal = totalProfitResolved + totalProfitPending;
 
   const handleTempFilterChange = (key: keyof FilterValues, value: any) => {
