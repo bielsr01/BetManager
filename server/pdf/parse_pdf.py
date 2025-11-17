@@ -374,10 +374,15 @@ def extrair_dados_pdf(caminho_pdf):
                     dados['bet3'].update(apostas_encontradas[2])
                 
                 # Se encontrou dados suficientes, para
-                # Para apostas duplas: bet1 e bet2 devem ter house
-                # Para apostas triplas: bet1, bet2 e bet3 devem ter house
+                # Para apostas duplas: bet1 e bet2 devem ter house (e menos de 3 apostas detectadas)
+                # Para apostas triplas: bet1, bet2 E bet3 devem ter house
+                bets_detected = len(apostas_encontradas)
                 if dados['teamA'] and dados['teamB'] and dados['bet1']['house'] and dados['bet2']['house']:
-                    break
+                    # Só para se:
+                    # - Detectou menos de 3 apostas (aposta dupla completa) OU
+                    # - Detectou 3+ apostas E bet3 já está populada (aposta tripla completa)
+                    if bets_detected < 3 or dados['bet3']['house']:
+                        break
     
     except Exception as e:
         print(f"Erro ao processar PDF: {str(e)}", file=sys.stderr)

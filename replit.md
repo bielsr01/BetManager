@@ -43,7 +43,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Key Architectural Decisions
 - **OCR-First Data Entry**: Prioritizes automated data extraction from PDFs using `pdfplumber` to reduce manual entry and errors.
-- **Dual-Bet Structure**: Models each surebet as a set of two opposing bets across different houses, ensuring guaranteed profit regardless of outcome.
+- **Dual & Triple-Bet Structure**: Models each surebet as a set of 2 OR 3 opposing bets across different houses, ensuring guaranteed profit regardless of outcome. System fully supports both formats.
 - **Progressive Enhancement**: Core functionality is available, with OCR automation enhancing the user experience.
 - **Financial Precision**: Uses decimal data types (10,2 for amounts, 8,2 for odds) to prevent floating-point errors.
 - **Responsive Design**: Mobile-first approach with adaptable UI.
@@ -60,6 +60,7 @@ Preferred communication style: Simple, everyday language.
 - **OCR Processing**: `pdfplumber` (Python library for PDF text extraction)
   - Enhanced profit and bet type extraction.
   - Improved sport detection.
+  - **November 17, 2025**: Fixed critical 3-bet extraction bug - parser now correctly extracts all 3 bets when present, breaking loop only after all detected bets are mapped.
 - **Image Processing**: Base64 encoding for API transmission.
 - **QR Code Reading**: `jsQR` library (client-side processing for QR codes).
 - **BetBurger Integration**: Custom parser for BetBurger Excel data format with full system compatibility.
