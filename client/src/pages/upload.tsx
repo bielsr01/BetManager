@@ -45,6 +45,15 @@ export default function UploadPage() {
   };
 
   const handleOCRComplete = (ocrData: any) => {
+    // DEBUG: Log what we receive from backend
+    console.log('handleOCRComplete received ocrData:', ocrData);
+    console.log('Does ocrData have bet3?', {
+      hasBet3: !!ocrData.bet3,
+      bet3House: ocrData.bet3?.house,
+      bet3Type: ocrData.bet3?.type,
+      bet3Odd: ocrData.bet3?.odd
+    });
+    
     // Transform OCR data to form format, safely handling null values (supports 2 OR 3 bets)
     const formattedData: any = {
       eventDate: ocrData.date,
