@@ -325,167 +325,196 @@ export default function BetBurger() {
 
   const handleSubmitBets = async () => {
     setIsSubmitting(true);
-    let created = 0;
-    let failed = 0;
     const errors: string[] = [];
 
     try {
+      // PASSO 1: Validar TODAS as apostas ANTES de enviar qualquer uma
       for (let i = 0; i < parsedBets.length; i++) {
-      const data = editableData[i];
-      
-      // Defensive check - skip if data is missing
-      if (!data) {
-        errors.push(`Aposta ${i + 1}: Dados não encontrados`);
-        failed++;
-        continue;
-      }
-      
-      const hasBet3 = parsedBets[i].bet3 !== undefined;
-      
-      // Validação de campos obrigatórios
-      const missingFields: string[] = [];
-      
-      if (!data.eventDate) missingFields.push("Data/Hora");
-      if (!data.sport?.trim()) missingFields.push("Esporte");
-      if (!data.league?.trim()) missingFields.push("Liga");
-      if (!data.teamA?.trim()) missingFields.push("Time A");
-      if (!data.teamB?.trim()) missingFields.push("Time B");
-      if (!data.profitPercentage) missingFields.push("Lucro %");
-      
-      if (!data.bet1SelectedHouseId) missingFields.push("Titular Aposta 1");
-      if (!data.bet1Type?.trim()) missingFields.push("Tipo Aposta 1");
-      if (!data.bet2SelectedHouseId) missingFields.push("Titular Aposta 2");
-      if (!data.bet2Type?.trim()) missingFields.push("Tipo Aposta 2");
-      
-      if (hasBet3) {
-        if (!data.bet3SelectedHouseId) missingFields.push("Titular Aposta 3");
-        if (!data.bet3Type?.trim()) missingFields.push("Tipo Aposta 3");
-      }
-      
-      if (missingFields.length > 0) {
-        errors.push(`Aposta ${i + 1}: Preencha todos os campos obrigatórios: ${missingFields.join(", ")}`);
-        failed++;
-        continue;
-      }
-
-      const bet1Odd = parseFloat(data.bet1Odd);
-      const bet1Stake = parseFloat(data.bet1Stake);
-      const bet1Profit = parseFloat(data.bet1Profit);
-      const bet2Odd = parseFloat(data.bet2Odd);
-      const bet2Stake = parseFloat(data.bet2Stake);
-      const bet2Profit = parseFloat(data.bet2Profit);
-
-      if (isNaN(bet1Odd) || isNaN(bet1Stake) || isNaN(bet1Profit) || isNaN(bet2Odd) || isNaN(bet2Stake) || isNaN(bet2Profit)) {
-        errors.push(`Aposta ${i + 1}: Valores numéricos inválidos para bet1 ou bet2`);
-        failed++;
-        continue;
-      }
-
-      // Validação da bet3 se existir
-      let bet3Odd, bet3Stake, bet3Profit;
-      if (hasBet3) {
-        bet3Odd = parseFloat(data.bet3Odd || '0');
-        bet3Stake = parseFloat(data.bet3Stake || '0');
-        bet3Profit = parseFloat(data.bet3Profit || '0');
+        const data = editableData[i];
         
-        if (isNaN(bet3Odd) || isNaN(bet3Stake) || isNaN(bet3Profit)) {
-          errors.push(`Aposta ${i + 1}: Valores numéricos inválidos para bet3`);
-          failed++;
+        // Defensive check
+        if (!data) {
+          errors.push(`Aposta ${i + 1}: Dados não encontrados`);
           continue;
         }
-      }
-
-      try {
-        const surebetSetData = {
-          eventDate: data.eventDate || null,
-          sport: data.sport,
-          league: data.league,
-          teamA: data.teamA,
-          teamB: data.teamB,
-          profitPercentage: data.profitPercentage.toString(),
-          status: "pending",
-        };
-
-        const bet1Data = {
-          betType: data.bet1Type,
-          odd: bet1Odd.toFixed(3),
-          stake: bet1Stake.toFixed(2),
-          potentialProfit: bet1Profit.toFixed(2),
-          bettingHouseId: data.bet1SelectedHouseId,
-        };
-
-        const bet2Data = {
-          betType: data.bet2Type,
-          odd: bet2Odd.toFixed(3),
-          stake: bet2Stake.toFixed(2),
-          potentialProfit: bet2Profit.toFixed(2),
-          bettingHouseId: data.bet2SelectedHouseId,
-        };
-
-        const betsArray = [bet1Data, bet2Data];
         
-        // Adicionar bet3 se existir
-        if (hasBet3 && bet3Odd && bet3Stake && bet3Profit) {
-          betsArray.push({
-            betType: data.bet3Type!,
-            odd: bet3Odd.toFixed(3),
-            stake: bet3Stake.toFixed(2),
-            potentialProfit: bet3Profit.toFixed(2),
-            bettingHouseId: data.bet3SelectedHouseId!,
-          });
+        const hasBet3 = parsedBets[i].bet3 !== undefined;
+        
+        // Validação de campos obrigatórios
+        const missingFields: string[] = [];
+        
+        if (!data.eventDate) missingFields.push("Data/Hora");
+        if (!data.sport?.trim()) missingFields.push("Esporte");
+        if (!data.league?.trim()) missingFields.push("Liga");
+        if (!data.teamA?.trim()) missingFields.push("Time A");
+        if (!data.teamB?.trim()) missingFields.push("Time B");
+        if (!data.profitPercentage) missingFields.push("Lucro %");
+        
+        if (!data.bet1SelectedHouseId) missingFields.push("Titular Aposta 1");
+        if (!data.bet1Type?.trim()) missingFields.push("Tipo Aposta 1");
+        if (!data.bet2SelectedHouseId) missingFields.push("Titular Aposta 2");
+        if (!data.bet2Type?.trim()) missingFields.push("Tipo Aposta 2");
+        
+        if (hasBet3) {
+          if (!data.bet3SelectedHouseId) missingFields.push("Titular Aposta 3");
+          if (!data.bet3Type?.trim()) missingFields.push("Tipo Aposta 3");
+        }
+        
+        if (missingFields.length > 0) {
+          errors.push(`Aposta ${i + 1}: ${missingFields.join(", ")}`);
+          continue;
         }
 
-        const response = await fetch('/api/surebet-sets', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            surebetSet: surebetSetData,
-            bets: betsArray,
-          }),
-        });
+        // Validação de valores numéricos
+        const bet1Odd = parseFloat(data.bet1Odd);
+        const bet1Stake = parseFloat(data.bet1Stake);
+        const bet1Profit = parseFloat(data.bet1Profit);
+        const bet2Odd = parseFloat(data.bet2Odd);
+        const bet2Stake = parseFloat(data.bet2Stake);
+        const bet2Profit = parseFloat(data.bet2Profit);
 
-        if (response.ok) {
-          created++;
-        } else {
-          const errorText = await response.text();
-          errors.push(`Aposta ${i + 1}: ${errorText}`);
+        if (isNaN(bet1Odd) || isNaN(bet1Stake) || isNaN(bet1Profit) || isNaN(bet2Odd) || isNaN(bet2Stake) || isNaN(bet2Profit)) {
+          errors.push(`Aposta ${i + 1}: Valores numéricos inválidos (bet1 ou bet2)`);
+          continue;
+        }
+
+        if (hasBet3) {
+          const bet3Odd = parseFloat(data.bet3Odd || '0');
+          const bet3Stake = parseFloat(data.bet3Stake || '0');
+          const bet3Profit = parseFloat(data.bet3Profit || '0');
+          
+          if (isNaN(bet3Odd) || isNaN(bet3Stake) || isNaN(bet3Profit)) {
+            errors.push(`Aposta ${i + 1}: Valores numéricos inválidos (bet3)`);
+            continue;
+          }
+        }
+      }
+
+      // Se houver QUALQUER erro, bloquear envio completo
+      if (errors.length > 0) {
+        toast({
+          title: "⚠️ Não é possível enviar",
+          description: `Preencha TODOS os campos de TODAS as apostas antes de enviar:\n\n${errors.join('\n')}`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // PASSO 2: Se passou na validação, enviar TODAS as apostas
+      let created = 0;
+      let failed = 0;
+      const submitErrors: string[] = [];
+
+      for (let i = 0; i < parsedBets.length; i++) {
+        const data = editableData[i];
+        const hasBet3 = parsedBets[i].bet3 !== undefined;
+
+        const bet1Odd = parseFloat(data.bet1Odd);
+        const bet1Stake = parseFloat(data.bet1Stake);
+        const bet1Profit = parseFloat(data.bet1Profit);
+        const bet2Odd = parseFloat(data.bet2Odd);
+        const bet2Stake = parseFloat(data.bet2Stake);
+        const bet2Profit = parseFloat(data.bet2Profit);
+
+        let bet3Odd, bet3Stake, bet3Profit;
+        if (hasBet3) {
+          bet3Odd = parseFloat(data.bet3Odd || '0');
+          bet3Stake = parseFloat(data.bet3Stake || '0');
+          bet3Profit = parseFloat(data.bet3Profit || '0');
+        }
+
+        try {
+          const surebetSetData = {
+            eventDate: data.eventDate || null,
+            sport: data.sport,
+            league: data.league,
+            teamA: data.teamA,
+            teamB: data.teamB,
+            profitPercentage: data.profitPercentage.toString(),
+            status: "pending",
+          };
+
+          const bet1Data = {
+            betType: data.bet1Type,
+            odd: bet1Odd.toFixed(3),
+            stake: bet1Stake.toFixed(2),
+            potentialProfit: bet1Profit.toFixed(2),
+            bettingHouseId: data.bet1SelectedHouseId,
+          };
+
+          const bet2Data = {
+            betType: data.bet2Type,
+            odd: bet2Odd.toFixed(3),
+            stake: bet2Stake.toFixed(2),
+            potentialProfit: bet2Profit.toFixed(2),
+            bettingHouseId: data.bet2SelectedHouseId,
+          };
+
+          const betsArray = [bet1Data, bet2Data];
+          
+          if (hasBet3 && bet3Odd && bet3Stake && bet3Profit) {
+            betsArray.push({
+              betType: data.bet3Type!,
+              odd: bet3Odd.toFixed(3),
+              stake: bet3Stake.toFixed(2),
+              potentialProfit: bet3Profit.toFixed(2),
+              bettingHouseId: data.bet3SelectedHouseId!,
+            });
+          }
+
+          const response = await fetch('/api/surebet-sets', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              surebetSet: surebetSetData,
+              bets: betsArray,
+            }),
+          });
+
+          if (response.ok) {
+            created++;
+          } else {
+            const errorText = await response.text();
+            submitErrors.push(`Aposta ${i + 1}: ${errorText}`);
+            failed++;
+          }
+        } catch (error: any) {
+          console.error(`Erro ao criar aposta ${i + 1}:`, error);
+          submitErrors.push(`Aposta ${i + 1}: ${error.message || 'Erro desconhecido'}`);
           failed++;
         }
-      } catch (error: any) {
-        console.error(`Erro ao criar aposta ${i + 1}:`, error);
-        errors.push(`Aposta ${i + 1}: ${error.message || 'Erro desconhecido'}`);
-        failed++;
       }
-    }
+
+      // Mostrar resultados do envio
+      if (created > 0) {
+        toast({
+          title: "✅ Apostas criadas com sucesso!",
+          description: `${created} aposta(s) adicionada(s) ao sistema${failed > 0 ? `. ${failed} falhou(aram)` : ''}`,
+        });
+
+        if (failed === 0) {
+          setTimeout(() => {
+            handleClearAll();
+          }, 1500);
+        }
+      }
+
+      if (submitErrors.length > 0) {
+        console.error('Erros na criação:', submitErrors);
+        toast({
+          title: "⚠️ Alguns erros ocorreram",
+          description: `${failed} aposta(s) não puderam ser criadas. Verifique o console.`,
+          variant: "destructive",
+        });
+      }
+
     } finally {
       setIsSubmitting(false);
     }
 
     queryClient.invalidateQueries({ queryKey: ['/api/surebet-sets'] });
-
-    if (created > 0) {
-      toast({
-        title: "✅ Apostas criadas com sucesso!",
-        description: `${created} aposta(s) adicionada(s) ao sistema${failed > 0 ? `. ${failed} falhou(aram)` : ''}`,
-      });
-
-      if (failed === 0) {
-        setTimeout(() => {
-          handleClearAll();
-        }, 1500);
-      }
-    }
-
-    if (errors.length > 0 && failed > 0) {
-      console.error('Erros na criação:', errors);
-      toast({
-        title: "⚠️ Alguns erros ocorreram",
-        description: `${failed} aposta(s) não puderam ser criadas. Verifique o console.`,
-        variant: "destructive",
-      });
-    }
   };
 
   return (
