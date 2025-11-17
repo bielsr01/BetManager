@@ -335,21 +335,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const updatedBet = await storage.updateBet(id, updateData);
       
-      // If odd or stake is updated, recalculate profit potential for both bets
+      // If odd or stake is updated, recalculate profit potential for all bets (2 or 3)
       if (updatedBet.surebetSetId && (updateData.odd !== undefined || updateData.stake !== undefined)) {
         const allBets = await db.select().from(bets).where(eq(bets.surebetSetId, updatedBet.surebetSetId));
         
-        if (allBets.length === 2) {
-          const bet1 = allBets[0];
-          const bet2 = allBets[1];
+        if (allBets.length === 2 || allBets.length === 3) {
+          // Calculate total stakes for all bets
+          const totalStakes = allBets.reduce((sum, bet) => sum + parseFloat(String(bet.stake)), 0);
           
-          // Calculate profit potential: (stake1 × odd1) - stake1 - stake2
-          const profitPotential1 = (parseFloat(String(bet1.stake)) * parseFloat(String(bet1.odd))) - parseFloat(String(bet1.stake)) - parseFloat(String(bet2.stake));
-          const profitPotential2 = (parseFloat(String(bet2.stake)) * parseFloat(String(bet2.odd))) - parseFloat(String(bet2.stake)) - parseFloat(String(bet1.stake));
-          
-          // Update both bets with recalculated profit potential
-          await storage.updateBet(bet1.id, { potentialProfit: String(profitPotential1) });
-          await storage.updateBet(bet2.id, { potentialProfit: String(profitPotential2) });
+          // For each bet, calculate profit potential if that bet wins
+          // Formula: (stake × odd) - totalStakes
+          for (const bet of allBets) {
+            const stake = parseFloat(String(bet.stake));
+            const odd = parseFloat(String(bet.odd));
+            const profitPotential = (stake * odd) - totalStakes;
+            
+            await storage.updateBet(bet.id, { potentialProfit: String(profitPotential) });
+          }
         }
       }
       
@@ -357,6 +359,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (updatedBet.surebetSetId && updateData.result) {
         const allBets = await db.select().from(bets).where(eq(bets.surebetSetId, updatedBet.surebetSetId));
         const allHaveResults = allBets.every(b => b.result != null);
+        
+        console.log(`[PROFIT CALC] Surebet ${updatedBet.surebetSetId}: ${allBets.length} bets, all have results: ${allHaveResults}`);
         
         // Calculate profit for both dual (2 bets) and triple (3 bets) surebets
         if (allHaveResults && (allBets.length === 2 || allBets.length === 3)) {
@@ -388,13 +392,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const totalInvested = allBets.reduce((sum, bet) => sum + parseFloat(String(bet.stake)), 0);
           const actualProfit = totalReturn - totalInvested;
           
-          // Update all bets with the calculated actual profit
+          console.log(`[PROFIT CALC] Total return: ${totalReturn}, Total invested: ${totalInvested}, Actual profit: ${actualProfit}`);
+          console.log(`[PROFIT CALC] Bet results: ${allBets.map((b, i) => `bet${i+1}: ${b.result}`).join(', ')}`);
+          
+          // Update ALL bets in the set with the same calculated actual profit
           for (const bet of allBets) {
+            console.log(`[PROFIT CALC] Updating bet ${bet.id} with actualProfit: ${actualProfit}`);
             await storage.updateBet(bet.id, { actualProfit: String(actualProfit) });
           }
           
           // Update surebet set status to resolved
           await storage.updateSurebetSet(updatedBet.surebetSetId, { status: "resolved" });
+          console.log(`[PROFIT CALC] Surebet set ${updatedBet.surebetSetId} marked as resolved`);
         }
       }
       
