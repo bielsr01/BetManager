@@ -906,6 +906,25 @@ export default function BetBurger() {
               );
             })}
           </div>
+
+          {/* Botões no final da página */}
+          <div className="flex items-center justify-end gap-2 pt-6 border-t">
+            <Button
+              variant="outline"
+              onClick={handleClearAll}
+              data-testid="button-reset-bottom"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Recomeçar
+            </Button>
+            <Button
+              onClick={handleSubmitBets}
+              disabled={isSubmitting}
+              data-testid="button-submit-bets-bottom"
+            >
+              {isSubmitting ? "Enviando..." : "Adicionar Todas as Apostas ao Sistema"}
+            </Button>
+          </div>
         </>
       )}
     </div>
