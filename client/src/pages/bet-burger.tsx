@@ -32,6 +32,13 @@ interface ParsedBet {
     stake: number;
     profit: number;
   };
+  bet3?: {
+    house: string;
+    type: string;
+    odd: number;
+    stake: number;
+    profit: number;
+  };
 }
 
 interface EditableData {
@@ -53,6 +60,12 @@ interface EditableData {
   bet2Stake: string;
   bet2Profit: string;
   bet2SelectedHouseId?: string;
+  bet3House?: string;
+  bet3Type?: string;
+  bet3Odd?: string;
+  bet3Stake?: string;
+  bet3Profit?: string;
+  bet3SelectedHouseId?: string;
 }
 
 export default function BetBurger() {
@@ -70,28 +83,102 @@ export default function BetBurger() {
     const lines = data.trim().split('\n').map(line => line.trim()).filter(line => line);
     const bets: ParsedBet[] = [];
 
-    for (let i = 0; i < lines.length; i += 3) {
-      if (i + 2 >= lines.length) break;
+    // Find all header line indices (lines that start with date)
+    const headerIndices: number[] = [];
+    lines.forEach((line, idx) => {
+      // Match both formats with Unicode support for accented months (março, etc.)
+      // Format 1: "17 nov 06:00" or "17 março 06:00" (allow any non-space chars for month)
+      // Format 2: "08/11/2025 13:15"
+      if (line.match(/^\d{1,2}\s+[^\s]{3,}\s+\d{2}:\d{2}/) || line.match(/^\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}/)) {
+        headerIndices.push(idx);
+      }
+    });
 
-      const dateTimeMainLine = lines[i];
-      const bet1Line = lines[i + 1];
-      const bet2Line = lines[i + 2];
+    // Process each bet group
+    for (let h = 0; h < headerIndices.length; h++) {
+      const startIdx = headerIndices[h];
+      const endIdx = h + 1 < headerIndices.length ? headerIndices[h + 1] : lines.length;
+      const betLines = lines.slice(startIdx, endIdx);
 
-      // Parse date/time + main line (formato: 08/11/2025 13:15 Esporte.Time1 - Time2 (Liga) Porcentagem%)
-      const dateTimeMatch = dateTimeMainLine.match(/(\d{2}\/\d{2}\/\d{4})\s+(\d{2}:\d{2})/);
+      if (betLines.length < 3) continue; // Need at least header + 2 bets
+
+      // Normalize whitespace (tabs, multiple spaces) to single space for easier parsing
+      const dateTimeMainLine = betLines[0].replace(/\s+/g, ' ').trim();
+      const bet1Line = betLines[1];
+      const bet2Line = betLines[2];
+      const bet3Line = betLines.length >= 4 ? betLines[3] : null;
+
+      // Parse date/time - support both formats with Unicode months
       let eventDate = new Date().toISOString().slice(0, 16);
-      if (dateTimeMatch) {
-        const [_, datePart, timePart] = dateTimeMatch;
+      
+      // Format 1: "17 nov 06:00" or "17 março 06:00" -> convert month name (allow accents)
+      const dateTimeMatch1 = dateTimeMainLine.match(/^(\d{1,2})\s+([^\s]+)\s+(\d{2}:\d{2})/);
+      if (dateTimeMatch1) {
+        const [_, day, monthName, time] = dateTimeMatch1;
+        
+        // Normalize month name: remove dots, lowercase, remove common accents
+        const normalizedMonth = monthName.toLowerCase()
+          .replace(/\./g, '')
+          .replace(/ç/g, 'c')
+          .replace(/á/g, 'a')
+          .replace(/é/g, 'e')
+          .replace(/í/g, 'i')
+          .replace(/ó/g, 'o')
+          .replace(/ú/g, 'u')
+          .replace(/â/g, 'a')
+          .replace(/ê/g, 'e')
+          .replace(/ô/g, 'o')
+          .substring(0, 3); // Take first 3 chars after normalization
+        
+        // Extended month map with Portuguese variants
+        const monthMap: Record<string, string> = {
+          jan: '01', fev: '02', mar: '03', abr: '04', mai: '05', jun: '06',
+          jul: '07', ago: '08', set: '09', out: '10', nov: '11', dez: '12',
+          // English variants
+          feb: '02', apr: '04', may: '05', aug: '08', sep: '09', oct: '10', dec: '12'
+        };
+        const month = monthMap[normalizedMonth] || '01';
+        const year = new Date().getFullYear();
+        eventDate = `${year}-${month}-${day.padStart(2, '0')}T${time}`;
+      }
+      
+      // Format 2: "08/11/2025 13:15"
+      const dateTimeMatch2 = dateTimeMainLine.match(/(\d{2}\/\d{2}\/\d{4})\s+(\d{2}:\d{2})/);
+      if (dateTimeMatch2) {
+        const [_, datePart, timePart] = dateTimeMatch2;
         const [day, month, year] = datePart.split('/');
         eventDate = `${year}-${month}-${day}T${timePart}`;
       }
 
-      // Parse linha principal: Esporte.Time1 - Time2 (Liga) Porcentagem%
-      // A linha principal vem depois da data/hora na mesma linha
-      const mainMatch = dateTimeMainLine.match(/\d{2}:\d{2}\s+(.+?)\.(.+?)\s*-\s*(.+?)\s*\(([^)]+)\)\s*([\d.]+)%/);
-      if (!mainMatch) continue;
-
-      const [_, sport, teamA, teamB, league, profitPct] = mainMatch;
+      // Parse main line - support both formats with Unicode characters (Portuguese/Spanish accents)
+      // Format: "DATE TIME SPORT.TEAMA - TEAMB (LEAGUE) PERCENTAGE%"
+      // Strategy: Find TIME, extract everything after it until first separator, that's the sport
+      
+      // Find the time portion (HH:MM)
+      const timeMatch = dateTimeMainLine.match(/\d{2}:\d{2}/);
+      if (!timeMatch) continue;
+      
+      // Get everything after the time
+      const afterTime = dateTimeMainLine.substring(timeMatch.index! + 5).trim();
+      
+      // Find first separator (., ·, –, —) for sport
+      // Use regex to find first occurrence of any separator
+      const separatorMatch = afterTime.match(/[.·–—]/);
+      if (!separatorMatch) continue;
+      
+      const separatorIndex = separatorMatch.index!;
+      const sport = afterTime.substring(0, separatorIndex).trim();
+      
+      // Get everything after the separator for team extraction
+      const afterSeparator = afterTime.substring(separatorIndex + 1);
+      
+      // Extract: TeamA - TeamB (League) Percentage%
+      // Accept both ASCII hyphen (-) and Unicode dashes (–, —) between teams
+      const eventPattern = /(.+?)\s*[-–—]\s*(.+?)\s*\(([^)]+)\)\s*([\d.]+)%/;
+      const eventMatch = afterSeparator.match(eventPattern);
+      if (!eventMatch) continue;
+      
+      const [, teamA, teamB, league, profitPct] = eventMatch;
 
       // Parse bet1 (segunda linha com tabs)
       const bet1Parts = bet1Line.split('\t').filter(p => p.trim());
@@ -117,6 +204,21 @@ export default function BetBurger() {
         profit: parseFloat(bet2Parts[5]) || 0,
       };
 
+      // Parse bet3 if exists
+      let bet3 = undefined;
+      if (bet3Line) {
+        const bet3Parts = bet3Line.split('\t').filter(p => p.trim());
+        if (bet3Parts.length >= 6) {
+          bet3 = {
+            house: bet3Parts[0].trim(),
+            type: bet3Parts[1].trim(),
+            odd: parseFloat(bet3Parts[2]) || 0,
+            stake: parseFloat(bet3Parts[3]) || 0,
+            profit: parseFloat(bet3Parts[5]) || 0,
+          };
+        }
+      }
+
       bets.push({
         eventDate,
         sport: sport.trim(),
@@ -126,6 +228,7 @@ export default function BetBurger() {
         profitPercentage: parseFloat(profitPct),
         bet1,
         bet2,
+        bet3,
       });
     }
 
@@ -177,6 +280,14 @@ export default function BetBurger() {
           bet2Stake: bet.bet2.stake.toFixed(2),
           bet2Profit: bet.bet2.profit.toFixed(2),
           bet2SelectedHouseId: findMatchingHouse(bet.bet2.house),
+          ...(bet.bet3 && {
+            bet3House: bet.bet3.house,
+            bet3Type: bet.bet3.type,
+            bet3Odd: bet.bet3.odd.toFixed(3),
+            bet3Stake: bet.bet3.stake.toFixed(2),
+            bet3Profit: bet.bet3.profit.toFixed(2),
+            bet3SelectedHouseId: findMatchingHouse(bet.bet3.house),
+          }),
         };
       });
 
@@ -222,8 +333,37 @@ export default function BetBurger() {
       for (let i = 0; i < parsedBets.length; i++) {
       const data = editableData[i];
       
-      if (!data.bet1SelectedHouseId || !data.bet2SelectedHouseId) {
-        errors.push(`Aposta ${i + 1}: Selecione os titulares das contas`);
+      // Defensive check - skip if data is missing
+      if (!data) {
+        errors.push(`Aposta ${i + 1}: Dados não encontrados`);
+        failed++;
+        continue;
+      }
+      
+      const hasBet3 = parsedBets[i].bet3 !== undefined;
+      
+      // Validação de campos obrigatórios
+      const missingFields: string[] = [];
+      
+      if (!data.eventDate) missingFields.push("Data/Hora");
+      if (!data.sport?.trim()) missingFields.push("Esporte");
+      if (!data.league?.trim()) missingFields.push("Liga");
+      if (!data.teamA?.trim()) missingFields.push("Time A");
+      if (!data.teamB?.trim()) missingFields.push("Time B");
+      if (!data.profitPercentage) missingFields.push("Lucro %");
+      
+      if (!data.bet1SelectedHouseId) missingFields.push("Titular Aposta 1");
+      if (!data.bet1Type?.trim()) missingFields.push("Tipo Aposta 1");
+      if (!data.bet2SelectedHouseId) missingFields.push("Titular Aposta 2");
+      if (!data.bet2Type?.trim()) missingFields.push("Tipo Aposta 2");
+      
+      if (hasBet3) {
+        if (!data.bet3SelectedHouseId) missingFields.push("Titular Aposta 3");
+        if (!data.bet3Type?.trim()) missingFields.push("Tipo Aposta 3");
+      }
+      
+      if (missingFields.length > 0) {
+        errors.push(`Aposta ${i + 1}: Preencha todos os campos obrigatórios: ${missingFields.join(", ")}`);
         failed++;
         continue;
       }
@@ -236,9 +376,23 @@ export default function BetBurger() {
       const bet2Profit = parseFloat(data.bet2Profit);
 
       if (isNaN(bet1Odd) || isNaN(bet1Stake) || isNaN(bet1Profit) || isNaN(bet2Odd) || isNaN(bet2Stake) || isNaN(bet2Profit)) {
-        errors.push(`Aposta ${i + 1}: Valores numéricos inválidos`);
+        errors.push(`Aposta ${i + 1}: Valores numéricos inválidos para bet1 ou bet2`);
         failed++;
         continue;
+      }
+
+      // Validação da bet3 se existir
+      let bet3Odd, bet3Stake, bet3Profit;
+      if (hasBet3) {
+        bet3Odd = parseFloat(data.bet3Odd || '0');
+        bet3Stake = parseFloat(data.bet3Stake || '0');
+        bet3Profit = parseFloat(data.bet3Profit || '0');
+        
+        if (isNaN(bet3Odd) || isNaN(bet3Stake) || isNaN(bet3Profit)) {
+          errors.push(`Aposta ${i + 1}: Valores numéricos inválidos para bet3`);
+          failed++;
+          continue;
+        }
       }
 
       try {
@@ -268,6 +422,19 @@ export default function BetBurger() {
           bettingHouseId: data.bet2SelectedHouseId,
         };
 
+        const betsArray = [bet1Data, bet2Data];
+        
+        // Adicionar bet3 se existir
+        if (hasBet3 && bet3Odd && bet3Stake && bet3Profit) {
+          betsArray.push({
+            betType: data.bet3Type!,
+            odd: bet3Odd.toFixed(3),
+            stake: bet3Stake.toFixed(2),
+            potentialProfit: bet3Profit.toFixed(2),
+            bettingHouseId: data.bet3SelectedHouseId!,
+          });
+        }
+
         const response = await fetch('/api/surebet-sets', {
           method: 'POST',
           headers: {
@@ -275,7 +442,7 @@ export default function BetBurger() {
           },
           body: JSON.stringify({
             surebetSet: surebetSetData,
-            bets: [bet1Data, bet2Data],
+            bets: betsArray,
           }),
         });
 
@@ -626,6 +793,86 @@ export default function BetBurger() {
                       </div>
                     </CardContent>
                   </Card>
+
+                  {/* Bet 3 Card (conditional) */}
+                  {parsedBets[index].bet3 && (
+                    <Card className="border-green-200 dark:border-green-800">
+                      <CardHeader className="bg-green-50 dark:bg-green-950">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <TrendingUp className="w-4 h-4" />
+                          Aposta 3
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <Label>Casa de Apostas</Label>
+                            <Input
+                              value={data.bet3House || ''}
+                              onChange={(e) => updateEditableField(index, 'bet3House', e.target.value)}
+                              data-testid={`input-bet3-house-${index}`}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Titular da Conta</Label>
+                            <Select
+                              value={data.bet3SelectedHouseId || ""}
+                              onValueChange={(value) => updateEditableField(index, 'bet3SelectedHouseId', value)}
+                            >
+                              <SelectTrigger data-testid={`select-bet3-holder-${index}`}>
+                                <SelectValue placeholder="Selecione o titular" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {bettingHouses.map((house) => (
+                                  <SelectItem key={house.id} value={house.id}>
+                                    {house.accountHolder?.name || 'Sem titular'} - {house.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Tipo</Label>
+                            <Input
+                              value={data.bet3Type || ''}
+                              onChange={(e) => updateEditableField(index, 'bet3Type', e.target.value)}
+                              data-testid={`input-bet3-type-${index}`}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Odd</Label>
+                            <Input
+                              type="number"
+                              step="0.001"
+                              value={data.bet3Odd || ''}
+                              onChange={(e) => updateEditableField(index, 'bet3Odd', e.target.value)}
+                              data-testid={`input-bet3-odd-${index}`}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Stake (R$)</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={data.bet3Stake || ''}
+                              onChange={(e) => updateEditableField(index, 'bet3Stake', e.target.value)}
+                              data-testid={`input-bet3-stake-${index}`}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Lucro Potencial (R$)</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={data.bet3Profit || ''}
+                              onChange={(e) => updateEditableField(index, 'bet3Profit', e.target.value)}
+                              data-testid={`input-bet3-profit-${index}`}
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
               );
             })}

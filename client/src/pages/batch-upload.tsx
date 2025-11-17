@@ -455,13 +455,28 @@ export default function BatchUpload() {
           // Check if bet3 exists (triple bet detection)
           const hasBet3 = !!(data.bet3House || data.bet3Type || data.bet3Odd);
           
-          // Validate required house IDs (including bet3 if it exists)
-          if (!data.bet1HouseId || !data.bet2HouseId || (hasBet3 && !data.bet3HouseId)) {
-            const missing = [];
-            if (!data.bet1HouseId) missing.push(data.bet1House || "Aposta 1");
-            if (!data.bet2HouseId) missing.push(data.bet2House || "Aposta 2");
-            if (hasBet3 && !data.bet3HouseId) missing.push(data.bet3House || "Aposta 3");
-            errors.push(`${bet.fileName}: Casas não configuradas: ${missing.join(", ")}. Clique no botão "Criar Casas de Apostas Automaticamente" acima.`);
+          // Validação completa de campos obrigatórios
+          const missingFields: string[] = [];
+          
+          if (!data.date) missingFields.push("Data/Hora");
+          if (!data.sport?.trim()) missingFields.push("Esporte");
+          if (!data.league?.trim()) missingFields.push("Liga");
+          if (!data.teamA?.trim()) missingFields.push("Time A");
+          if (!data.teamB?.trim()) missingFields.push("Time B");
+          if (!data.profitPercentage) missingFields.push("Lucro %");
+          
+          if (!data.bet1HouseId) missingFields.push("Titular Aposta 1");
+          if (!data.bet1Type?.trim()) missingFields.push("Tipo Aposta 1");
+          if (!data.bet2HouseId) missingFields.push("Titular Aposta 2");
+          if (!data.bet2Type?.trim()) missingFields.push("Tipo Aposta 2");
+          
+          if (hasBet3) {
+            if (!data.bet3HouseId) missingFields.push("Titular Aposta 3");
+            if (!data.bet3Type?.trim()) missingFields.push("Tipo Aposta 3");
+          }
+          
+          if (missingFields.length > 0) {
+            errors.push(`${bet.fileName}: Preencha todos os campos obrigatórios: ${missingFields.join(", ")}`);
             failed++;
             continue;
           }
