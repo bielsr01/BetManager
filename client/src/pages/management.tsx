@@ -105,9 +105,17 @@ export default function Management() {
       queryClient.setQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"], (old) => {
         if (!old) return old;
         return old.map(set => {
+          // Check if this set contains the bet being updated
+          const hasBet = set.bets.some(b => b.id === betId);
+          if (!hasBet) return set;
+
+          // Clear actualProfit for ALL bets in the set to avoid showing stale values
           const updatedBets = set.bets.map(bet => 
-            bet.id === betId ? { ...bet, result } : bet
+            bet.id === betId 
+              ? { ...bet, result, actualProfit: null }
+              : { ...bet, actualProfit: null }
           );
+          
           const allHaveResults = updatedBets.every(b => b.result != null);
           return {
             ...set,
@@ -119,9 +127,30 @@ export default function Management() {
 
       return { previousData };
     },
-    onSuccess: () => {
-      // Don't manually sync actualProfit - let the backend handle it
-      // The invalidateQueries in onSettled will fetch the correct data
+    onSuccess: (updatedBet) => {
+      // Update all bets in the set with the actualProfit from backend
+      queryClient.setQueryData<SurebetSetWithBets[]>(["/api/surebet-sets"], (old) => {
+        if (!old) return old;
+        return old.map(set => {
+          const hasBet = set.bets.some(b => b.id === updatedBet.id);
+          if (!hasBet) return set;
+
+          // Update ALL bets in the set with the actualProfit (backend calculated it for all)
+          const updatedBets = set.bets.map(bet => 
+            bet.id === updatedBet.id 
+              ? { ...bet, ...updatedBet } // Update the modified bet
+              : updatedBet.actualProfit !== null && updatedBet.actualProfit !== undefined
+                ? { ...bet, actualProfit: updatedBet.actualProfit } // Sync actualProfit to siblings
+                : bet
+          );
+          
+          return {
+            ...set,
+            bets: updatedBets,
+            status: updatedBet.actualProfit !== null ? "resolved" : set.status
+          };
+        });
+      });
     },
     onError: (err, variables, context) => {
       if (context?.previousData) {
