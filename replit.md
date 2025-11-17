@@ -67,6 +67,12 @@ Preferred communication style: Simple, everyday language.
   - **November 2025**: Fixed critical submission bug - changed from TanStack mutation to direct fetch() matching batch-upload payload structure
   - Payload format: `{surebetSet: {...}, bets: [...]}` with all fields as strings and `status: "pending"`
   - 100% compatible with Management, Dashboard, graphs, and profit calculations
+  - **November 17, 2025**: Enhanced parser with full localized format support:
+    - Accepts accented Portuguese months (março, nov., etc.)
+    - Supports Unicode separators (middle dot ·, en-dash –, em-dash —)
+    - Handles Unicode dashes between team names
+    - Automatically detects 2 vs 3 bet scenarios
+  - **November 17, 2025**: Fixed atomic validation - system now validates ALL bets before submitting any, preventing partial submissions when some bets are incomplete
 - **Database Hosting**: Neon (serverless PostgreSQL).
 - **UI Components**: Shadcn/ui, Radix UI.
 - **Development Tools**: Replit integration (runtime error overlay, cartographer).
