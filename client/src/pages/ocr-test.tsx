@@ -53,6 +53,15 @@ export default function PdfExtractTest() {
       
       if (response.ok && result.success) {
         // Format the raw text response to show the actual PDF extraction
+        const bet3Info = result.data.bet3?.house ? `
+APOSTA 3:
+Casa: ${result.data.bet3.house}
+Odd: ${result.data.bet3.odd}
+Tipo: ${result.data.bet3.type}
+Stake: ${result.data.bet3.stake}
+Lucro: ${result.data.bet3.profit}
+` : '';
+
         const rawResponse = `=== DADOS EXTRAÍDOS DO PDF ENVIADO ===
 
 DATA: ${formatDateForDisplay(result.data.date)}
@@ -74,7 +83,7 @@ Odd: ${result.data.bet2.odd}
 Tipo: ${result.data.bet2.type}
 Stake: ${result.data.bet2.stake}
 Lucro: ${result.data.bet2.profit}
-
+${bet3Info}
 Lucro%: ${result.data.profitPercentage}%
 
 === PROCESSAMENTO CONCLUÍDO ===
@@ -145,6 +154,15 @@ Verifique sua conexão com a internet e tente novamente.`;
       
       if (apiResponse.ok && result.success) {
         // Format the raw text response to show the actual PDF extraction
+        const bet3Info = result.data.bet3?.house ? `
+APOSTA 3:
+Casa: ${result.data.bet3.house}
+Odd: ${result.data.bet3.odd}
+Tipo: ${result.data.bet3.type}
+Stake: ${result.data.bet3.stake}
+Lucro: ${result.data.bet3.profit}
+` : '';
+
         const rawResponse = `=== DADOS EXTRAÍDOS DO PDF ENVIADO ===
 
 DATA: ${formatDateForDisplay(result.data.date)}
@@ -166,7 +184,7 @@ Odd: ${result.data.bet2.odd}
 Tipo: ${result.data.bet2.type}
 Stake: ${result.data.bet2.stake}
 Lucro: ${result.data.bet2.profit}
-
+${bet3Info}
 Lucro%: ${result.data.profitPercentage}%
 
 === PROCESSAMENTO CONCLUÍDO ===
@@ -205,8 +223,8 @@ Verifique se:
       return;
     }
     
-    // Transform PDF data to form format
-    const formattedData = {
+    // Transform PDF data to form format (supports 2 OR 3 bets)
+    const formattedData: any = {
       eventDate: structuredData.date,
       sport: structuredData.sport,
       league: structuredData.league,
@@ -226,6 +244,16 @@ Verifique se:
       bet2Profit: structuredData.bet2.profit?.toString() || "",
       bet2AccountHolder: "",
     };
+    
+    // Add bet3 if it exists
+    if (structuredData.bet3?.house) {
+      formattedData.bet3House = structuredData.bet3.house;
+      formattedData.bet3Type = structuredData.bet3.type;
+      formattedData.bet3Odd = structuredData.bet3.odd?.toString() || "";
+      formattedData.bet3Stake = structuredData.bet3.stake?.toString() || "";
+      formattedData.bet3Profit = structuredData.bet3.profit?.toString() || "";
+      formattedData.bet3AccountHolder = "";
+    }
     
     // Save to sessionStorage for the upload page to use (more appropriate for temporary data)
     sessionStorage.setItem('importedPDFData', JSON.stringify(formattedData));
@@ -405,6 +433,34 @@ Verifique se:
                     </div>
                   </div>
                 </div>
+
+                {/* Bet 3 (se existir) */}
+                {structuredData.bet3?.house && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">Aposta 3</Badge>
+                      <span className="font-medium">{structuredData.bet3.house}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm ml-4">
+                      <div>
+                        <span className="text-muted-foreground">Tipo:</span>
+                        <p>{structuredData.bet3.type}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Odd:</span>
+                        <p>{structuredData.bet3.odd}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Stake:</span>
+                        <p>{structuredData.bet3.stake}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Lucro:</span>
+                        <p className="text-green-600">{structuredData.bet3.profit}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <Separator />
 

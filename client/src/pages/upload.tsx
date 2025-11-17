@@ -45,8 +45,8 @@ export default function UploadPage() {
   };
 
   const handleOCRComplete = (ocrData: any) => {
-    // Transform OCR data to form format, safely handling null values
-    const formattedData = {
+    // Transform OCR data to form format, safely handling null values (supports 2 OR 3 bets)
+    const formattedData: any = {
       eventDate: ocrData.date,
       sport: ocrData.sport || "",
       league: ocrData.league || "",
@@ -68,6 +68,17 @@ export default function UploadPage() {
       bet2Profit: String(ocrData.bet2?.profit ?? ""),
       bet2AccountHolder: "",
     };
+    
+    // Add bet3 if it exists
+    if (ocrData.bet3?.house) {
+      formattedData.bet3House = ocrData.bet3.house;
+      formattedData.bet3HouseId = "";
+      formattedData.bet3Type = ocrData.bet3.type;
+      formattedData.bet3Odd = String(ocrData.bet3.odd ?? "");
+      formattedData.bet3Stake = String(ocrData.bet3.stake ?? "");
+      formattedData.bet3Profit = String(ocrData.bet3.profit ?? "");
+      formattedData.bet3AccountHolder = "";
+    }
     
     setExtractedData(formattedData);
     setIsProcessing(false);
@@ -94,11 +105,25 @@ export default function UploadPage() {
     try {
       console.log("Submitting form data:", data);
       
-      // Validate required fields
+      // Validate required fields (supports 2 OR 3 bets)
+      // Detect bet3 if any of its fields are populated (from OCR or manual entry)
+      const hasBet3 = !!(data.bet3House || data.bet3Type || data.bet3Odd);
+      
       if (!data.bet1HouseId || !data.bet2HouseId) {
         toast({
           title: "Campos obrigatórios",
           description: "Por favor, selecione os titulares de conta para ambas as apostas.",
+          variant: "destructive",
+          duration: 3000,
+        });
+        setIsSaving(false);
+        return;
+      }
+      
+      if (hasBet3 && !data.bet3HouseId) {
+        toast({
+          title: "Campos obrigatórios",
+          description: "Por favor, selecione o titular de conta para a terceira aposta.",
           variant: "destructive",
           duration: 3000,
         });
@@ -122,7 +147,7 @@ export default function UploadPage() {
         odd: data.bet1Odd.toString(),
         stake: data.bet1Stake.toString(),
         potentialProfit: data.bet1Profit.toString(),
-        bettingHouseId: data.bet1HouseId, // Now using the selected house ID
+        bettingHouseId: data.bet1HouseId,
       };
 
       const bet2Data = {
@@ -130,8 +155,22 @@ export default function UploadPage() {
         odd: data.bet2Odd.toString(),
         stake: data.bet2Stake.toString(),
         potentialProfit: data.bet2Profit.toString(),
-        bettingHouseId: data.bet2HouseId, // Now using the selected house ID
+        bettingHouseId: data.bet2HouseId,
       };
+
+      const betsArray = [bet1Data, bet2Data];
+      
+      // Add bet3 if it exists
+      if (hasBet3) {
+        const bet3Data = {
+          betType: data.bet3Type,
+          odd: data.bet3Odd.toString(),
+          stake: data.bet3Stake.toString(),
+          potentialProfit: data.bet3Profit.toString(),
+          bettingHouseId: data.bet3HouseId,
+        };
+        betsArray.push(bet3Data);
+      }
 
       const response = await fetch('/api/surebet-sets', {
         method: 'POST',
@@ -140,7 +179,7 @@ export default function UploadPage() {
         },
         body: JSON.stringify({
           surebetSet: surebetSetData,
-          bets: [bet1Data, bet2Data],
+          bets: betsArray,
         }),
       });
 

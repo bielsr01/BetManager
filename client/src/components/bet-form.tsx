@@ -38,6 +38,15 @@ const betFormSchema = z.object({
   bet2Stake: z.coerce.number(),
   bet2Profit: z.coerce.number(),
   bet2AccountHolder: z.string().optional(),
+  
+  // Bet 3 (opcional - apenas para apostas triplas)
+  bet3House: z.string().optional(),
+  bet3HouseId: z.string().optional(),
+  bet3Type: z.string().optional(),
+  bet3Odd: z.coerce.number().optional(),
+  bet3Stake: z.coerce.number().optional(),
+  bet3Profit: z.coerce.number().optional(),
+  bet3AccountHolder: z.string().optional(),
 });
 
 type BetFormData = z.infer<typeof betFormSchema>;
@@ -112,6 +121,13 @@ export function BetForm({
       bet2Stake: initialData?.bet2Stake || 0,
       bet2Profit: initialData?.bet2Profit || 0,
       bet2AccountHolder: initialData?.bet2AccountHolder || "",
+      bet3House: initialData?.bet3House || "",
+      bet3HouseId: initialData?.bet3HouseId || "",
+      bet3Type: initialData?.bet3Type || "",
+      bet3Odd: initialData?.bet3Odd || 0,
+      bet3Stake: initialData?.bet3Stake || 0,
+      bet3Profit: initialData?.bet3Profit || 0,
+      bet3AccountHolder: initialData?.bet3AccountHolder || "",
     },
   });
 
@@ -553,6 +569,145 @@ export function BetForm({
               </div>
             </CardContent>
           </Card>
+
+          {/* Bet 3 (condicional - apenas para apostas triplas) */}
+          {initialData?.bet3House && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Aposta 3</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="bet3House"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Casa de Apostas</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            placeholder="Betano"
+                            data-testid="input-bet3-house"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="bet3Type"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tipo</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            placeholder="X"
+                            data-testid="input-bet3-type"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="bet3HouseId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Titular da Conta</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-bet3-account-holder">
+                              <SelectValue placeholder="Selecionar titular" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {houseOptions.map(option => (
+                              <SelectItem 
+                                key={option.id} 
+                                value={option.id}
+                                data-testid={`option-bet3-${option.id}`}
+                              >
+                                {option.displayLabel}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="bet3Odd"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Odd</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            type="number" 
+                            step="0.01"
+                            placeholder="5.70"
+                            data-testid="input-bet3-odd"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="bet3Stake"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Stake (R$)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            type="number" 
+                            step="0.01"
+                            placeholder="1799.00"
+                            data-testid="input-bet3-stake"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="bet3Profit"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Lucro Potencial (R$)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            type="number" 
+                            step="0.01"
+                            placeholder="253.00"
+                            data-testid="input-bet3-profit"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <div className="flex justify-end gap-4">
             {onCancel && (
