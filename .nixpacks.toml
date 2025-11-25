@@ -8,7 +8,7 @@ cmds = [
 
 [phases.build]
 cmds = [
-  "pip install pdfplumber",
+  "python3 -m pip install pdfplumber",
   "npm run build"
 ]
 
