@@ -1,14 +1,14 @@
 [phases.setup]
-nixPkgs = ["nodejs_20", "python311"]
+nixPkgs = ["nodejs_20", "python311", "pip"]
 
 [phases.install]
 cmds = [
-  "npm install"
+  "npm install",
+  "pip install pdfplumber"
 ]
 
 [phases.build]
 cmds = [
-  "python3 -m pip install pdfplumber",
   "npm run build"
 ]
 
